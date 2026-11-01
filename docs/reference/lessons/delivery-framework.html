@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference · Delivery Framework</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<main>
+
+<p class="kicker">Reference · Cheat sheet</p>
+<h1>The Delivery Framework</h1>
+<p class="subtitle">The route through any 45–60 minute "Design X" round.</p>
+
+<div class="timeline" aria-hidden="true">
+  <span style="flex:5;background:#9b2c1f">Reqs</span>
+  <span style="flex:2;background:#b4552f">Ent.</span>
+  <span style="flex:5;background:#c47a3d">API</span>
+  <span style="flex:13;background:#5a6b4a">High-Level Design</span>
+  <span style="flex:10;background:#3e4c5e">Deep Dives</span>
+</div>
+<p class="timeline-caption">Minutes: 5 · 2 · 5 · 10–15 · 10</p>
+
+<table>
+  <thead><tr><th>Step</th><th>Time</th><th>Do</th><th>Don't</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>1. Requirements</strong></td><td class="num">~5</td>
+      <td>~3 functional ("Users should be able to…"). 3–5 non-functional, quantified (latency, scale, availability/consistency, durability, security).</td>
+      <td>List every feature. Do math that won't change the design.</td>
+    </tr>
+    <tr>
+      <td><strong>2. Core Entities</strong></td><td class="num">~2</td>
+      <td>Bullet list of nouns and actors. Use clear names.</td>
+      <td>Write the full schema yet.</td>
+    </tr>
+    <tr>
+      <td><strong>3. API</strong></td><td class="num">~5</td>
+      <td>One endpoint per functional requirement. Default to REST with plural nouns. Get the user from the auth token.</td>
+      <td>Put <code>userId</code> in the request body. Reach for WebSockets before the core API exists.</td>
+    </tr>
+    <tr>
+      <td><em>4. Data Flow</em></td><td class="num">~5</td>
+      <td><em>Optional.</em> Ordered list of steps for pipeline-style systems.</td>
+      <td>Use it for simple CRUD systems.</td>
+    </tr>
+    <tr>
+      <td><strong>5. High-Level Design</strong></td><td class="num">10–15</td>
+      <td>Go endpoint by endpoint. Show how data moves from request to response. Include only the schema fields that matter.</td>
+      <td>Add caches, queues or shards early. Note them and move on.</td>
+    </tr>
+    <tr>
+      <td><strong>6. Deep Dives</strong></td><td class="num">~10</td>
+      <td>Meet the non-functional requirements. Fix bottlenecks and edge cases. Respond to probes.</td>
+      <td>Talk over the interviewer.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>What "mid-level" means here</h3>
+<ul>
+  <li><strong>Breadth over depth.</strong> Know what every component you mention does and why it's there.</li>
+  <li><strong>Lead steps 1–5</strong> yourself. In step 6, expect the interviewer to steer.</li>
+</ul>
+
+<p style="font-size:0.8rem;color:var(--muted)">Sources: <a href="https://www.hellointerview.com/learn/system-design/in-a-hurry/delivery">Hello Interview: Delivery Framework</a> · <a href="https://hellointerview.com/blog/the-system-design-interview-what-is-expected-at-each-level">Hello Interview: Expectations by Level</a> · <a href="https://bytebytego.com/courses/system-design-interview/a-framework-for-system-design-interviews">Alex Xu: A Framework for System Design Interviews</a></p>
+<p style="font-size:0.8rem">Taught in: <a href="../lessons/0001-the-delivery-framework.html">Lesson 1 · A map for the 45 minutes</a></p>
+
+</main>
+</body>
+</html>

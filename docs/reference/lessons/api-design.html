@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference · API Design for Interviews</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<main>
+
+<p class="kicker">Reference · Cheat sheet</p>
+<h1>Entities &amp; API Design</h1>
+<p class="subtitle">Steps 2 and 3 of the delivery framework, about 7 minutes in total.</p>
+
+<h3>Core entities (~2 min)</h3>
+<ul>
+  <li>Find them from the <strong>actors</strong> and the <strong>nouns in your functional requirements</strong>.</li>
+  <li>Write a bullet list of clear names. Fields come later, during the high-level design.</li>
+</ul>
+
+<h3>Choosing a protocol</h3>
+<table>
+  <thead><tr><th>Protocol</th><th>Use when</th></tr></thead>
+  <tbody>
+    <tr><td><strong>REST</strong></td><td>Use it by default.</td></tr>
+    <tr><td>GraphQL</td><td>Many different clients need different data shapes.</td></tr>
+    <tr><td>RPC (gRPC)</td><td>Performance-critical, internal service-to-service calls.</td></tr>
+    <tr><td>WebSockets / SSE</td><td>Real-time updates. Add them only <em>after</em> the core API.</td></tr>
+  </tbody>
+</table>
+
+<h3>REST conventions</h3>
+<table>
+  <thead><tr><th>Verb</th><th>Meaning</th><th>Example</th></tr></thead>
+  <tbody>
+    <tr><td><code>POST</code></td><td>Create</td><td><code>POST /urls</code></td></tr>
+    <tr><td><code>GET</code></td><td>Read</td><td><code>GET /tweets/{id}</code></td></tr>
+    <tr><td><code>PUT</code> / <code>PATCH</code></td><td>Replace / partially update</td><td><code>PATCH /urls/{code}</code></td></tr>
+    <tr><td><code>DELETE</code></td><td>Remove</td><td><code>DELETE /urls/{code}</code></td></tr>
+  </tbody>
+</table>
+<ul>
+  <li><strong>Plural nouns</strong> in paths, no verbs: <code>/tweets</code>, not <code>/createTweet</code>.</li>
+  <li><strong>One endpoint per functional requirement.</strong></li>
+  <li><strong>Get the current user from the auth token</strong> in the header, never from the body.</li>
+  <li>Optional features in the requirements become optional request fields.</li>
+</ul>
+
+<h3>Status codes worth knowing</h3>
+<table>
+  <thead><tr><th>Code</th><th>Meaning</th><th>Interview note</th></tr></thead>
+  <tbody>
+    <tr><td class="num">201</td><td>Created</td><td>Response to a successful POST</td></tr>
+    <tr><td class="num">301</td><td>Moved Permanently</td><td>Browsers usually cache it, so you lose control</td></tr>
+    <tr><td class="num">302</td><td>Found (temporary)</td><td>The usual choice for shortener redirects</td></tr>
+    <tr><td class="num">404</td><td>Not Found</td><td>Unknown or expired short code</td></tr>
+    <tr><td class="num">409</td><td>Conflict</td><td>Custom alias already taken</td></tr>
+    <tr><td class="num">429</td><td>Too Many Requests</td><td>Rate limiting</td></tr>
+  </tbody>
+</table>
+
+<p style="font-size:0.8rem;color:var(--muted)">Sources: <a href="https://www.hellointerview.com/learn/system-design/in-a-hurry/delivery">Hello Interview: Delivery Framework</a> · <a href="https://www.hellointerview.com/learn/system-design/answer-keys/bitly">Hello Interview: Bitly</a> · <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status">MDN: HTTP status codes</a></p>
+<p style="font-size:0.8rem">Taught in: <a href="../lessons/0002-entities-and-api.html">Lesson 2 · From requirements to a contract</a></p>
+
+</main>
+</body>
+</html>

@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 1 · The Delivery Framework</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<main>
+
+<p class="kicker">Lesson 1 · System Design Interviews</p>
+<h1>A map for the 45 minutes</h1>
+<p class="subtitle">Before you learn a single component, learn the route through the interview.</p>
+
+<div class="win">
+  <span class="label">Your win today</span>
+  You'll be able to name the six steps of a system design interview in order, say roughly how long each takes, and write the requirements for a real prompt (Bitly). That first step is the one mid-level candidates are expected to lead.
+</div>
+
+<h2>Why a framework comes first</h2>
+
+<p>You might expect the hard part of a design round to be knowing about caches and databases. For most candidates the more common failure is running out of time without a working design, or drifting into one corner of the problem. A fixed sequence of steps with time budgets keeps you focused and makes sure you deliver a complete system.<sup class="cite"><a href="https://www.hellointerview.com/learn/system-design/in-a-hurry/delivery">[1]</a></sup></p>
+
+<p>At mid-level, interviewers expect you to <strong>guide the early parts</strong> yourself: requirements, APIs, schemas and the high-level design. In the later stages they'll often steer you toward the interesting problems.<sup class="cite"><a href="https://hellointerview.com/blog/the-system-design-interview-what-is-expected-at-each-level">[2]</a></sup> So the framework is the part of the interview you control.</p>
+
+<h2>The six steps</h2>
+
+<div class="timeline" aria-hidden="true">
+  <span style="flex:5;background:#9b2c1f">Reqs</span>
+  <span style="flex:2;background:#b4552f">Ent.</span>
+  <span style="flex:5;background:#c47a3d">API</span>
+  <span style="flex:13;background:#5a6b4a">High-Level Design</span>
+  <span style="flex:10;background:#3e4c5e">Deep Dives</span>
+</div>
+<p class="timeline-caption">Approximate time budget in minutes (5 · 2 · 5 · 10–15 · 10). Data Flow is optional and omitted here.</p>
+
+<table>
+  <thead><tr><th>Step</th><th>Time</th><th>What you produce</th></tr></thead>
+  <tbody>
+    <tr><td><strong>1. Requirements</strong></td><td class="num">~5 min</td><td>About 3 functional ("users should be able to…") and 3–5 non-functional (latency, scale, availability…)</td></tr>
+    <tr><td><strong>2. Core Entities</strong></td><td class="num">~2 min</td><td>A bullet list of the nouns: <code>User</code>, <code>Url</code>… Not a full schema.</td></tr>
+    <tr><td><strong>3. API</strong></td><td class="num">~5 min</td><td>One endpoint per functional requirement. Default to REST.</td></tr>
+    <tr><td><em>4. Data Flow</em></td><td class="num">~5 min</td><td><em>Optional:</em> only for pipeline-style systems.</td></tr>
+    <tr><td><strong>5. High-Level Design</strong></td><td class="num">10–15 min</td><td>Boxes and arrows that satisfy each endpoint. Keep it simple.</td></tr>
+    <tr><td><strong>6. Deep Dives</strong></td><td class="num">~10 min</td><td>Harden the design against the non-functional requirements and the interviewer's probes.</td></tr>
+  </tbody>
+</table>
+<p style="font-size:0.8rem;color:var(--muted)">Source: Hello Interview's Delivery Framework.<sup class="cite"><a href="https://www.hellointerview.com/learn/system-design/in-a-hurry/delivery">[1]</a></sup> Alex Xu's book uses a coarser four-step version of the same idea: scope, high-level design, deep dive, wrap up.<sup class="cite"><a href="https://bytebytego.com/courses/system-design-interview/a-framework-for-system-design-interviews">[3]</a></sup></p>
+
+<h2>Step 1 up close: requirements</h2>
+
+<p>Requirements come in two kinds:</p>
+<ul>
+  <li><strong>Functional</strong> requirements are what the system <em>does</em>, phrased as "Users should be able to…". Ask clarifying questions, then narrow to roughly the <strong>top three</strong>.</li>
+  <li><strong>Non-functional</strong> requirements are the <em>qualities</em> the system must have: scalability, latency, availability vs. consistency, durability, security. Pick the 3–5 that matter most and <strong>put numbers on them</strong> where you can ("redirects in &lt;100 ms", not "fast").</li>
+</ul>
+<p>Two traps to avoid:<sup class="cite"><a href="https://www.hellointerview.com/learn/system-design/in-a-hurry/delivery">[1]</a></sup></p>
+<ol>
+  <li><strong>The kitchen-sink list.</strong> A long feature list hurts more than it helps. Every feature you list is one you have to design.</li>
+  <li><strong>Math for its own sake.</strong> Only do capacity estimates when the result would change your design. Otherwise say you'll do the math as it becomes relevant.</li>
+</ol>
+
+<div class="note">
+  <span class="label">Watch out for this habit</span>
+  If you're used to feature work, you may want to jump straight to drawing services. Resist it. In the interview, the requirements you write down become the yardstick the interviewer uses to judge your design.
+</div>
+
+<h2>Check yourself</h2>
+<p>Answer from memory first, and scroll up only after you've committed to an answer. The effort of recalling is what makes it stick.</p>
+
+<div id="quiz1"></div>
+
+<h2>Practice: Bitly requirements</h2>
+<p><strong>Prompt:</strong> "Design a URL shortener like Bitly."</p>
+<p>In the box below, write about three functional and three non-functional requirements. Make them specific, with numbers where they help. Give yourself <strong>five minutes</strong>, which is the real budget. Then copy what you wrote and paste it to me in Claude Code. I'll critique it the way an interviewer would.</p>
+<textarea class="exercise" placeholder="Functional
+- Users should be able to …
+- …
+
+Non-functional
+- The system should …
+- …"></textarea>
+
+<div class="source">
+  <span class="label">Primary source</span>
+  Read <a href="https://www.hellointerview.com/learn/system-design/in-a-hurry/delivery">Hello Interview: Delivery Framework</a> (about 10 minutes). It's written by former FAANG interviewers and is the backbone of this course.<br>
+  <strong>Then watch:</strong> <a href="https://www.youtube.com/watch?v=iUU4O1sWtJA">"Beginner System Design Interview: Design Bitly"</a>. Watch it <em>after</em> you've done the exercise above, and compare your requirements with theirs.
+</div>
+
+<div class="ask">
+  <span class="label">Stuck or curious?</span>
+  Ask me anything in Claude Code. For example: "why only three functional requirements?", "what does availability vs. consistency mean?", or "quiz me again on the steps". I'm your teacher for this course.
+</div>
+
+<p style="font-size:0.85rem">Cheat sheet for this lesson: <a href="../reference/delivery-framework.html">Delivery Framework reference</a></p>
+
+<nav class="lesson-nav">
+  <span class="muted">Start of course</span>
+  <a href="0002-entities-and-api.html">Next: Lesson 2 · Entities &amp; API →</a>
+</nav>
+
+</main>
+
+<script src="../assets/quiz.js"></script>
+<script>
+Quiz.mount("quiz1", [
+  {
+    sortable: true,
+    q: "Put the core steps of the delivery framework in order (top = first).",
+    items: ["Requirements", "Core Entities", "API", "High-Level Design", "Deep Dives"],
+    why: "Requirements → Core Entities → API → (optional Data Flow) → High-Level Design → Deep Dives. Each step feeds the next: the API is built from the entities, and the high-level design exists to serve the API."
+  },
+  {
+    q: "Which of these is a non-functional requirement for Bitly?",
+    options: [
+      "Users can set custom short aliases",
+      "Redirects complete within about 100 milliseconds",
+      "Users can create short URLs easily",
+      "Short links can expire after dates"
+    ],
+    answer: 1,
+    why: "Non-functional requirements describe qualities such as latency, scale and availability. The others are features, which makes them functional requirements."
+  },
+  {
+    q: "Roughly how many functional requirements should you settle on?",
+    options: [
+      "One single core feature",
+      "At least ten features",
+      "Roughly the top three",
+      "Every feature you imagine"
+    ],
+    answer: 2,
+    why: "Aim for about the top three. Every requirement you list is something you then have to design, so a long list eats your time."
+  },
+  {
+    q: "When should you do back-of-the-envelope capacity estimation?",
+    options: [
+      "Never; interviewers don't care about numbers",
+      "Always, right before listing any requirements",
+      "Only after the deep dives are done",
+      "Only when it changes the design"
+    ],
+    answer: 3,
+    why: "Do calculations only when they will directly influence your design. Otherwise tell the interviewer you'll do the math when it becomes relevant."
+  },
+  {
+    q: "At mid-level, what typically happens during the deep dives?",
+    options: [
+      "Interviewer often steers you toward problems",
+      "You must find every bottleneck yourself",
+      "Deep dives are skipped at mid-level",
+      "You should skip straight to them"
+    ],
+    answer: 0,
+    why: "Mid-level candidates lead the early steps. Later, the interviewer often plays the bigger role and points you at weak spots. Senior candidates are expected to find those weak spots themselves."
+  },
+  {
+    q: "During high-level design you realise a cache might help later. What do you do?",
+    options: [
+      "Add cache, queue and shards immediately",
+      "Spend ten minutes designing the cache",
+      "Note it briefly, then keep moving",
+      "Never mention caching in the interview"
+    ],
+    answer: 2,
+    why: "Keep the high-level design simple. Mention the possible optimisation briefly and come back to it in the deep dives. Adding complexity too early is a common way to fail."
+  }
+]);
+</script>
+</body>
+</html>

@@ -1,0 +1,113 @@
+/* Shared course stylesheet — Tufte-inspired. Every lesson and reference links this. */
+:root {
+  --ink: #1f1d1a;
+  --muted: #6b665e;
+  --paper: #fffdf8;
+  --rule: #e4ddd0;
+  --accent: #9b2c1f;
+  --accent-soft: #f6e9e4;
+  --good: #2f6b3a;
+  --good-soft: #e5f1e6;
+  --bad: #9b2c1f;
+  --bad-soft: #f8e5e1;
+  --code-bg: #f3efe6;
+  --measure: 40rem;
+}
+
+* { box-sizing: border-box; }
+
+html { font-size: 18px; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+main {
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: 3rem 1.25rem 5rem;
+}
+
+/* Header */
+.kicker {
+  font-family: ui-sans-serif, -apple-system, "Helvetica Neue", sans-serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 0.5rem;
+}
+h1 { font-size: 2.1rem; line-height: 1.15; font-weight: 400; margin: 0 0 0.75rem; }
+.subtitle { font-style: italic; color: var(--muted); font-size: 1.1rem; margin: 0 0 2rem; }
+h2 { font-size: 1.35rem; font-weight: 400; font-style: italic; margin: 2.75rem 0 0.75rem; border-top: 1px solid var(--rule); padding-top: 1.5rem; }
+h3 { font-size: 1.05rem; font-weight: 600; margin: 1.75rem 0 0.5rem; }
+
+p, li { hyphens: auto; }
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+strong { font-weight: 600; }
+code, kbd {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 0.82em;
+  background: var(--code-bg);
+  padding: 0.08em 0.35em;
+  border-radius: 3px;
+}
+pre { background: var(--code-bg); padding: 0.9rem 1rem; overflow-x: auto; border-radius: 4px; font-size: 0.8rem; line-height: 1.45; }
+pre code { background: none; padding: 0; }
+
+/* Callouts */
+.win, .source, .ask, .note {
+  font-family: ui-sans-serif, -apple-system, "Helvetica Neue", sans-serif;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  padding: 0.9rem 1.1rem;
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+  margin: 1.5rem 0;
+}
+.win { border-color: var(--good); background: var(--good-soft); }
+.source { border-color: var(--ink); background: #f1ede4; }
+.ask { border-color: var(--muted); background: transparent; border-left-style: dashed; }
+.win > :first-child, .source > :first-child, .ask > :first-child, .note > :first-child { margin-top: 0; }
+.win > :last-child, .source > :last-child, .ask > :last-child, .note > :last-child { margin-bottom: 0; }
+.label { font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; font-size: 0.7rem; display: block; margin-bottom: 0.25rem; }
+
+/* Sidenote-style citations */
+sup.cite a { text-decoration: none; font-family: ui-sans-serif, sans-serif; font-size: 0.7rem; }
+
+/* Tables */
+table { border-collapse: collapse; width: 100%; font-size: 0.88rem; margin: 1rem 0 1.5rem; }
+th, td { text-align: left; padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-family: ui-sans-serif, -apple-system, sans-serif; font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+td.num { font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--muted); }
+
+/* Timeline bar (framework pacing) */
+.timeline { display: flex; height: 2.4rem; margin: 1.25rem 0 0.4rem; border-radius: 3px; overflow: hidden; font-family: ui-sans-serif, sans-serif; font-size: 0.66rem; }
+.timeline span { display: flex; align-items: center; justify-content: center; color: #fff; text-align: center; padding: 0 0.2rem; line-height: 1.1; border-right: 1px solid var(--paper); }
+.timeline-caption { font-size: 0.75rem; color: var(--muted); font-family: ui-sans-serif, sans-serif; margin: 0 0 1.5rem; }
+
+/* Lesson nav */
+nav.lesson-nav { display: flex; justify-content: space-between; gap: 1rem; margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--rule); font-family: ui-sans-serif, sans-serif; font-size: 0.8rem; }
+nav.lesson-nav .muted { color: var(--muted); }
+
+/* Textarea exercise */
+textarea.exercise {
+  width: 100%; min-height: 9rem; padding: 0.75rem; font: 0.85rem/1.5 ui-monospace, Menlo, monospace;
+  border: 1px solid var(--rule); border-radius: 4px; background: #fff; color: var(--ink);
+}
+
+/* Print */
+@media print {
+  html { font-size: 11pt; }
+  body { background: #fff; }
+  main { max-width: none; padding: 0; }
+  .quiz button, nav.lesson-nav, .no-print { display: none !important; }
+  a { color: var(--ink); }
+  h2 { break-after: avoid; }
+  .timeline span { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: laa-server
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/laa}
+    username: ${DATABASE_USER:laa}
+    password: ${DATABASE_PASSWORD:laa}
+  flyway:
+    locations: classpath:db/migration
+
+server:
+  port: 8080
+
+laa:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:8081}

@@ -1,0 +1,16 @@
+# Secrets: only .env.example is committed
+.env
+.env.*
+!.env.example
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+
+# Build output
+node_modules/
+target/
+
+# Reference material cloned locally (MIT, see THIRD_PARTY_NOTICES.md)
+docs/reference/skills/

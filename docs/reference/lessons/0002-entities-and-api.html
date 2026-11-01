@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 2 · Core Entities &amp; the API</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<main>
+
+<p class="kicker">Lesson 2 · System Design Interviews</p>
+<h1>From requirements to a contract</h1>
+<p class="subtitle">Seven minutes of the interview that turn your requirements into something you can build.</p>
+
+<div class="win">
+  <span class="label">Your win today</span>
+  Given a set of functional requirements, you'll be able to list the core entities and write a clean REST API in about 7 minutes. These are steps 2 and 3 of the <a href="../reference/delivery-framework.html">delivery framework</a>.
+</div>
+
+<h2>Warm-up: recall from Lesson 1</h2>
+<p>Answer these from memory. They come from your Bitly critique. Spacing your recall out like this is what turns "I've seen it" into "I know it".</p>
+<div id="warmup"></div>
+
+<h2>Step 2: core entities (~2 min)</h2>
+
+<p>Core entities are the <strong>things</strong> your system stores and passes around. You can find them by asking two questions:<sup class="cite"><a href="https://www.hellointerview.com/learn/system-design/in-a-hurry/delivery">[1]</a></sup></p>
+<ul>
+  <li><strong>Who are the actors?</strong> These are the people or systems taking actions.</li>
+  <li><strong>What nouns do the functional requirements need?</strong> Underline them.</li>
+</ul>
+
+<p>Try it on the Bitly requirements from last time:</p>
+<pre><code>Users submit a <u>long URL</u> and receive a <u>short URL</u>
+Users visiting a <u>short URL</u> are redirected to the original</code></pre>
+<p>That gives you <strong>Original URL</strong>, <strong>Short URL</strong>, and the actor, <strong>User</strong>.<sup class="cite"><a href="https://www.hellointerview.com/learn/system-design/answer-keys/bitly">[2]</a></sup> Write them as a bullet list and move on. <em>Don't</em> write out fields or a schema yet. You don't know enough at this point, and the details will come out during the high-level design.<sup class="cite"><a href="https://www.hellointerview.com/learn/system-design/in-a-hurry/delivery">[1]</a></sup></p>
+
+<div class="note">
+  <span class="label">Coming from Java?</span>
+  An entity is not a class hierarchy. Two minutes, a few nouns, clear names. Think of it as a glossary for the rest of the interview, not a domain model.
+</div>
+
+<h2>Step 3: the API (~5 min)</h2>
+
+<p>The API is the <strong>contract</strong> between your system and its users. The rule of thumb is <strong>one endpoint per functional requirement</strong>, which ties your design directly to what you agreed with the interviewer.</p>
+
+<h3>Four conventions that signal fluency</h3>
+<ol>
+  <li><strong>Default to REST.</strong> Reach for GraphQL only when many different clients need different data. Use RPC (such as gRPC) for performance-critical internal calls.<sup class="cite"><a href="https://www.hellointerview.com/learn/system-design/in-a-hurry/delivery">[1]</a></sup></li>
+  <li><strong>Resources are plural nouns.</strong> Write <code>/tweets</code>, not <code>/tweet</code> or <code>/createTweet</code>. The HTTP verb carries the action.</li>
+  <li><strong>Use verbs the usual way.</strong> <code>POST</code> creates, <code>GET</code> reads, <code>PUT</code>/<code>PATCH</code> updates, <code>DELETE</code> removes.</li>
+  <li><strong>Get the user from the auth token</strong> in the request header. Never trust a <code>userId</code> in the body, because a client could put anyone's ID there.<sup class="cite"><a href="https://www.hellointerview.com/learn/system-design/in-a-hurry/delivery">[1]</a></sup></li>
+</ol>
+
+<h3>Bitly's API</h3>
+<pre><code>// FR1: shorten a URL
+POST /urls
+body: {
+  "long_url": "https://www.example.com/some/very/long/url",
+  "custom_alias": "optional",
+  "expiration_date": "optional"
+}
+-&gt; { "short_url": "http://short.ly/abc123" }
+
+// FR2: redirect
+GET /{short_code}
+-&gt; HTTP 302 redirect to the original long URL</code></pre>
+<p style="font-size:0.8rem;color:var(--muted)">Adapted from Hello Interview's Bitly breakdown.<sup class="cite"><a href="https://www.hellointerview.com/learn/system-design/answer-keys/bitly">[2]</a></sup></p>
+
+<p>Notice two things. There's no <code>user_id</code> in the body, because the token supplies it. And the optional fields from the requirements show up as optional fields in the request.</p>
+
+<h3>One detail worth saying out loud: 302, not 301</h3>
+<p><code>301 Moved Permanently</code> tells browsers the move is permanent, and browsers usually cache it. <code>302 Found</code> marks the move as temporary, so the browser comes back to your server each time.<sup class="cite"><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/302">[3]</a></sup> A shortener usually wants 302. Expiry still works because the browser hasn't cached the target, and you keep control of every redirect. That control also enables click tracking later.<sup class="cite"><a href="https://www.hellointerview.com/learn/system-design/answer-keys/bitly">[2]</a></sup> It's a small detail, but mentioning it shows interviewers you know how HTTP behaves.</p>
+
+<h2>Check yourself</h2>
+<div id="quiz"></div>
+
+<h2>Practice: Pastebin, steps 1–3</h2>
+<p>This is a new prompt with a similar shape, so you have to transfer what you've learned instead of recalling the Bitly answer.</p>
+<p><strong>Prompt:</strong> "Design Pastebin." Users paste a block of text and get a link that anyone can open to read it.</p>
+<p>Set a <strong>12-minute timer</strong> and write:</p>
+<ol>
+  <li>Requirements: about 3 functional, 3–4 non-functional, and what's out of scope</li>
+  <li>Core entities: a bullet list</li>
+  <li>The API: one endpoint per functional requirement</li>
+</ol>
+<p>Then paste it to me in Claude Code for critique.</p>
+<textarea class="exercise" placeholder="Functional
+-
+Out of scope:
+
+Non-functional
+-
+
+Core entities
+-
+
+API
+POST /..."></textarea>
+
+<div class="source">
+  <span class="label">Primary source</span>
+  Read the <strong>Core Entities</strong> and <strong>API</strong> sections of <a href="https://www.hellointerview.com/learn/system-design/answer-keys/bitly">Hello Interview: Design Bitly</a>, plus the matching section of the <a href="https://www.youtube.com/watch?v=iUU4O1sWtJA">Bitly video walkthrough</a>. Do the Pastebin exercise <em>before</em> you read, so you aren't just copying the answer.
+</div>
+
+<div class="ask">
+  <span class="label">Stuck or curious?</span>
+  Ask me anything. For example: "when would I use PATCH vs PUT?", "what's a short code, exactly?", or "how would GraphQL look here?"
+</div>
+
+<p style="font-size:0.85rem">Cheat sheets: <a href="../reference/api-design.html">API design reference</a> · <a href="../reference/delivery-framework.html">Delivery Framework</a></p>
+
+<nav class="lesson-nav">
+  <a href="0001-the-delivery-framework.html">← Lesson 1: A map for the 45 minutes</a>
+  <span class="muted">Next: Lesson 3 (after your Pastebin critique)</span>
+</nav>
+
+</main>
+
+<script src="../assets/quiz.js"></script>
+<script>
+Quiz.mount("warmup", [
+  {
+    q: "Why is \"persist URLs with an expiry timer\" a functional requirement?",
+    options: [
+      "It describes behaviour, not a quality",
+      "It cannot be measured with numbers",
+      "It only matters to the database",
+      "Interviewers never ask about link expiry"
+    ],
+    answer: 0,
+    why: "Functional requirements describe what the system does. Non-functional requirements describe qualities it has, such as fast, available or unique. Expiry is something the system does."
+  },
+  {
+    q: "Why does Bitly favour availability over consistency?",
+    options: [
+      "Consistency is impossible in any distributed system",
+      "A failed redirect is a broken link",
+      "Availability is cheaper to build than consistency",
+      "Interviewers always prefer availability over strict consistency"
+    ],
+    answer: 1,
+    why: "If redirects fail, every shared link is broken. A new link taking a moment to work everywhere is a much smaller cost. This is a per-system judgement: a bank ledger would choose the other way."
+  }
+]);
+
+Quiz.mount("quiz", [
+  {
+    q: "Where should you look first to find your core entities?",
+    options: [
+      "The tables your company already uses",
+      "Every class you'd write in Java",
+      "The nouns in your functional requirements",
+      "The services in your final design"
+    ],
+    answer: 2,
+    why: "Your entities come from the actors and the nouns in your functional requirements. Services and tables come later."
+  },
+  {
+    q: "Which endpoint is the best REST design for creating a short URL?",
+    options: [
+      "GET /createUrl",
+      "POST /url/create",
+      "PUT /shorten/{userId}",
+      "POST /urls"
+    ],
+    answer: 3,
+    why: "Use a plural noun and let the verb carry the action. POST means create. Verbs in the path (createUrl, create) and user IDs in the URL are both warning signs."
+  },
+  {
+    q: "How should the API know which user is making the request?",
+    options: [
+      "From a userId in the body",
+      "From the auth token in headers",
+      "From a userId in the URL",
+      "From the user's IP address only"
+    ],
+    answer: 1,
+    why: "Get the current user from the authentication token. Anything in the body or URL is under the client's control and could be someone else's ID."
+  },
+  {
+    q: "Why does a URL shortener usually return 302 rather than 301?",
+    options: [
+      "302 responses are smaller than 301",
+      "301 is deprecated in modern HTTP",
+      "302 is not cached by browsers",
+      "302 makes redirects faster for users"
+    ],
+    answer: 2,
+    why: "Browsers usually cache a 301 as permanent. With a 302, the browser comes back to your server each time, so you keep control for expiry, changes and click tracking."
+  },
+  {
+    q: "How much detail should core entities have at this stage?",
+    options: [
+      "Just names; fields come up later",
+      "Full schema with types and indexes",
+      "Every column plus foreign key constraints",
+      "Nothing; skip entities in the interview"
+    ],
+    answer: 0,
+    why: "A short bullet list of well-named nouns is enough. Add only the fields that matter, and add them during the high-level design."
+  }
+]);
+</script>
+</body>
+</html>
