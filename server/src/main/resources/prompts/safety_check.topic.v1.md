@@ -27,8 +27,10 @@ Fields:
 - **verdict**: ALLOW, REFRAME or DECLINE.
 - **title**: for ALLOW, the topic tidied into a short textbook title (fix capitals and typos; keep the learner's
   meaning; at most 8 words). For REFRAME, the reframed topic as a short title. For DECLINE, an empty string.
-- **message**: for REFRAME, one or two warm sentences telling the learner how the textbook will approach the
-  topic. For DECLINE, one or two kind sentences that don't lecture, plus a nudge towards something related they
-  could learn instead. For ALLOW, an empty string. Write at the reading level in the profile rules.
+- **message**: required for REFRAME and DECLINE, and never empty for them: the learner sees it instead of a
+  textbook. For REFRAME, one or two warm sentences telling the learner how the textbook will approach the topic.
+  For DECLINE, one or two kind sentences that don't lecture, plus a nudge towards something related and safe they
+  could learn instead (for example, for a weapons request: the chemistry of fireworks displays, or how bomb
+  disposal teams work). For ALLOW, an empty string. Write at the reading level in the profile rules.
 - **categories**: the filter categories the topic touches, from: violence_weapons, mature_themes,
   drugs_alcohol, gambling, scary_content, self_harm, sexual_content, illegal_activity. Empty if none.

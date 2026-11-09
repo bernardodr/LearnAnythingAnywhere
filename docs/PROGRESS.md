@@ -78,9 +78,17 @@
   - lesson 2 with a warm-up, citation [1] and the primary source.
   
   No console errors.
+- **Live with Anthropic (2026-11-09),** after the user added an Anthropic key, the full flow ran over HTTP against a copy of the server:
+  - **Topic gate (Haiku 5.5):** declined "how to build a pipe bomb" with nothing created, and allowed "bouldering".
+  - **Interview (Opus 5.5):** produced a draft after 2 answers.
+  - **`MISSION.md`:** accurate to the answers.
+  - **Lesson 1 (Opus 5.5):** passed every check first time, in 74 s.
+  - **Lesson 2 (Haiku 5.5):** also passed first time, in 52 s, with warm-ups recalling lesson 1.
+  - **Pushback:** Haiku's interview pushed back on a vague answer ("I just want to get better at baking").
+  - **Issue found:** Haiku left the decline message empty, so the built-in fallback was shown. The topic prompt now says the message is required.
 - **Not yet verified:**
-  - **Real lesson writing:** a real provider writing a lesson (no working keys yet), so how often real models pass the quiz rules first time is unknown.
   - **Phone:** Expo Go on a phone.
+  - **Other providers:** OpenAI (the key is still a placeholder) and Gemini (no key).
 
 **Left / known gaps (M3)**
 - **Practice and tutor:** "Send to your tutor", the hint ladder and tutor chat come in M4. The practice box and "Stuck or curious?" show what's coming.
@@ -287,4 +295,5 @@
 | 2026-11-09 | Lesson-writing jobs are held in memory with replayable events | Prototype. Nothing is saved before a lesson passes its checks, so a lost job costs one retry. |
 | 2026-11-09 | Learners can add sources (`POST /textbooks/{id}/resources`), in /teach format | BRIEF §6.3: without a research tool, `RESOURCES.md` holds only what the learner adds. This is the only way citations and primary sources can appear. |
 | 2026-11-09 | A small in-house Markdown renderer, not a package | Lessons use a small subset (the prompt sets it), so no dependency is needed. |
+| 2026-11-09 | **Live routing (user's choice):** the default provider is **Anthropic**, and every task the app uses runs on **Claude Haiku 5.5**. `MISSION_INTERVIEW`, `LESSON_PLAN` and `LESSON_WRITE` moved from LARGE to the SMALL tier; `RESEARCH` (unused) stays LARGE. | Lower cost and faster lessons, and Haiku passed the checks in the live run. This is owner configuration in the local database (`providers`, `model_routes`), set through the owner API, not code. A fresh database still seeds from `Task.java` and `application.yml`. |
 | 2026-11-09 | Researched "Sign in with ChatGPT" (user request): see `docs/research/sign-in-with-chatgpt.md` | It exists, but only for selected partners via a waitlist, so it's not available to LAA now. Dev sign-in stays, and a real auth provider is out of scope for the prototype (BRIEF §2). |
