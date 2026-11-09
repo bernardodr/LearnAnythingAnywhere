@@ -14,6 +14,65 @@ spring:
 server:
   port: 8080
 
+logging:
+  level:
+    # Logs every failed stream at ERROR; the gateway already logs these (redacted) as a fallback warning.
+    org.springframework.ai.chat.model.MessageAggregator: "off"
+
 laa:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:8081}
+
+  auth:
+    jwt-secret: ${JWT_SECRET:}            # HS256; at least 32 bytes (openssl rand -hex 32)
+    token-ttl: 12h
+    owner-emails: ${LAA_OWNER_EMAILS:owner@laa.dev}   # dev-login gives these emails the OWNER role
+    dev-login-enabled: true
+
+  dev:
+    endpoints-enabled: true                # /dev/** (OWNER only): gateway ping, fake-provider failure switch
+
+  llm:
+    default-provider: ${LAA_DEFAULT_PROVIDER:FAKE}   # seeds an empty DB only; the owner console decides after that
+    route-cache-ttl: 30s
+    call-timeout: 120s                     # per provider attempt; a route can override with params.timeoutMs
+    first-token-timeout: 30s               # streaming: give up on a provider that hasn't started answering
+    # Model IDs and prices checked against each provider's docs on 2026-11-01. Prices are USD per 1M tokens,
+    # used only for the rough cost estimate in model_runs. The first model of each tier is that tier's default.
+    providers:
+      ANTHROPIC:
+        api-key: ${ANTHROPIC_API_KEY:}
+        max-retries: 1
+        models:
+          - { id: claude-opus-5-5,   label: Claude Opus 5.5,   tier: LARGE, structured-output: true, tool-calling: true, streaming: true, max-context: 1000000, input-per-mtok: 4.00, output-per-mtok: 20.00 }
+          - { id: claude-sonnet-5-5, label: Claude Sonnet 5.5, tier: LARGE, structured-output: true, tool-calling: true, streaming: true, max-context: 1000000, input-per-mtok: 2.00, output-per-mtok: 10.00 }
+          - { id: claude-haiku-5-5,  label: Claude Haiku 5.5,  tier: SMALL, structured-output: true, tool-calling: true, streaming: true, max-context: 1000000, input-per-mtok: 0.10, output-per-mtok: 0.50 }
+      OPENAI:
+        api-key: ${OPENAI_API_KEY:}
+        max-retries: 1
+        models:
+          - { id: gpt-6.1-sol,   label: GPT-6.1 Sol,   tier: LARGE, structured-output: true, tool-calling: true, streaming: true, max-context: 1050000, input-per-mtok: 2.00,  output-per-mtok: 10.00 }
+          - { id: gpt-6-astra,   label: GPT-6 Astra,   tier: LARGE, structured-output: true, tool-calling: true, streaming: true, max-context: 1050000, input-per-mtok: 10.00, output-per-mtok: 50.00 }
+          - { id: gpt-6-luna,    label: GPT-6 Luna,    tier: SMALL, structured-output: true, tool-calling: true, streaming: true, max-context: 1050000, input-per-mtok: 0.10,  output-per-mtok: 0.50 }
+          - { id: gpt-6.1-terra, label: GPT-6.1 Terra, tier: SMALL, structured-output: true, tool-calling: true, streaming: true, max-context: 1050000, input-per-mtok: 1.00,  output-per-mtok: 5.00 }
+      GOOGLE:
+        api-key: ${GEMINI_API_KEY:}
+        max-retries: 1
+        models:
+          - { id: gemini-4-argon,        label: Gemini 4 Argon,        tier: LARGE, structured-output: true, tool-calling: true, streaming: true, max-context: 1000000, input-per-mtok: 4.00, output-per-mtok: 20.00 }
+          - { id: gemini-3.6-flash,      label: Gemini 3.6 Flash,      tier: LARGE, structured-output: true, tool-calling: true, streaming: true, max-context: 1000000, input-per-mtok: 1.50, output-per-mtok: 7.50 }
+          - { id: gemini-3.5-flash-lite, label: Gemini 3.5 Flash-Lite, tier: SMALL, structured-output: true, tool-calling: true, streaming: true, max-context: 1000000, input-per-mtok: 0.30, output-per-mtok: 2.50 }
+      OLLAMA:
+        base-url: ${OLLAMA_BASE_URL:}
+        enabled: false                     # optional; the owner enables it once a local model is pulled
+        models:
+          - { id: "gpt-oss:20b", label: gpt-oss 20B (local), tier: LARGE, structured-output: true, tool-calling: true,  streaming: true, max-context: 128000 }
+          - { id: "gemma3:4b",   label: Gemma 3 4B (local),  tier: SMALL, structured-output: true, tool-calling: false, streaming: true, max-context: 128000 }
+      FAKE:
+        models:
+          - { id: fake-large, label: Fake large, tier: LARGE, structured-output: true, tool-calling: true,  streaming: true, max-context: 1000000 }
+          - { id: fake-small, label: Fake small, tier: SMALL, structured-output: true, tool-calling: false, streaming: true, max-context: 1000000 }
+      FAKE_B:
+        models:
+          - { id: fake-b-large, label: Fake B large, tier: LARGE, structured-output: true, tool-calling: true,  streaming: true, max-context: 1000000 }
+          - { id: fake-b-small, label: Fake B small, tier: SMALL, structured-output: true, tool-calling: false, streaming: true, max-context: 1000000 }

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Spring Boot's default console logging, with message and stack-trace converters that mask secrets. -->
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    <conversionRule conversionWord="m" class="com.laa.security.RedactingMessageConverter"/>
+    <conversionRule conversionWord="msg" class="com.laa.security.RedactingMessageConverter"/>
+    <conversionRule conversionWord="message" class="com.laa.security.RedactingMessageConverter"/>
+    <conversionRule conversionWord="wEx" class="com.laa.security.RedactingThrowableConverter"/>
+    <conversionRule conversionWord="ex" class="com.laa.security.RedactingThrowableConverter"/>
+    <conversionRule conversionWord="xEx" class="com.laa.security.RedactingThrowableConverter"/>
+    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+</configuration>

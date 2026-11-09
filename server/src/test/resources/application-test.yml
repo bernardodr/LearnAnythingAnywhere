@@ -1,0 +1,25 @@
+# Integration tests: fake providers by default. The real adapters get canary keys and a dead local port, so
+# they fail fast (connection refused) without network access, and the canaries let tests prove keys never leak.
+laa:
+  auth:
+    jwt-secret: test-only-jwt-secret-0123456789abcdef-0123456789
+    owner-emails: owner@test.dev
+  llm:
+    default-provider: FAKE
+    call-timeout: 5s
+    first-token-timeout: 1500ms
+    providers:
+      OPENAI:
+        api-key: LEAKCANARY-openai-7f3a9c1e
+        base-url: http://127.0.0.1:9/v1
+        max-retries: 0
+      ANTHROPIC:
+        api-key: LEAKCANARY-anthropic-2b8d4f60
+        base-url: http://127.0.0.1:9
+        max-retries: 0
+      GOOGLE:
+        api-key: LEAKCANARY-google-91c0ab37
+        base-url: http://127.0.0.1:9
+        max-retries: 0
+      OLLAMA:
+        base-url: ""
