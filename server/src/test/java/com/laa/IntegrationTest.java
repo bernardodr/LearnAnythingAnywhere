@@ -2,7 +2,10 @@ package com.laa;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,6 +52,7 @@ public abstract class IntegrationTest {
 
     @BeforeEach
     void resetGatewayState() {
+        jdbc.sql("DELETE FROM textbooks").update(); // cascades to workspace files and chat
         jdbc.sql("DELETE FROM model_runs").update();
         jdbc.sql("DELETE FROM model_routes").update();
         jdbc.sql("DELETE FROM providers").update();
@@ -100,6 +104,50 @@ public abstract class IntegrationTest {
 
     protected Resp pingStream(String token, String task) {
         return post("/dev/llm/ping", token, Map.of("task", task, "stream", true));
+    }
+
+    public record SseEvent(String name, JsonNode data) {}
+
+    /** A server-sent-events response read to the end; {@code events} is empty when the server answered with JSON. */
+    public record SseResp(int status, List<SseEvent> events, String raw) {
+        public List<SseEvent> named(String name) {
+            return events.stream().filter(e -> e.name().equals(name)).toList();
+        }
+
+        /** The streamed text: every {@code token} event's text, in order. */
+        public String text() {
+            return named("token").stream().map(e -> e.data().get("text").asString()).collect(Collectors.joining());
+        }
+    }
+
+    protected SseResp sse(String path, String token, Object body) {
+        var spec = http.post().uri(path).header("Accept", "text/event-stream, application/json");
+        if (token != null) spec = spec.header("Authorization", "Bearer " + token);
+        if (body != null) spec = spec.contentType(MediaType.APPLICATION_JSON).body(body);
+        ResponseEntity<String> res = spec.retrieve().onStatus(s -> true, (req, r) -> { }).toEntity(String.class);
+        String raw = res.getBody() == null ? "" : res.getBody();
+        List<SseEvent> events = new ArrayList<>();
+        boolean isStream = res.getHeaders().getContentType() != null
+                && res.getHeaders().getContentType().isCompatibleWith(MediaType.TEXT_EVENT_STREAM);
+        if (isStream) {
+            for (String block : raw.split("\\r?\\n\\r?\\n")) {
+                String name = "message";
+                StringBuilder data = new StringBuilder();
+                for (String line : block.split("\\r?\\n")) {
+                    if (line.startsWith("event:")) name = line.substring(6).strip();
+                    else if (line.startsWith("data:")) data.append(line.substring(5).strip());
+                }
+                if (!data.isEmpty()) events.add(new SseEvent(name, JSON.readTree(data.toString())));
+            }
+        }
+        return new SseResp(res.getStatusCode().value(), events, raw);
+    }
+
+    /** A 2xx stream that finished its turn with no error event. */
+    protected void ok(SseResp r) {
+        assertThat(r.status()).as(r.raw()).isBetween(200, 299);
+        assertThat(r.named("error")).as(r.raw()).isEmpty();
+        assertThat(r.named("done")).as(r.raw()).hasSize(1);
     }
 
     protected void ok(Resp r) {

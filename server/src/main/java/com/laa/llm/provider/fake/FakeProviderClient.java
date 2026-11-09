@@ -6,6 +6,7 @@ import java.util.List;
 
 import com.laa.llm.ChatMessage;
 import com.laa.llm.Provider;
+import com.laa.llm.Task;
 import com.laa.llm.provider.ErrorKind;
 import com.laa.llm.provider.ProviderCallException;
 import com.laa.llm.provider.ProviderClient;
@@ -42,7 +43,10 @@ public final class FakeProviderClient implements ProviderClient {
         if (request.outputSchema() != null) {
             boolean invalid = behaviour.consumeInvalidOnce(provider)
                     || behaviour.mode(provider) == FailureMode.INVALID_OUTPUT;
+            String canned = behaviour.canned(request.task());
+            String scripted = canned != null ? canned : FakeScripts.structured(request, tag());
             text = invalid ? "{\"unexpected\": \"this does not match the schema\"}"
+                    : scripted != null ? scripted
                     : FakeJson.fromSchema(request.outputSchema(), provider.name());
         } else {
             text = cannedText(request);
@@ -82,7 +86,14 @@ public final class FakeProviderClient implements ProviderClient {
     }
 
     private String cannedText(ProviderRequest request) {
+        String canned = behaviour.cannedText(request.task());
+        if (canned != null) return canned;
+        if (request.task() == Task.MISSION_INTERVIEW) return FakeScripts.interviewTurn(request, tag());
         return "[" + provider + "] This is a deterministic " + request.task() + " reply from the fake provider.";
+    }
+
+    private String tag() {
+        return "[" + provider + "] ";
     }
 
     private static Integer estimateTokens(ProviderRequest request) {

@@ -6,8 +6,71 @@
 |---|---|
 | M0 Scaffold | ✅ Done (2026-11-01) |
 | M1 LLM gateway, plus dev login and JWT | ✅ Done (2026-11-02) |
-| M2 Library and mission | Next, waiting for the go-ahead |
-| M3–M6 | Not started |
+| M2 Library and mission | ✅ Done (2026-11-09) |
+| M3 Lessons | Next, waiting for the go-ahead |
+| M4–M6 | Not started |
+
+## M2: Library and mission (done 2026-11-09)
+
+**Done**
+- **Migration `V4__textbooks.sql`:**
+  - `textbooks`: status, cover colour, volume number per learner, the topic gate's verdict, the mission draft, and a one-line mission headline for the shelf.
+  - `workspace_files` plus `workspace_file_versions`: every write bumps the version and keeps a copy.
+  - `chat_messages`, with `kind` MISSION or TUTOR.
+- **Topic gate** (`safety/TopicGate`): every new topic goes through `SAFETY_CHECK` (the "topic" prompt variant) and comes back as one of three verdicts:
+  - **ALLOW** creates the textbook with a tidied title.
+  - **REFRAME** creates it under the reframed title and keeps the original topic. The gate's note is shown at the top of the preface.
+  - **DECLINE** creates nothing and returns the kind message.
+  - **Fails closed:** if no provider answers, or the output never validates, the request returns 503 and nothing is created.
+- **Mission interview** (`mission/`):
+  - `POST /textbooks/{id}/mission/messages` streams one turn as server-sent events: `token`, then `draft` or `draft_failed`, then `done`, or `error` if the turn failed.
+  - The interviewer ends by writing `[[MISSION_READY]]`. `MarkerFilter` strips it from the stream even when it's split across chunks, so it's never shown or stored.
+  - The server ends the interview after 5 answers whatever the model does, and ignores the marker before the first answer.
+  - The draft is a separate structured call (the "draft" prompt variant) over the transcript.
+  - A turn's answer and reply are saved together only once the reply finishes, so a failed turn saves nothing and the learner just sends the answer again.
+  - `POST …/mission/draft` regenerates the draft.
+  - `POST …/mission/confirm` writes `MISSION.md` (the card as shown, including the learner's edits) and moves the textbook to ACTIVE.
+- **`MISSION.md`** (`MissionMarkdown`) follows the /teach template exactly. Each field is folded onto one line so typed text can't add headings or bullets, and an empty list is written as "- None stated yet".
+- **Library API:** `GET /textbooks`, `POST /textbooks`, `GET /textbooks/{id}`, `GET /textbooks/{id}/mission`, and `GET /textbooks/{id}/files/**` (workspace paths only). Another learner's textbook returns 404.
+- **Prompts:**
+  - `mission_interview.v1.md` is ported from /teach (mission first, concrete over abstract, push back on vagueness, one question at a time).
+  - Two variants: `mission_interview.draft.v1.md` and `safety_check.topic.v1.md`.
+- **Prompt variants:** `prompts/<task>.<variant>.<version>.md`. Each task declares its variants (`Task.promptVariants`), and the owner API refuses a prompt version that lacks any of them. Compare runs the same variant the app uses.
+- **Fake provider:** a scripted preface (an opening question, one follow-up, then the marker after two answers). Its topic gate allows the topic as typed, and its mission draft is built from the learner's own answers, so the offline demo reads properly. Tests can pin a reply with `FakeBehaviour.setCanned` (structured) and `setCannedText` (streamed).
+- **App:**
+  - **Title page:** dev sign-in with email and a Learner/Parent choice.
+  - **Library:** covers on a shelf with title and volume, and the mission headline in italics underneath. The empty state shows an empty shelf, "Start with" chips and a round + button.
+  - **New textbook:** topic entry and the topic gate.
+  - **Preface:** the TUTOR / YOU transcript, streaming live, then the mission card with Edit and "Write my textbook".
+  - **Contents placeholder:** the title, the mission as an epigraph, and `MISSION.md`.
+- **App plumbing:** `lib/session.tsx` keeps the token in the Keychain/Keystore via `expo-secure-store` on phones and in `localStorage` on web. `lib/sse.ts` is a small client for streamed replies over `expo/fetch`.
+
+**Verified**
+- `./mvnw test`: **49 tests, 0 failures** (24 from M1, 25 new).
+  - `TextbookApiTest` (8): shelf, volumes and covers, isolation between learners, decline, reframe, a reframe with no framing becoming a decline, and fail-closed for both an unavailable provider and output that never validates.
+  - `MissionInterviewTest` (6):
+    - The full preface ends in an exact `MISSION.md`, with the marker never streamed or stored, events in order, and 4 metered runs.
+    - The 5-answer cap.
+    - A marker before the first answer is ignored.
+    - A failed reply saves nothing.
+    - The draft can be retried.
+    - Turns and confirmation are validated.
+  - Unit tests: `MarkerFilterTest`, `MissionMarkdownTest`, `PromptLibraryTest`.
+- `npm run typecheck` and `npx expo lint` are clean. The web, iOS and Android bundles all build (`expo export`).
+- **Live, over HTTP:** a copy of the new server on :8090 against the local database ran the whole flow with curl. Replies streamed one `token` event per word, `MISSION.md` was written as version 1, and another learner got a 404.
+- **Live, in a browser:** headless Chrome drove the exported web app through sign-in, the empty shelf, a "Start with" chip, the gate, a streamed interview, the mission card, Edit (changed the headline, added a limit), "Write my textbook", the contents page, back to the shelf, then a reload, after which the learner was still signed in. No console errors. The edits reached `MISSION.md`.
+- **Not yet verified:**
+  - Streaming in Expo Go on a phone, which uses `expo/fetch`'s native streaming. The bundles build, but the phone needs testing by hand.
+  - A real provider (no working keys yet).
+
+**Left / known gaps (M2)**
+- **Moderation:** chat input and interviewer replies aren't moderated yet; that's M6, which covers all inputs and outputs. Only the topic gate runs now.
+- **Profiles:** everyone uses the adult defaults until profiles are stored (M6), so the gate's child-profile behaviour is untested until then.
+- **Mission edits after confirming:** a confirmed mission can't be revised yet (/teach's "revise when reality shifts").
+- **Interview controls:** there's no "that's enough, draft it now" button; the 5-answer cap covers it.
+- **Concurrency:** two turns sent at once on the same textbook aren't prevented.
+- **Shelf details:** the reviews-due ribbon isn't shown, because spaced review is a stretch goal. Textbooks can't be archived from the app yet.
+- **Contents page:** a placeholder until M3.
 
 ## M1: LLM gateway, plus dev login and JWT (done 2026-11-02)
 
@@ -129,3 +192,12 @@
 | 2026-11-02 | Seeded default model per tier: Anthropic `claude-opus-5-5` / `claude-haiku-5-5`, OpenAI `gpt-6.1-sol` / `gpt-6-luna`, Google `gemini-4-argon` / `gemini-3.5-flash-lite` | Taken from each provider's docs on 2026-11-01. A route can name any listed model through `modelId`. |
 | 2026-11-02 | Ollama is seeded **disabled** | It's optional and isn't running locally. The owner enables it once a model is pulled. |
 | 2026-11-02 | Spring AI's `MessageAggregator` logging is turned off | It logs every failed stream at ERROR, but the gateway already logs these as redacted warnings. |
+| 2026-11-09 | **`expo-secure-store`** keeps the sign-in token on iOS and Android (user approved); web uses `localStorage` | BRIEF §0.4 says to ask before adding dependencies. It's Expo's standard token store and works in Expo Go; on web it's an empty stub. |
+| 2026-11-09 | Streamed replies use `expo/fetch` plus a small parser, not an SSE package | `expo/fetch` streams response bodies on native and is the browser's fetch on web. `EventSource` can't POST or send an Authorization header. No new dependency. |
+| 2026-11-09 | The topic gate **fails closed** (503, nothing created). A REFRAME creates the textbook under the reframed title, keeps the original topic, and shows the gate's note. A REFRAME with no framing counts as a DECLINE. | The safety layer must work as designed (BRIEF §0.7); an unchecked topic must never get through. |
+| 2026-11-09 | The interview ends on a model marker (`[[MISSION_READY]]`, stripped server-side), or after 5 answers regardless. The marker is ignored before the first answer. The draft is a separate structured call over the transcript. | Streaming and structured output can't come from one call. The server-side cap enforces "about 2–5 turns" whatever the model does. |
+| 2026-11-09 | Prompt variants (`<task>.<variant>.<version>.md`), declared on `Task` | The draft and the topic gate need their own instructions but belong to an existing task's route and version. A version must ship every variant. |
+| 2026-11-09 | `MissionDraft` adds a `headline`, stored in `textbooks.mission_headline`, not in `MISSION.md` | The shelf shows a one-line mission under each cover (BRIEF screen 2), and `MISSION.md` keeps the exact /teach format. |
+| 2026-11-09 | An answer and its reply are saved together, only once the reply finishes. After the draft appears, the chat closes and edits happen on the card. | A failed turn leaves nothing half-saved, so retrying means sending the same answer again. |
+| 2026-11-09 | Spring Security allows `ASYNC` dispatches | A server-sent-events response finishes on an async dispatch of a request that was already authorised. Without this, security rejects it after the response has started. |
+| 2026-11-09 | Researched "Sign in with ChatGPT" (user request): see `docs/research/sign-in-with-chatgpt.md` | It exists, but only for selected partners via a waitlist, so it's not available to LAA now. Dev sign-in stays, and a real auth provider is out of scope for the prototype (BRIEF §2). |

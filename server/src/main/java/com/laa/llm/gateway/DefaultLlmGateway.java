@@ -343,7 +343,7 @@ public class DefaultLlmGateway implements LlmGateway {
 
     private String systemPrompt(Task task, String version, PromptContext ctx, GenerationProfile profile) {
         GenerationProfile p = profile == null ? GenerationProfile.ADULT_DEFAULT : profile;
-        return prompts.render(task, version, ctx.variables()) + "\n\n" + ProfileRules.render(p);
+        return prompts.render(task, ctx.promptVariant(), version, ctx.variables()) + "\n\n" + ProfileRules.render(p);
     }
 
     private static List<ChatMessage> messages(PromptContext ctx) {

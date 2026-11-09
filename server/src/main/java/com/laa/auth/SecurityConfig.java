@@ -17,6 +17,8 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import jakarta.servlet.DispatcherType;
+
 /** Stateless bearer-JWT API. /owner/** and /dev/** need the OWNER role. */
 @Configuration
 public class SecurityConfig {
@@ -27,6 +29,8 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // SSE responses finish on an async dispatch of a request that was already authorised.
+                        .dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/health", "/auth/dev-login", "/error").permitAll()
                         .requestMatchers("/owner/**", "/dev/**").hasRole(Role.OWNER.name())

@@ -28,13 +28,23 @@ public class PromptLibrary {
 
     private final Map<String, Optional<String>> cache = new ConcurrentHashMap<>();
 
+    /** True when this version ships the task's main prompt and every one of its {@link Task#promptVariants()}. */
     public boolean exists(Task task, String version) {
-        return load(task, version).isPresent();
+        if (load(task, null, version).isEmpty()) return false;
+        return task.promptVariants().stream().allMatch(v -> load(task, v, version).isPresent());
     }
 
     public String render(Task task, String version, Map<String, String> variables) {
-        String template = load(task, version).orElseThrow(() ->
-                new IllegalStateException("Missing prompt prompts/" + task.promptStem() + "." + version + ".md"));
+        return render(task, null, version, variables);
+    }
+
+    /** {@code variant} null renders the main prompt; otherwise {@code prompts/<stem>.<variant>.<version>.md}. */
+    public String render(Task task, String variant, String version, Map<String, String> variables) {
+        if (variant != null && !task.promptVariants().contains(variant)) {
+            throw new IllegalArgumentException(task + " has no prompt variant '" + variant + "'");
+        }
+        String template = load(task, variant, version).orElseThrow(() ->
+                new IllegalStateException("Missing prompt prompts/" + fileStem(task, variant) + "." + version + ".md"));
         Matcher m = PLACEHOLDER.matcher(COMMENT.matcher(template).replaceAll(""));
         StringBuilder out = new StringBuilder();
         while (m.find()) {
@@ -44,9 +54,13 @@ public class PromptLibrary {
         return out.toString().strip();
     }
 
-    private Optional<String> load(Task task, String version) {
+    private static String fileStem(Task task, String variant) {
+        return variant == null ? task.promptStem() : task.promptStem() + "." + variant;
+    }
+
+    private Optional<String> load(Task task, String variant, String version) {
         if (version == null || !VERSION.matcher(version).matches()) return Optional.empty();
-        return cache.computeIfAbsent(task.promptStem() + "." + version, key -> {
+        return cache.computeIfAbsent(fileStem(task, variant) + "." + version, key -> {
             var resource = new ClassPathResource("prompts/" + key + ".md");
             if (!resource.exists()) return Optional.empty();
             try {

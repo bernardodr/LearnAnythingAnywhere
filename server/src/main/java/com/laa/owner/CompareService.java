@@ -75,7 +75,7 @@ public class CompareService {
 
         Class<?> type = TaskSchemas.typeFor(task).orElse(null);
         PromptContext ctx = new PromptContext(request.input().variables(), List.of(), request.input().message(),
-                ownerId, null, Origin.COMPARE);
+                ownerId, null, Origin.COMPARE).withVariant(TaskSchemas.variantFor(task).orElse(null));
         Future<Outcome<?>> fa = executor.submit(() -> run(task, a, ctx, type));
         Future<Outcome<?>> fb = executor.submit(() -> run(task, b, ctx, type));
         return new CompareResponse(task, type == null ? "text" : "structured:" + type.getSimpleName(),
