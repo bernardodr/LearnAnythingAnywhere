@@ -12,21 +12,33 @@ export type SseEvent = { event: string; data: unknown };
  * Resolves when the stream ends. If the server answers with JSON instead (a 4xx before streaming started),
  * rejects with an ApiError carrying its message.
  */
-export async function postSse(
+type StreamOptions = { token: string; signal?: AbortSignal; onEvent: (e: SseEvent) => void };
+
+export function postSse(path: string, options: StreamOptions & { body?: unknown }): Promise<void> {
+  return stream('POST', path, options);
+}
+
+/** Follows a server-sent-events stream with GET (job progress: GET /jobs/{id}/events). */
+export function getSse(path: string, options: StreamOptions): Promise<void> {
+  return stream('GET', path, options);
+}
+
+async function stream(
+  method: 'GET' | 'POST',
   path: string,
-  { token, body, signal, onEvent }: { token: string; body?: unknown; signal?: AbortSignal; onEvent: (e: SseEvent) => void },
+  { token, body, signal, onEvent }: StreamOptions & { body?: unknown },
 ): Promise<void> {
   let res: Awaited<ReturnType<typeof expoFetch>>;
   try {
     res = await expoFetch(`${API_URL}${path}`, {
-      method: 'POST',
+      method,
       signal,
       headers: {
         Accept: 'text/event-stream, application/json',
-        'Content-Type': 'application/json',
+        ...(method === 'POST' ? { 'Content-Type': 'application/json' } : {}),
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify(body ?? {}),
+      body: method === 'POST' ? JSON.stringify(body ?? {}) : undefined,
     });
   } catch {
     if (signal?.aborted) return;

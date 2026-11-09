@@ -38,7 +38,81 @@ final class FakeScripts {
         if (request.task() == Task.MISSION_INTERVIEW && props.equals(MISSION_DRAFT)) {
             return missionDraft(request, tag);
         }
+        if (request.task() == Task.LESSON_PLAN && props.equals(LESSON_PLAN)) {
+            return json(Map.of(
+                    "title", tag + "Your next small step",
+                    "skill", tag + "Do one small, concrete thing from your mission with confidence",
+                    "win", "You’ll be able to take one small, concrete step towards your mission and explain why it works.",
+                    "whyNow", tag + "It is the smallest useful step that builds on what you already know.",
+                    "knowledge", List.of(tag + "The one idea this step depends on", tag + "The most common mistake"),
+                    "practice", tag + "Describe how you would take the step, in your own words",
+                    "warmupFromLesson", 0));
+        }
+        if (request.task() == Task.LESSON_WRITE && props.equals(LESSON_DRAFT)) {
+            return lesson(request, tag);
+        }
         return null;
+    }
+
+    private static final Set<String> LESSON_PLAN = Set.of("title", "skill", "win", "whyNow", "knowledge", "practice", "warmupFromLesson");
+    private static final Set<String> LESSON_DRAFT = Set.of("title", "subtitle", "win", "blocks", "referenceSheet", "rubrics");
+
+    /**
+     * A lesson with every block type that passes the server's rules: options of equal length and word count,
+     * three hints and a rubric for the practice, a warm-up first (the server drops it from lesson 1), and
+     * citations only when the learner has added sources (r1 appears in the prompt).
+     */
+    private static String lesson(ProviderRequest request, String tag) {
+        String message = request.messages().isEmpty() ? "" : request.messages().getLast().content();
+        java.util.regex.Matcher title = java.util.regex.Pattern.compile("\"title\"\\s*:\\s*\"([^\"]+)\"").matcher(message);
+        boolean hasSource = request.system() != null && request.system().contains("\n- r1: ");
+        List<String> cite = hasSource ? List.of("r1") : List.of();
+        List<Map<String, Object>> blocks = new ArrayList<>();
+        blocks.add(block("w1", "QUIZ", "warmup", "Which idea from the last lesson matters most here?",
+                List.of("The first idea we practised", "The second idea we skipped", "The third idea we ignored"), 0,
+                "The first idea is the one this lesson builds on.", List.of()));
+        blocks.add(block("h1", "HEADING", "", "Where to begin", List.of(), -1, "", List.of()));
+        blocks.add(block("t1", "TEXT", "", tag + "Start with **one small step** you can repeat. Small steps are easy to "
+                + "practise and easy to check, so you get feedback quickly.\n\n- Pick the step\n- Try it once\n- Notice what happened",
+                List.of(), -1, "", cite));
+        blocks.add(block("k1", "KEY_IDEA", "", tag + "Small, repeated steps beat one big leap.", List.of(), -1, "", List.of()));
+        blocks.add(block("c1", "CALLOUT", "watch_out", tag + "Trying to do everything at once. Pick one step and stay with it.",
+                List.of(), -1, "", List.of()));
+        blocks.add(block("q1", "QUIZ", "check", "What is the best way to start?",
+                List.of("Practise it in small steps", "Read about it once more", "Skip it and hope for luck"), 0,
+                "Small steps give you quick feedback, which is how a skill sticks.", List.of()));
+        blocks.add(block("s1", "STEPS", "", "Try it today", List.of(tag + "Choose one small step", tag + "Do it three times",
+                tag + "Write down what changed"), -1, "", List.of()));
+        blocks.add(block("f1", "FREE_RESPONSE", "", tag + "In two or three sentences, describe the small step you’ll take and why it helps.",
+                List.of("Think about what you could do in ten minutes.", "Which part of your mission does it move forward?",
+                        "Name the step, then say what feedback it gives you."), -1, "", List.of()));
+        if (hasSource) {
+            blocks.add(block("p1", "PRIMARY_SOURCE", "", tag + "Read this before your next session.", List.of(), -1, "", List.of("r1")));
+        }
+        blocks.add(block("a1", "ASK_TUTOR", "", "", List.of("Why do small steps work better?", "What if my step is too easy?"), -1, "", List.of()));
+        return json(Map.of(
+                "title", title.find() ? title.group(1) : tag + "Your next small step",
+                "subtitle", tag + "Why the smallest useful step is the fastest way forward.",
+                "win", "You’ll be able to take one small, concrete step towards your mission and explain why it works.",
+                "blocks", blocks,
+                "referenceSheet", Map.of("title", "Small steps", "md", "- Pick **one** step\n- Repeat it\n- Check what changed"),
+                "rubrics", List.of(Map.of("blockId", "f1",
+                        "points", List.of("Names one concrete step", "Explains how it gives quick feedback"),
+                        "answerOutline", "A specific small action, plus why repeating it gives quick feedback."))));
+    }
+
+    private static Map<String, Object> block(String id, String type, String style, String text, List<String> items,
+                                             int answer, String explanation, List<String> refs) {
+        Map<String, Object> b = new java.util.LinkedHashMap<>();
+        b.put("id", id);
+        b.put("type", type);
+        b.put("style", style);
+        b.put("text", text);
+        b.put("items", items);
+        b.put("answer", answer);
+        b.put("explanation", explanation);
+        b.put("refs", refs);
+        return b;
     }
 
     /** The preface: an opening question, one follow-up, then the end-of-interview marker after two answers. */

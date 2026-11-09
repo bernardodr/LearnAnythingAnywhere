@@ -48,3 +48,55 @@ export type MissionState = {
 };
 
 export type ConfirmResponse = { path: string; version: number; content: string };
+
+// ---- Lessons (server: com.laa.lesson.LessonController) ----
+
+export type Source = { id: string; title: string; url: string | null; note: string };
+
+export type LessonSummary = { id: string; seq: number; title: string; subtitle: string; read: boolean };
+
+export type Contents = {
+  id: string;
+  title: string;
+  status: TextbookStatus;
+  missionHeadline: string | null;
+  missionWhy: string | null;
+  lessons: LessonSummary[];
+  /** The next lesson: written after lesson `writtenAfter` is finished; `jobId` while it's being written. */
+  next: { seq: number; writtenAfter: number; canWrite: boolean; jobId: string | null };
+  back: {
+    referenceSheets: { seq: number; lessonTitle: string; title: string; md: string }[];
+    glossary: string | null;
+    learned: { path: string; title: string; body: string }[];
+    sources: Source[];
+  };
+};
+
+export type Block =
+  | { id: string; type: 'heading'; text: string }
+  | { id: string; type: 'text'; md: string; citations: string[] }
+  | { id: string; type: 'key_idea'; text: string }
+  | { id: string; type: 'callout'; kind: 'win' | 'note' | 'watch_out'; text: string }
+  | { id: string; type: 'quiz'; variant: 'warmup' | 'check'; question: string; options: string[]; answer: number; explanation: string }
+  | { id: string; type: 'steps'; title: string; items: string[] }
+  | { id: string; type: 'free_response'; prompt: string; hintCount: number }
+  | { id: string; type: 'primary_source'; resource: string; note: string }
+  | { id: string; type: 'ask_tutor'; examples: string[] }
+  | { id: string; type: 'diagram'; source: string };
+
+export type Lesson = {
+  id: string;
+  seq: number;
+  kicker: string;
+  title: string;
+  subtitle: string;
+  win: string;
+  missionLink: string;
+  blocks: Block[];
+  referenceSheet: { title: string; md: string } | null;
+  sources: Source[];
+  readAt: string | null;
+  prev: number | null;
+  next: number | null;
+  total: number;
+};

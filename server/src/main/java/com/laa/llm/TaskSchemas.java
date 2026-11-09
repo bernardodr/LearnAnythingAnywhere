@@ -4,6 +4,8 @@ import java.util.EnumMap;
 import java.util.Map;
 import java.util.Optional;
 
+import com.laa.lesson.LessonDraft;
+import com.laa.lesson.LessonPlan;
 import com.laa.mission.MissionDraft;
 import com.laa.safety.TopicVerdict;
 import com.laa.tutor.GradeResult;
@@ -21,6 +23,8 @@ public final class TaskSchemas {
 
     static {
         TYPES.put(Task.MISSION_INTERVIEW, new Entry(MissionDraft.class, "draft")); // interview turns are streamed text
+        TYPES.put(Task.LESSON_PLAN, new Entry(LessonPlan.class, null));
+        TYPES.put(Task.LESSON_WRITE, new Entry(LessonDraft.class, null));
         TYPES.put(Task.GRADE, new Entry(GradeResult.class, null));
         TYPES.put(Task.SAFETY_CHECK, new Entry(TopicVerdict.class, "topic"));       // content moderation joins in M6
     }

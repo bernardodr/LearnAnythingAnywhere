@@ -120,12 +120,22 @@ public abstract class IntegrationTest {
         }
     }
 
+    /** {@code GET} a server-sent-events endpoint (job progress) and read it to the end. */
+    protected SseResp sseGet(String path, String token) {
+        return sse(HttpMethod.GET, path, token, null);
+    }
+
     protected SseResp sse(String path, String token, Object body) {
-        var spec = http.post().uri(path).header("Accept", "text/event-stream, application/json");
+        return sse(HttpMethod.POST, path, token, body);
+    }
+
+    private SseResp sse(HttpMethod method, String path, String token, Object body) {
+        var spec = http.method(method).uri(path).header("Accept", "text/event-stream, application/json");
         if (token != null) spec = spec.header("Authorization", "Bearer " + token);
         if (body != null) spec = spec.contentType(MediaType.APPLICATION_JSON).body(body);
-        ResponseEntity<String> res = spec.retrieve().onStatus(s -> true, (req, r) -> { }).toEntity(String.class);
-        String raw = res.getBody() == null ? "" : res.getBody();
+        // Event streams are always UTF-8 (SSE spec), whatever charset the header names, so decode the bytes as a real client does.
+        ResponseEntity<byte[]> res = spec.retrieve().onStatus(s -> true, (req, r) -> { }).toEntity(byte[].class);
+        String raw = res.getBody() == null ? "" : new String(res.getBody(), java.nio.charset.StandardCharsets.UTF_8);
         List<SseEvent> events = new ArrayList<>();
         boolean isStream = res.getHeaders().getContentType() != null
                 && res.getHeaders().getContentType().isCompatibleWith(MediaType.TEXT_EVENT_STREAM);

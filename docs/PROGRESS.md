@@ -7,8 +7,88 @@
 | M0 Scaffold | ✅ Done (2026-11-01) |
 | M1 LLM gateway, plus dev login and JWT | ✅ Done (2026-11-02) |
 | M2 Library and mission | ✅ Done (2026-11-09) |
-| M3 Lessons | Next, waiting for the go-ahead |
-| M4–M6 | Not started |
+| M3 Lessons | ✅ Done (2026-11-09) |
+| M4 Tutor | Next, waiting for the go-ahead |
+| M5–M6 | Not started |
+
+## M3: Lessons (done 2026-11-09)
+
+**Done**
+- **Migration `V5__lessons.sql`:** a `lessons` table:
+  - **Sent to the app:** blocks, reference sheet, title, subtitle, win and mission link.
+  - **Kept on the server only:** `rubrics` (rubric points, answer outline and the free-response hints) and the `plan` the lesson was written from.
+  - **Tracking:** `model_run_id` and `read_at`.
+  - Chat messages now link to lessons.
+- **Context assembly** (`workspace/TeachingContext`, BRIEF §6.1): mission, glossary, the 5 most recent learning records, notes and resources go into every lesson prompt. A file that doesn't exist yet is shown as an explicit "none yet".
+- **Writing a lesson** (`lesson/LessonWriter`):
+  - Load the context, then `LESSON_PLAN` picks one skill in the learner's zone of proximal development, tied to the mission.
+  - `LESSON_WRITE` writes the lesson and `LessonRules` checks it.
+  - If the check fails, the writer gets the problems listed and rewrites once. On that final attempt, quizzes that still break the rules are dropped, as long as the lesson still works without them. Otherwise nothing is saved.
+  - Provider outages and malformed output both end in a clear "nothing was saved" message.
+- **`LessonRules`** (BRIEF §7, enforced in code):
+  - **Quiz options:** 3–4 distinct options, with lengths within about 20% and word counts within one; no "all/none of the above"-style options. Options are shuffled and the answer index remapped.
+  - **Sources:** citations must point to an entry in `RESOURCES.md`; any others are dropped. A primary-source block whose resource doesn't exist is dropped too.
+  - **Required parts:** every lesson needs a "check yourself" quiz and a free-response practice with a rubric. From lesson 2 on, it must open with a warm-up; lesson 1's warm-ups are dropped.
+  - Block ids are renumbered `b1…bn`.
+- **Model format vs app format:** the model writes every block in one compact eight-field shape, because strict structured-output modes require every field. The server converts it into the BRIEF §7 lesson JSON for the app.
+- **Jobs** (`job/Jobs`): writing a lesson runs as a job, and `GET /jobs/{id}/events` streams `progress` → `done` / `error`.
+  - **Replay:** every event is kept, so a late or returning subscriber gets the whole history.
+  - **One per textbook:** asking again returns the running job.
+  - **Memory only** (prototype).
+- **API:**
+  - `POST /textbooks/{id}/lessons/next` (202 plus a job id; 409 until the mission is confirmed and the last lesson is read).
+  - `GET /textbooks/{id}/contents`: lessons, the next lesson, and the back of the book.
+  - `GET /textbooks/{id}/lessons/{seq}`: no rubrics or hints, plus the learner's sources and previous/next.
+  - `POST /lessons/{id}/read`.
+  - `POST /textbooks/{id}/resources`: the learner adds a source to `RESOURCES.md`, in /teach format, numbered r1, r2, …
+- **Prompts:** `lesson_plan.v1.md` and `lesson_write.v1.md`, ported from /teach and following the structure and tone of the example lessons. Lessons may cite only the learner's own sources; with none, they cite nothing.
+- **Fake provider:** writes a lesson containing every block type, which passes the rules, and cites `r1` once a source exists.
+- **App:**
+  - **Contents page (screen 4):**
+    - The mission epigraph, and numbered lessons with dotted leaders marked "Read" or "Read next".
+    - The next lesson shows "Written after lesson n", or "Being written now" with live progress, and lesson 1 is written automatically after the mission is confirmed.
+    - "Continue reading".
+    - The back of the book: A reference sheets (expandable), B glossary, C what you've learned, D sources (with "Add a source").
+  - **Lesson page (screen 5):**
+    - Kicker, title, subtitle, "Your win today" and the mission link.
+    - Every block type: warm-up, "Check yourself" quizzes with instant feedback, key idea, a watch-out callout, steps, practice, primary source with citations, and "Stuck or curious?". Quizzes count only the first try.
+    - The cheat sheet, "I’ve finished this lesson" and previous/next.
+  - **Rendering:** a small Markdown renderer for the subset lessons use.
+- **Navigation fix:** "‹ Contents" and finishing a lesson now return to the contents page already open (`router.dismissTo`). Before, they stacked a second copy, which showed up as a stale page when going back.
+
+**Verified**
+- `./mvnw test`: **65 tests, 0 failures** (49 earlier, 16 new).
+  - `LessonRulesTest` (6): conversion and shuffling with a correct answer index, warm-up rules, the quiz rules, dropping broken quizzes on the last attempt, structural problems, and unknown sources.
+  - `ResourcesTest` (4): the /teach example file, appending, and web-address checks.
+  - `LessonApiTest` (6):
+    - The full two-lesson flow, including rubrics and hints never being sent and metering.
+    - A late subscriber gets the job replayed, and another learner gets a 404.
+    - A rewrite drops a broken quiz.
+    - A lesson failing twice is not saved.
+    - A provider outage.
+    - Ownership and state checks.
+- `npm run typecheck` and `npx expo lint` are clean, and the web, iOS and Android bundles build.
+- **Live, in a browser:** headless Chrome ran the exported web app against a copy of the new server:
+  - sign in, the interview, "Write my textbook";
+  - lesson 1 written on its own, with progress shown;
+  - quiz feedback, with the other options locked;
+  - the cheat sheet;
+  - "I’ve finished this lesson", then "Write lesson 2";
+  - adding a source;
+  - lesson 2 with a warm-up, citation [1] and the primary source.
+  
+  No console errors.
+- **Not yet verified:**
+  - **Real lesson writing:** a real provider writing a lesson (no working keys yet), so how often real models pass the quiz rules first time is unknown.
+  - **Phone:** Expo Go on a phone.
+
+**Left / known gaps (M3)**
+- **Practice and tutor:** "Send to your tutor", the hint ladder and tutor chat come in M4. The practice box and "Stuck or curious?" show what's coming.
+- **Moderation:** generated blocks aren't moderated yet (M6).
+- **Diagrams:** the `diagram` block type isn't generated; the app shows its source as text if one ever arrives. Drawing it would need Mermaid (a new dependency, web only).
+- **Jobs:** they're held in memory, so a server restart loses a lesson mid-write. Nothing is saved early, so the learner just presses "Write lesson n" again.
+- **Sources:** no research tool (a stretch goal), so sources are only those the learner adds. Their addresses aren't checked.
+- **Pacing:** lessons can't be rewritten or deleted yet, and the next lesson waits until the last one is finished, as a deliberate pacing rule.
 
 ## M2: Library and mission (done 2026-11-09)
 
@@ -200,4 +280,11 @@
 | 2026-11-09 | `MissionDraft` adds a `headline`, stored in `textbooks.mission_headline`, not in `MISSION.md` | The shelf shows a one-line mission under each cover (BRIEF screen 2), and `MISSION.md` keeps the exact /teach format. |
 | 2026-11-09 | An answer and its reply are saved together, only once the reply finishes. After the draft appears, the chat closes and edits happen on the card. | A failed turn leaves nothing half-saved, so retrying means sending the same answer again. |
 | 2026-11-09 | Spring Security allows `ASYNC` dispatches | A server-sent-events response finishes on an async dispatch of a request that was already authorised. Without this, security rejects it after the response has started. |
+| 2026-11-09 | `LESSON_WRITE` returns one compact block shape (`type`, `style`, `text`, `items`, `answer`, `explanation`, `refs`), which the server converts into the BRIEF §7 lesson JSON | Strict structured-output modes require every field, so per-type field names would make the model fill every other type's fields too. The app still gets the BRIEF §7 shape. |
+| 2026-11-09 | **Free-response hints stay on the server**, and the block sends `hintCount` instead of `hints` (a change from the BRIEF §7 example) | The hint ladder (M4) serves them one at a time through `POST …/hint`. Sending all three up front would let a learner read the strongest hint first. Easy to reverse if wanted. |
+| 2026-11-09 | Quiz rules: lengths within `max(3, 20% of the longest)` characters and word counts within 1. After one rewrite, rule-breaking quizzes are dropped if the lesson still works without them. | That's BRIEF §7's "about 20%" with some slack for very short options. Dropping a quiz beats failing the whole lesson after two attempts. |
+| 2026-11-09 | Lesson n+1 can be written only after lesson n is finished. Lesson 1 is written automatically after the mission is confirmed. | /teach plans each lesson from evidence of the last one, and BRIEF screen 4 shows "Written after lesson n". |
+| 2026-11-09 | Lesson-writing jobs are held in memory with replayable events | Prototype. Nothing is saved before a lesson passes its checks, so a lost job costs one retry. |
+| 2026-11-09 | Learners can add sources (`POST /textbooks/{id}/resources`), in /teach format | BRIEF §6.3: without a research tool, `RESOURCES.md` holds only what the learner adds. This is the only way citations and primary sources can appear. |
+| 2026-11-09 | A small in-house Markdown renderer, not a package | Lessons use a small subset (the prompt sets it), so no dependency is needed. |
 | 2026-11-09 | Researched "Sign in with ChatGPT" (user request): see `docs/research/sign-in-with-chatgpt.md` | It exists, but only for selected partners via a waitlist, so it's not available to LAA now. Dev sign-in stays, and a real auth provider is out of scope for the prototype (BRIEF §2). |
