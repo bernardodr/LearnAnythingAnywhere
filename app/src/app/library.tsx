@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Redirect, router } from 'expo-router';
-import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { Cover } from '@/components/Cover';
 import { Button, Kicker, Note, Page } from '@/components/ui';
@@ -38,8 +38,13 @@ export default function Library() {
     <Page>
       <View style={styles.header}>
         <Kicker>Learn Anything Anywhere</Kicker>
-        <Button label="Sign out" variant="quiet" onPress={() => void signOut().then(() => router.replace('/'))}
-          accessibilityLabel={`Sign out ${user.email}`} />
+        <View style={styles.headerActions}>
+          {user.role === 'OWNER' && Platform.OS === 'web' ? (
+            <Button label="Owner console" variant="quiet" onPress={() => router.push('/owner')} />
+          ) : null}
+          <Button label="Sign out" variant="quiet" onPress={() => void signOut().then(() => router.replace('/'))}
+            accessibilityLabel={`Sign out ${user.email}`} />
+        </View>
       </View>
       <Text style={styles.title} accessibilityRole="header">
         Your shelf
@@ -99,6 +104,7 @@ function chunk<T>(items: T[], size: number): T[][] {
 
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  headerActions: { flexDirection: 'row', alignItems: 'center' },
   title: { ...type.h1, marginTop: 8, marginBottom: 24 },
   emptyShelf: {
     height: 120,

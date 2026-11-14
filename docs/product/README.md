@@ -12,7 +12,7 @@ LAA works in a web browser and on phones and tablets. Your textbooks are kept fo
 
 - **Learners** of any age who want to learn a skill, a subject or a hobby: bouldering, sourdough, chess, Spanish for a trip, a programming language.
 - **Parents**, who will be able to set up safe, age-appropriate learning for their children. Parent controls arrive in a later release.
-- **The people who run LAA**, who choose which AI service writes the lessons. Their console arrives in a later release.
+- **The people who run LAA**, who choose which AI service does each job, in the [owner console](guide/07-the-owner-console.md).
 
 ## The guide
 
@@ -26,6 +26,7 @@ Read it in order the first time; afterwards, jump to what you need.
 | 4 | [Reading a lesson](guide/04-reading-a-lesson.md) | The parts of a lesson, quizzes, cheat sheets, finishing a lesson |
 | 5 | [Practice and your tutor](guide/05-practice-and-your-tutor.md) | Practice questions, the tutor's note, hints, chatting with your tutor, what you've learned |
 | 6 | [Good to know](guide/06-good-to-know.md) | Practice mode, when something goes wrong, what's coming next |
+| 7 | [The owner console](guide/07-the-owner-console.md) | For the people who run LAA: choosing AI services, routing, comparing, the run log |
 
 ## The ideas behind LAA
 

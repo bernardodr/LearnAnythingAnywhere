@@ -3,6 +3,8 @@ package com.laa.owner;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -12,6 +14,8 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import com.laa.lesson.LessonDraft;
+import com.laa.lesson.LessonRules;
 import com.laa.llm.GenerationProfile;
 import com.laa.llm.ModelInfo;
 import com.laa.llm.ModelTier;
@@ -30,6 +34,7 @@ import com.laa.owner.OwnerViews.CompareRequest;
 import com.laa.owner.OwnerViews.CompareResponse;
 import com.laa.owner.OwnerViews.CompareSide;
 import com.laa.owner.OwnerViews.RouteSpec;
+import com.laa.safety.ReadingAge;
 import com.laa.web.ApiException;
 
 import tools.jackson.databind.json.JsonMapper;
@@ -42,7 +47,7 @@ import tools.jackson.databind.json.JsonMapper;
 @Service
 public class CompareService {
 
-    private static final List<String> NOT_YET = List.of("quizRules (M3)", "readingAge (M3)", "moderation (M6)");
+    private static final List<String> NOT_YET = List.of("moderation (M6)");
 
     private final DefaultLlmGateway gateway;
     private final ModelRouter router;
@@ -88,12 +93,22 @@ public class CompareService {
     }
 
     private CompareSide side(Resolved r, Outcome<?> o, Class<?> type) {
-        Boolean schemaValid = type == null ? null : o.ok();
+        // Only an output can have the wrong shape: a call that failed outright has no verdict.
+        Boolean schemaValid = type == null ? null : o.ok() ? Boolean.TRUE
+                : o.errorKind() == com.laa.llm.provider.ErrorKind.INVALID_OUTPUT ? Boolean.FALSE : null;
         List<String> schemaErrors = type == null ? List.of() : o.validationErrors();
-        Object parsed = o.value() == null || type == null ? null : json.valueToTree(o.value());
+        tools.jackson.databind.JsonNode parsed = o.value() == null || type == null ? null : json.valueToTree(o.value());
+        List<String> quizRules = o.value() instanceof LessonDraft draft ? quizRuleProblems(draft) : null;
+        Double readingAge = parsed != null ? ReadingAge.ofJson(parsed) : o.ok() ? ReadingAge.of(o.raw()) : null;
         return new CompareSide(r.spec().provider(), r.model().id(), o.ok(), o.raw(), parsed, o.errorKind(), o.message(),
                 o.latencyMs(), o.tokensIn(), o.tokensOut(), o.costEstimate(), o.runId(),
-                new CompareChecks(schemaValid, schemaErrors, NOT_YET));
+                new CompareChecks(schemaValid, schemaErrors, quizRules, readingAge, NOT_YET));
+    }
+
+    /** The lesson rules a stored lesson must pass, as if it were lesson 2 with no sources (warm-up required). */
+    private static List<String> quizRuleProblems(LessonDraft draft) {
+        return LessonRules.apply(draft, 2, Set.of(), new Random(0), false).problems().stream()
+                .map(LessonRules.Problem::message).toList();
     }
 
     private record Resolved(RouteSpec spec, ModelInfo model, Map<String, Object> params, String promptVersion) {}

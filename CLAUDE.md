@@ -19,6 +19,7 @@ app/      Expo (React Native + web), Expo Router; screens in app/src/app/, token
   src/lib/        api.ts (fetch + ApiError), session.tsx (token: SecureStore / localStorage), sse.ts (streamed POST), types.ts
   src/components/ ui.tsx (Page, Button, Field, Note, Ornament, goBack), Cover, MissionCard, LessonBlocks, Markdown,
                   Tutor (practice + tutor's note + hints, tutor chat)
+                  Owner (owner console panels; the screen is src/app/owner.tsx, web only)
 server/   Spring Boot 4 + Spring AI 2, Java 21, Maven wrapper; package com.laa
   llm/      gateway (DefaultLlmGateway), routing/ (ModelRouter, capability checks), provider/ (adapters + fake/),
             prompt/, structured/ (schema validation), runs/ (model_runs)
@@ -67,5 +68,6 @@ dev.sh    one-command dev start
 - **Postgres port:** this machine runs Postgres.app on 5432, so the local `.env` sets `POSTGRES_PORT=5433` and `DATABASE_URL` to match. `docker-compose.yml` reads `POSTGRES_PORT`.
 - **App:** before touching an Expo API, read `app/AGENTS.md`. Expo changes between SDKs, so check the versioned docs.
 - **App data:** server state lives in TanStack Query. A streamed turn updates the cache with `setQueryData`, never a copied `useState` (lint rejects setState in effects). Links use typed routes (`{ pathname: '/textbooks/[id]', params }`). Screens wait for `useSession().ready`, then `<Redirect href="/" />` when signed out. To return to a screen that's already open (the contents page), use `router.dismissTo`, not `replace`, which stacks a second copy; a screen returned to this way keeps its old data, so refetch in `useFocusEffect`. Components that seed `useState` from query data get a `key` from that data, so fresh data remounts them. Subscriptions (SSE) live in a `useEffect` with state set only in callbacks, and abort in the cleanup.
+- **Dropdowns:** use `Select` from `ui.tsx` (no native picker package). Wide working screens use `<Page wide>`.
 - **UI:** use the design tokens in `app/src/theme.ts` (BRIEF §9). Contrast must be at least 4.5:1, touch targets at least 44px, every input needs a label, and icon-only buttons need an `accessibilityLabel`. Use typographic apostrophes (’) in JSX text, because lint rejects plain `'`.
 - **Expo Go on a phone:** set `EXPO_PUBLIC_API_URL` in `.env` to the laptop's LAN IP, because `localhost` on the phone means the phone. Native apps skip CORS. `CORS_ALLOWED_ORIGINS` only matters for the web app (default `http://localhost:8081`).

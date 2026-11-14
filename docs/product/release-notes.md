@@ -6,6 +6,21 @@ What's new in each release of Learn Anything Anywhere, newest first. Each featur
 
 ---
 
+## 0.5: The owner console
+*14 November 2026*
+
+The people who run LAA now have a console of their own: choose which AI service does each job, add backups, try services side by side before switching, and see every request with its cost.
+
+### New
+
+- **AI services at a glance.** A card for each service, showing whether it's ready, which models it has, and how many jobs it's doing. Make one the default, or turn it off. [AI services →](guide/07-the-owner-console.md#ai-services)
+- **Routing.** Choose the service and model size for each job (lesson writing, tutor chat, grading and the rest), plus backups to try if it fails. Choices a job can't use are refused, with the reason. [Routing →](guide/07-the-owner-console.md#routing-who-does-which-job)
+- **Compare before switching.** Run the same request through two services side by side, with automatic checks: right shape, fair quizzes and complete lessons, and how easy the writing is to read. Then switch with one tap. [Compare →](guide/07-the-owner-console.md#compare-before-switching)
+- **Run log.** Every request with its status, timing and rough cost, filtered by job or service. [Run log →](guide/07-the-owner-console.md#run-log)
+- **"Practice mode"** is now the name for the stand-in services, everywhere.
+
+---
+
 ## 0.4: Your tutor
 *14 November 2026*
 

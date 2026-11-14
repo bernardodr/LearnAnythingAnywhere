@@ -65,3 +65,7 @@ export function apiGet<T>(path: string, token?: string | null): Promise<T> {
 export function apiPost<T>(path: string, body?: unknown, token?: string | null): Promise<T> {
   return api<T>('POST', path, { token, body });
 }
+
+export function apiPatch<T>(path: string, body: unknown, token?: string | null): Promise<T> {
+  return api<T>('PATCH', path, { token, body });
+}

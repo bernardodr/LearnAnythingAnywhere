@@ -76,6 +76,7 @@ export default function TitlePage() {
               key={r}
               accessibilityRole="radio"
               accessibilityState={{ checked: role === r }}
+              aria-checked={role === r}
               accessibilityLabel={r === 'LEARNER' ? 'A learner' : 'A parent'}
               onPress={() => setRole(r)}
               style={[styles.role, role === r && styles.roleOn]}>

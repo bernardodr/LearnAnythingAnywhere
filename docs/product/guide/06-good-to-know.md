@@ -1,12 +1,12 @@
 # 6. Good to know
 
-[← Practice and your tutor](05-practice-and-your-tutor.md) · [Guide home](../README.md)
+[← Practice and your tutor](05-practice-and-your-tutor.md) · [Guide home](../README.md) · Next: [The owner console →](07-the-owner-console.md)
 
 ## Practice mode: text that starts with "[FAKE]"
 
 LAA can run in **practice mode**, without a real AI service. It's used for trying LAA out and for testing. In practice mode, everything still works (interviews, lessons, quizzes, the tutor), but the writing is a simple stand-in rather than real teaching, and much of it starts with **[FAKE]**.
 
-If you see [FAKE], you're in practice mode. Whoever runs your copy of LAA can switch it to a real AI service.
+If you see [FAKE], you're in practice mode. Whoever runs your copy of LAA can switch it to a real AI service in the [owner console](07-the-owner-console.md).
 
 ## When something goes wrong
 
@@ -31,6 +31,5 @@ Nothing half-finished is ever saved: an answer is kept together with the reply t
   - whether the answer can be shown after a few tries;
   - a parent PIN.
 - **Safety checks on everything** LAA writes and on what learners type.
-- **An owner console** for the people who run LAA: choosing which AI service writes each part, seeing what it costs, and comparing services before switching.
 
 See the [release notes](../release-notes.md) for what each release added.

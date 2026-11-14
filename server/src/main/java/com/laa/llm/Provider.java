@@ -6,8 +6,8 @@ public enum Provider {
     GOOGLE("Google Gemini"),
     ANTHROPIC("Anthropic Claude"),
     OLLAMA("Ollama (local)"),
-    FAKE("Fake"),
-    FAKE_B("Fake B");
+    FAKE("Practice mode"),
+    FAKE_B("Practice mode B");
 
     private final String label;
 

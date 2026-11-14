@@ -119,6 +119,44 @@ class OwnerApiTest extends IntegrationTest {
         assertThat(incapable.raw()).contains("tool calling");
     }
 
+    @Test
+    void compareChecksLessonQuizRulesAndReadingAge() {
+        String owner = ownerToken();
+        Resp r = post("/owner/compare", owner, Map.of(
+                "task", "LESSON_WRITE",
+                "input", Map.of("message", "Write lesson 2 from this plan: {\"title\": \"Small steps\"}"),
+                "a", Map.of("provider", "FAKE"),
+                "b", Map.of("provider", "FAKE_B")));
+        ok(r);
+        for (String side : List.of("a", "b")) {
+            JsonNode checks = r.body().get(side).get("checks");
+            assertThat(checks.get("schemaValid").asBoolean()).isTrue();
+            assertThat(checks.get("quizRules").size()).as("the fake lesson passes the rules").isZero();
+            assertThat(checks.get("readingAge").asDouble()).isBetween(5.0, 25.0);
+            assertThat(checks.get("notYetAvailable").toString()).contains("moderation").doesNotContain("quizRules");
+        }
+
+        // A lesson that breaks the rules is flagged, not hidden.
+        fakes.setCanned(Task.LESSON_WRITE, """
+                {"title": "T", "subtitle": "S", "win": "W", "referenceSheet": {"title": "R", "md": "- r"}, "rubrics": [],
+                 "blocks": [
+                   {"id": "h", "type": "HEADING", "style": "", "text": "Start", "items": [], "answer": -1, "explanation": "", "refs": []},
+                   {"id": "t", "type": "TEXT", "style": "", "text": "Text.", "items": [], "answer": -1, "explanation": "", "refs": []},
+                   {"id": "k", "type": "KEY_IDEA", "style": "", "text": "Idea.", "items": [], "answer": -1, "explanation": "", "refs": []},
+                   {"id": "q", "type": "QUIZ", "style": "check", "text": "Which?", "items": ["Yes", "No", "All of the above"], "answer": 0, "explanation": "E", "refs": []},
+                   {"id": "c", "type": "CALLOUT", "style": "note", "text": "Note.", "items": [], "answer": -1, "explanation": "", "refs": []}
+                 ]}""");
+        Resp broken = post("/owner/compare", owner, Map.of("task", "LESSON_WRITE", "input", Map.of("message", "x"),
+                "a", Map.of("provider", "FAKE"), "b", Map.of("provider", "FAKE_B")));
+        assertThat(broken.body().get("a").get("checks").get("quizRules").toString())
+                .contains("aren't allowed").contains("FREE_RESPONSE").contains("warm-up");
+
+        // Tasks without lessons don't get a quiz-rules verdict.
+        Resp grade = post("/owner/compare", owner, Map.of("task", "GRADE", "input", Map.of("message", "x"),
+                "a", Map.of("provider", "FAKE"), "b", Map.of("provider", "FAKE_B")));
+        assertThat(grade.body().get("a").get("checks").get("quizRules").isNull()).isTrue();
+    }
+
     private static JsonNode provider(JsonNode list, String id) {
         return list.valueStream().filter(n -> n.get("id").asString().equals(id)).findFirst().orElseThrow();
     }

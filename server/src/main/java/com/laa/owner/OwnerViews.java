@@ -52,7 +52,13 @@ final class OwnerViews {
 
     record CompareRequest(Task task, CompareInput input, RouteSpec a, RouteSpec b) {}
 
-    record CompareChecks(Boolean schemaValid, List<String> schemaErrors, List<String> notYetAvailable) {}
+    /**
+     * Compare's automatic checks (BRIEF section 5.4). {@code quizRules}: problems found by the lesson quiz rules
+     * (LESSON_WRITE only; null when not applicable, empty when they pass). {@code readingAge}: estimated reading age
+     * of the output's prose (null when there's too little). {@code moderation}: arrives with the safety layer (M6).
+     */
+    record CompareChecks(Boolean schemaValid, List<String> schemaErrors, List<String> quizRules, Double readingAge,
+                         List<String> notYetAvailable) {}
 
     record CompareSide(
             Provider provider,

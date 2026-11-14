@@ -131,3 +131,92 @@ export type Lesson = {
   next: number | null;
   total: number;
 };
+
+// ---- Owner console (server: com.laa.owner) ----
+
+export type ProviderId = 'OPENAI' | 'GOOGLE' | 'ANTHROPIC' | 'OLLAMA' | 'FAKE' | 'FAKE_B';
+export type TaskId =
+  | 'MISSION_INTERVIEW'
+  | 'RESEARCH'
+  | 'LESSON_PLAN'
+  | 'LESSON_WRITE'
+  | 'TUTOR'
+  | 'GRADE'
+  | 'RECORD_UPDATE'
+  | 'SAFETY_CHECK';
+export type Tier = 'LARGE' | 'SMALL';
+
+export type ModelView = {
+  id: string;
+  label: string;
+  tier: Tier;
+  inputPerMTok: number | null;
+  outputPerMTok: number | null;
+};
+
+export type ProviderView = {
+  id: ProviderId;
+  label: string;
+  configured: boolean;
+  enabled: boolean;
+  isDefault: boolean;
+  usable: boolean;
+  unavailableReason: string | null;
+  tasksServed: number;
+  models: ModelView[];
+};
+
+export type RouteView = {
+  task: TaskId;
+  providerChoice: 'DEFAULT' | ProviderId;
+  resolvedProvider: ProviderId | null;
+  modelTier: Tier;
+  modelId: string | null;
+  resolvedModel: string | null;
+  params: Record<string, unknown>;
+  promptVersion: string;
+  fallbacks: ProviderId[];
+  trafficSplit: Record<string, unknown> | null;
+  problems: string[];
+};
+
+export type RunView = {
+  id: string;
+  task: TaskId;
+  provider: ProviderId;
+  model: string;
+  origin: string;
+  attempt: number;
+  tokensIn: number | null;
+  tokensOut: number | null;
+  costEstimate: number | null;
+  latencyMs: number;
+  status: 'OK' | 'FALLBACK' | 'ERROR' | 'BLOCKED';
+  errorKind: string | null;
+  errorMessage: string | null;
+  createdAt: string;
+};
+
+export type CompareSide = {
+  provider: ProviderId;
+  model: string;
+  ok: boolean;
+  output: string | null;
+  parsed: unknown;
+  errorKind: string | null;
+  error: string | null;
+  latencyMs: number;
+  tokensIn: number | null;
+  tokensOut: number | null;
+  costEstimate: number | null;
+  checks: {
+    schemaValid: boolean | null;
+    schemaErrors: string[];
+    quizRules: string[] | null;
+    readingAge: number | null;
+    moderation?: { passed: boolean; flags: string[] } | null;
+    notYetAvailable: string[];
+  };
+};
+
+export type CompareResult = { task: TaskId; mode: string; a: CompareSide; b: CompareSide };

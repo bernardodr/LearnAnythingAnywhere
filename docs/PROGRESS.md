@@ -9,8 +9,46 @@
 | M2 Library and mission | ✅ Done (2026-11-09) |
 | M3 Lessons | ✅ Done (2026-11-09) |
 | M4 Tutor | ✅ Done (2026-11-14) |
-| M5 Owner console | Next, waiting for the go-ahead |
-| M6 Safety and settings | Not started |
+| M5 Owner console | ✅ Done (2026-11-14) |
+| M6 Safety and settings | In progress |
+
+## M5: Owner console (done 2026-11-14)
+
+**Done**
+- **Screen 8, `/owner`** (web only, OWNER only), wired to the M1 owner API:
+  - **Service cards:** status (Default / Ready / Not set up / Turned off), models with tier, and tasks served, with *Make default* and *Turn off/on*.
+  - **Default service:** a selector.
+  - **Routing table:** per task, the service (*Default* or a specific one), the model (Large / Small / a specific model), fallbacks as ordered toggles, traffic, and the reasons whenever the server refuses a change.
+  - **Compare before switching:** task, request, service and size for A and B, side-by-side results with checks, and *Use A/B for this task*.
+  - **Run log:** filtered by task and service, with status, timing, tokens, cost and a running total.
+- **Compare checks (BRIEF §5.4):**
+  - **Quiz rules:** `LessonRules` run on `LESSON_WRITE` output, as for lesson 2 with no sources.
+  - **Reading age:** Flesch–Kincaid grade plus 5 (`safety/ReadingAge`), over prose or the strings of a structured result.
+  - **Shape check:** a call that fails outright now has no shape verdict, rather than "wrong shape".
+  - Moderation follows in M6.
+- **App:** a `Select` dropdown and a wide `Page` in `ui.tsx`, and an *Owner console* link on the shelf for owners on web.
+- **Owner-facing names:** the stand-in providers are called *Practice mode* / *Practice mode B*, matching the product docs.
+
+**Verified**
+- `./mvnw test`: **84 tests, 0 failures** (`ReadingAgeTest` 3, plus compare checks in `OwnerApiTest`).
+- **Browser:** headless Chrome ran the console against a fresh test database:
+  - signing in as owner and opening the console from the shelf;
+  - *Make default*;
+  - routing lesson writing to a service with a fallback;
+  - a capability refusal shown with its reason;
+  - compare with all three checks, then *Use B*;
+  - the run log.
+  
+  No console errors.
+- **Bugs found and fixed:**
+  1. *Use B* failed when B was already that task's fallback. Switching now removes it from the fallbacks.
+  2. Compare defaulted to the first two services. It now defaults to the current default against another one.
+  3. Fallback toggles didn't expose a checked state to screen readers. They now set `aria-checked`, as does the Learner/Parent choice at sign-in.
+
+**Left / known gaps (M5)**
+- **Traffic splits:** shown but not editable, and not applied by the router (a stretch item since M1).
+- **Run log:** shows the latest 50 matching requests, without paging.
+- **Prompt versions:** owners can't edit them in the console (the API supports it); there is only v1.
 
 ## M4: Tutor (done 2026-11-14)
 
