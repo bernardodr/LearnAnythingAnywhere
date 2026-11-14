@@ -43,8 +43,10 @@ public final class FakeProviderClient implements ProviderClient {
         if (request.outputSchema() != null) {
             boolean invalid = behaviour.consumeInvalidOnce(provider)
                     || behaviour.mode(provider) == FailureMode.INVALID_OUTPUT;
+            // A pinned reply answers only the calls that expect its shape (one task can have several, e.g. SAFETY_CHECK).
             String canned = behaviour.canned(request.task());
-            String scripted = canned != null ? canned : FakeScripts.structured(request, tag());
+            String scripted = canned != null && FakeScripts.sameShape(canned, request.outputSchema()) ? canned
+                    : FakeScripts.structured(request, tag());
             text = invalid ? "{\"unexpected\": \"this does not match the schema\"}"
                     : scripted != null ? scripted
                     : FakeJson.fromSchema(request.outputSchema(), provider.name());

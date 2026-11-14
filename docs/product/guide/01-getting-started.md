@@ -7,7 +7,7 @@
 When you open LAA you'll see the title page: *"A textbook for whatever you're curious about."*
 
 1. Type your **email** address.
-2. Under **I'm signing in as**, choose **Learner** (most people) or **Parent**.
+2. Under **I'm signing in as**, choose **Learner** (most people) or **Parent** (to set up learning for your children; see [Reader settings and parents](07-reader-settings.md#for-parents)). A child whose parent has added them signs in as a **Learner**, with the email their parent gave.
 3. Tap **Sign in**.
 
 There's no password yet. This early version of LAA signs you in with your email alone, so use your own email, and be aware that anyone who types it could open your shelf. Proper accounts will come in a later release.
@@ -21,6 +21,7 @@ After you sign in, you land on **Your shelf**: your library of textbooks.
 - Each textbook appears as a **cloth-bound cover** with its title and volume number (*Vol. I*, *Vol. II*, …).
 - Underneath, in italics, is your **mission**: the goal you set when you started it. Covers that say *Preface in progress* are textbooks whose opening interview you haven't finished yet.
 - Tap a cover to open it. An unfinished one takes you back to its interview; a finished one opens its contents page.
+- Tap **Settings** at the top to choose how your textbooks are written: reading level, what's left out, links and more. See [Reader settings and parents](07-reader-settings.md).
 
 ### When your shelf is empty
 

@@ -12,7 +12,7 @@ export class ApiError extends Error {
   }
 }
 
-type Options = { token?: string | null; body?: unknown; signal?: AbortSignal };
+type Options = { token?: string | null; body?: unknown; signal?: AbortSignal; headers?: Record<string, string> };
 
 /** Called on any 401 so the session can sign out (an expired or revoked token). */
 let onUnauthorized: (() => void) | null = null;
@@ -20,7 +20,7 @@ export function setUnauthorizedHandler(handler: (() => void) | null) {
   onUnauthorized = handler;
 }
 
-export async function api<T>(method: string, path: string, { token, body, signal }: Options = {}): Promise<T> {
+export async function api<T>(method: string, path: string, { token, body, signal, headers }: Options = {}): Promise<T> {
   let res: Response;
   try {
     res = await fetch(`${API_URL}${path}`, {
@@ -30,6 +30,7 @@ export async function api<T>(method: string, path: string, { token, body, signal
         Accept: 'application/json',
         ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...headers,
       },
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
@@ -68,4 +69,8 @@ export function apiPost<T>(path: string, body?: unknown, token?: string | null):
 
 export function apiPatch<T>(path: string, body: unknown, token?: string | null): Promise<T> {
   return api<T>('PATCH', path, { token, body });
+}
+
+export function apiPut<T>(path: string, body: unknown, token?: string | null, headers?: Record<string, string>): Promise<T> {
+  return api<T>('PUT', path, { token, body, headers });
 }

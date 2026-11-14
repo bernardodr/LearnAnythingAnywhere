@@ -19,6 +19,8 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import com.laa.auth.CurrentUser;
 import com.laa.llm.GenerationProfile;
+import com.laa.profile.Profiles;
+import com.laa.safety.Moderation;
 import com.laa.textbook.Textbook;
 import com.laa.textbook.TextbookRepository;
 import com.laa.web.ApiException;
@@ -31,13 +33,16 @@ import jakarta.validation.constraints.NotNull;
  * The preface (BRIEF section 10): {@code POST /textbooks/{id}/mission/messages} streams one interview turn as
  * server-sent events:
  * <ul>
- *   <li>{@code token} {@code {"text": "…"}}: part of the interviewer's reply, in order</li>
+ *   <li>{@code token} {@code {"text": "…"}}: part of the interviewer's reply, in order (for a child's profile, the
+ *       whole reply in one piece, once it has been checked)</li>
+ *   <li>{@code replace} {@code {"text": "…"}}: the safety check changed the reply after it streamed; show this instead</li>
  *   <li>{@code draft} {@link MissionDraft}: the interview is complete; show the mission card</li>
  *   <li>{@code draft_failed} {@code {"message": "…"}}: complete, but the draft needs a retry (POST …/mission/draft)</li>
  *   <li>{@code done} {@code {"messageId": "…", "interviewComplete": bool}}: the turn was saved</li>
  *   <li>{@code error} {@code {"message": "…"}}: nothing was saved; the learner can send the same answer again</li>
  * </ul>
- * Problems found before streaming starts (wrong state, empty answer) are ordinary JSON error responses.
+ * Problems found before streaming starts (wrong state, empty answer, an answer the safety check refuses) are ordinary
+ * JSON error responses.
  */
 @RestController
 @RequestMapping("/textbooks/{id}/mission")
@@ -56,12 +61,16 @@ class MissionController {
 
     private final TextbookRepository textbooks;
     private final MissionInterview interview;
+    private final Profiles profiles;
+    private final Moderation moderation;
     private final ExecutorService executor;
 
-    MissionController(TextbookRepository textbooks, MissionInterview interview,
+    MissionController(TextbookRepository textbooks, MissionInterview interview, Profiles profiles, Moderation moderation,
                       @Qualifier("llmExecutor") ExecutorService executor) {
         this.textbooks = textbooks;
         this.interview = interview;
+        this.profiles = profiles;
+        this.moderation = moderation;
         this.executor = executor;
     }
 
@@ -83,14 +92,23 @@ class MissionController {
         Textbook tb = textbooks.requireForUser(id, userId);
         String answer = request == null ? null : request.content();
         interview.checkTurn(tb, answer);
+        GenerationProfile profile = profiles.forUser(userId);
+        if (answer != null && !answer.isBlank()
+                && !moderation.checkText(answer, profile, Moderation.Kind.INPUT, userId, id).passed()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, Moderation.INPUT_REFUSED);
+        }
 
-        // Profiles are stored per learner from M6; until then everyone gets the adult defaults.
         return Sse.stream(executor, "Mission turn for textbook " + id,
                 "The interviewer couldn’t reply just now. Your answer wasn’t lost: send it again.",
-                sse -> interview.turn(tb, userId, answer, GenerationProfile.ADULT_DEFAULT, new MissionInterview.Events() {
+                sse -> interview.turn(tb, userId, answer, profile, new MissionInterview.Events() {
                     @Override
                     public void token(String text) {
                         sse.send("token", Map.of("text", text));
+                    }
+
+                    @Override
+                    public void replace(String text) {
+                        sse.send("replace", Map.of("text", text));
                     }
 
                     @Override
@@ -118,7 +136,7 @@ class MissionController {
         if (tb.status() != Textbook.Status.INTERVIEW) {
             throw new ApiException(HttpStatus.CONFLICT, "This textbook’s mission is already confirmed.");
         }
-        return interview.writeDraft(tb, userId, GenerationProfile.ADULT_DEFAULT);
+        return interview.writeDraft(tb, userId, profiles.forUser(userId));
     }
 
     /** "Write my textbook": the draft as shown (or as the learner edited it) becomes MISSION.md. */

@@ -20,7 +20,8 @@ const VERDICT: Record<Verdict, { label: string; fg: string; bg: string }> = {
 /**
  * Screen 6: practice and the tutor's note. The answer goes to the tutor, which grades it against a hidden rubric
  * and replies with what's covered, how many points are still to find (never what they are), and a coaching
- * message. Hints come one at a time; the answer is never handed over.
+ * message. Hints come one at a time. The answer is handed over only if the reader settings allow it: once every
+ * hint is used and after that many tries ("Reveal answer after 3 tries").
  */
 export function Practice({ blockId, prompt, initial, ctx }: { blockId: string; prompt: string; initial?: PracticeState; ctx: LessonContext }) {
   const queryClient = useQueryClient();
@@ -67,6 +68,9 @@ export function Practice({ blockId, prompt, initial, ctx }: { blockId: string; p
 
   const met = note?.verdict === 'MET';
   const hintsLeft = hints.length < hintCount;
+  const attempts = note?.attemptNo ?? initial?.attempts ?? 0;
+  const revealAfter = initial?.revealAfter ?? null;
+  const outOfHints = !hintsLeft && !met && !revealed;
   return (
     <View style={styles.gap}>
       <Text style={styles.h2} accessibilityRole="header">
@@ -144,7 +148,15 @@ export function Practice({ blockId, prompt, initial, ctx }: { blockId: string; p
           ))}
         </View>
       ) : null}
-      {!hintsLeft && !met && (exhausted || hints.length >= hintCount) && !revealed ? (
+      {outOfHints && revealAfter != null && attempts >= revealAfter ? (
+        <Button label="Show a strong answer" variant="secondary" onPress={hint} busy={busy === 'hint'} disabled={busy !== null}
+          style={styles.left} />
+      ) : outOfHints && revealAfter != null ? (
+        <Text style={styles.small}>
+          That’s every hint. After {revealAfter} tries you can see a strong answer; you’ve had {attempts}. Have another go, or ask
+          your tutor below.
+        </Text>
+      ) : outOfHints && (exhausted || hints.length >= hintCount) ? (
         <Text style={styles.small}>That’s every hint. Have another go, or ask your tutor below.</Text>
       ) : null}
       {revealed ? (
@@ -194,6 +206,10 @@ export function TutorChat({ examples, ctx }: { examples: string[]; ctx: LessonCo
           const d = data as Record<string, unknown>;
           if (event === 'token') {
             reply += String(d.text ?? '');
+            setStreaming(reply);
+          } else if (event === 'replace') {
+            // The safety check changed the reply after it streamed: show (and keep) the checked version.
+            reply = String(d.text ?? '');
             setStreaming(reply);
           } else if (event === 'done') {
             saved = true;

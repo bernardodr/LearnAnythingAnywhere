@@ -53,6 +53,9 @@ public abstract class IntegrationTest {
     @BeforeEach
     void resetGatewayState() {
         jdbc.sql("DELETE FROM textbooks").update(); // cascades to workspace files and chat
+        // Reader settings start fresh too (adult defaults on first use), so one test's settings never reach another's.
+        jdbc.sql("UPDATE users SET profile_id = NULL, pin_hash = NULL").update();
+        jdbc.sql("DELETE FROM generation_profiles").update();
         jdbc.sql("DELETE FROM model_runs").update();
         jdbc.sql("DELETE FROM model_routes").update();
         jdbc.sql("DELETE FROM providers").update();
@@ -62,8 +65,13 @@ public abstract class IntegrationTest {
     }
 
     protected Resp call(HttpMethod method, String path, String token, Object body) {
+        return call(method, path, token, body, Map.of());
+    }
+
+    protected Resp call(HttpMethod method, String path, String token, Object body, Map<String, String> headers) {
         var spec = http.method(method).uri(path);
         if (token != null) spec = spec.header("Authorization", "Bearer " + token);
+        for (var h : headers.entrySet()) spec = spec.header(h.getKey(), h.getValue());
         if (body != null) spec = spec.contentType(MediaType.APPLICATION_JSON).body(body);
         ResponseEntity<String> res = spec.retrieve().onStatus(s -> true, (req, r) -> { }).toEntity(String.class);
         String raw = res.getBody() == null ? "" : res.getBody();
@@ -91,6 +99,29 @@ public abstract class IntegrationTest {
         Resp r = post("/auth/dev-login", null, Map.of("email", email));
         assertThat(r.status()).as(r.raw()).isEqualTo(200);
         return r.body().get("token").asString();
+    }
+
+    /** Signs in as a parent (a new email each time) and adds a child; returns both tokens and the child's profile id. */
+    protected Family family(int childAge, boolean childSafe) {
+        String suffix = java.util.UUID.randomUUID().toString().substring(0, 8);
+        Resp p = post("/auth/dev-login", null, Map.of("email", "parent-" + suffix + "@test.dev", "role", "PARENT"));
+        assertThat(p.status()).as(p.raw()).isEqualTo(200);
+        String parent = p.body().get("token").asString();
+        String childEmail = "child-" + suffix + "@test.dev";
+        Resp c = post("/profiles/children", parent, Map.of("email", childEmail, "displayName", "Sam", "age", childAge,
+                "childSafe", childSafe));
+        assertThat(c.status()).as(c.raw()).isEqualTo(201);
+        return new Family(parent, login(childEmail), c.body().get("profile").get("id").asString());
+    }
+
+    protected record Family(String parent, String child, String childProfileId) {}
+
+    /**
+     * Routes SAFETY_CHECK to FAKE_B, so a test can make FAKE fail (an interviewer, grader or tutor outage) while the
+     * safety check that runs before it still answers.
+     */
+    protected void safetyCheckOnFakeB() {
+        ok(patch("/owner/routes/SAFETY_CHECK", ownerToken(), Map.of("providerChoice", "FAKE_B")));
     }
 
     protected String ownerToken() {

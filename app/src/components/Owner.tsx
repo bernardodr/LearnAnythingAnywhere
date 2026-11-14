@@ -361,7 +361,11 @@ function CompareColumn({ name, side, label, onUse }: { name: string; side: Compa
         {c.schemaValid != null ? <Check ok={c.schemaValid} text={c.schemaValid ? 'Right shape' : `Wrong shape: ${c.schemaErrors.join('; ')}`} /> : null}
         {c.quizRules != null ? <Check ok={c.quizRules.length === 0} text={c.quizRules.length === 0 ? 'Passes the lesson rules' : `Breaks the lesson rules: ${c.quizRules.join(' ')}`} /> : null}
         {c.readingAge != null ? <Check ok text={`Reads like it’s for age ${Math.round(c.readingAge)}`} /> : null}
-        {c.moderation ? <Check ok={c.moderation.passed} text={c.moderation.passed ? 'Passes the safety check' : `Flagged: ${c.moderation.flags.join(', ')}`} /> : null}
+        {c.moderation.passed != null ? (
+          <Check ok={c.moderation.passed} text={c.moderation.passed ? 'Passes the safety check' : `Blocked by the safety check: ${c.moderation.flags.join('; ')}`} />
+        ) : c.moderation.flags.length > 0 ? (
+          <Check ok={false} text={c.moderation.flags.join(' ')} />
+        ) : null}
       </View>
       <Text style={styles.output} selectable numberOfLines={24}>{pretty}</Text>
       {side.ok ? <Button label={`Use ${name} for this task`} variant="secondary" onPress={onUse} style={styles.useButton} /> : null}

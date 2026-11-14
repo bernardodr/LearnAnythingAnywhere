@@ -6,6 +6,33 @@ What's new in each release of Learn Anything Anywhere, newest first. Each featur
 
 ---
 
+## 0.6: Reader settings and safety
+*14 November 2026*
+
+Choose how your textbooks are written: the reading level, what's left out, whether links are allowed, and whether answers can ever be shown. Parents can add their children, set up their learning, and lock it with a PIN. And everything LAA writes, and everything typed into it, is now checked against those settings.
+
+### New
+
+- **Reader settings.** Tap **Settings** on your shelf: child-safe mode, an age setting that shows the reading level, *Leave out of lessons* switches plus your own topics to leave out, links (*Off*, *Allowlist* or *Open*), and *Reveal answer after 3 tries*. [Your settings →](guide/07-reader-settings.md#your-settings)
+- **Children's accounts.** Parents can add a child with their own shelf, sign-in email, age and child-safe mode, and manage their settings. Children can see their settings but not change them. [For parents →](guide/07-reader-settings.md#for-parents)
+- **Parent PIN lock.** Once set, changing a child's settings asks for the PIN. [The parent PIN lock →](guide/07-reader-settings.md#the-parent-pin-lock)
+- **See the answer, if your settings allow it.** With *Reveal answer after 3 tries* on, once every hint is used and you've tried three times, the next tap shows *A strong answer*. [Your settings →](guide/07-reader-settings.md#your-settings)
+- **Safety checks on everything.** Lessons, the tutor's replies and notes, and what you type are checked against the reader's settings. A lesson part that doesn't fit is rewritten or left out with a note; for children, the tutor's replies appear only once they've been checked. [How LAA keeps things safe →](guide/07-reader-settings.md#how-laa-keeps-things-safe)
+- **Links follow your settings** everywhere, including your sources at the back of the book.
+- **Owner console:** *Compare before switching* now includes the safety check. [Compare →](guide/08-the-owner-console.md#compare-before-switching)
+
+### Improved
+
+- Topics are now checked against the reader's settings too: a topic that touches on something left out is declined kindly, with ideas for something else.
+- If the safety check can't run for a moment, nothing is saved or shown, and you're asked to try again.
+
+### Good to know
+
+- New accounts start with links set to *Allowlist* (only links to sources you've added), and answers are never shown until you choose otherwise.
+- The guide's owner console page is now page 8; reader settings are page 7.
+
+---
+
 ## 0.5: The owner console
 *14 November 2026*
 
@@ -13,10 +40,10 @@ The people who run LAA now have a console of their own: choose which AI service 
 
 ### New
 
-- **AI services at a glance.** A card for each service, showing whether it's ready, which models it has, and how many jobs it's doing. Make one the default, or turn it off. [AI services →](guide/07-the-owner-console.md#ai-services)
-- **Routing.** Choose the service and model size for each job (lesson writing, tutor chat, grading and the rest), plus backups to try if it fails. Choices a job can't use are refused, with the reason. [Routing →](guide/07-the-owner-console.md#routing-who-does-which-job)
-- **Compare before switching.** Run the same request through two services side by side, with automatic checks: right shape, fair quizzes and complete lessons, and how easy the writing is to read. Then switch with one tap. [Compare →](guide/07-the-owner-console.md#compare-before-switching)
-- **Run log.** Every request with its status, timing and rough cost, filtered by job or service. [Run log →](guide/07-the-owner-console.md#run-log)
+- **AI services at a glance.** A card for each service, showing whether it's ready, which models it has, and how many jobs it's doing. Make one the default, or turn it off. [AI services →](guide/08-the-owner-console.md#ai-services)
+- **Routing.** Choose the service and model size for each job (lesson writing, tutor chat, grading and the rest), plus backups to try if it fails. Choices a job can't use are refused, with the reason. [Routing →](guide/08-the-owner-console.md#routing-who-does-which-job)
+- **Compare before switching.** Run the same request through two services side by side, with automatic checks: right shape, fair quizzes and complete lessons, and how easy the writing is to read. Then switch with one tap. [Compare →](guide/08-the-owner-console.md#compare-before-switching)
+- **Run log.** Every request with its status, timing and rough cost, filtered by job or service. [Run log →](guide/08-the-owner-console.md#run-log)
 - **"Practice mode"** is now the name for the stand-in services, everywhere.
 
 ---

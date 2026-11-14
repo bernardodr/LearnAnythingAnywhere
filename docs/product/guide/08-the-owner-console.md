@@ -1,6 +1,6 @@
-# 7. The owner console
+# 8. The owner console
 
-[← Good to know](06-good-to-know.md) · [Guide home](../README.md)
+[← Reader settings and parents](07-reader-settings.md) · [Guide home](../README.md)
 
 *For the people who run Learn Anything Anywhere.*
 
@@ -64,6 +64,7 @@ Each side shows what came back, how long it took, roughly what it cost, and auto
 - **Right shape:** the result is in the form LAA needs.
 - **Passes the lesson rules** (lesson writing): the quizzes are fair and the lesson has every part it should.
 - **Reads like it's for age *n*:** a rough guide to how hard the writing is to read.
+- **Passes the safety check:** LAA's own safety checks, as for an adult reader, found nothing to hold back. If something was blocked, the reasons are listed.
 
 Happy with one? Tap **Use A for this task** or **Use B for this task** to switch the job to it straight away.
 

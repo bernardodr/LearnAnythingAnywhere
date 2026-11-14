@@ -28,7 +28,8 @@ public final class TaskSchemas {
         TYPES.put(Task.LESSON_WRITE, new Entry(LessonDraft.class, null));
         TYPES.put(Task.GRADE, new Entry(GradeResult.class, null));
         TYPES.put(Task.RECORD_UPDATE, new Entry(RecordUpdate.class, null));
-        TYPES.put(Task.SAFETY_CHECK, new Entry(TopicVerdict.class, "topic"));       // content moderation joins in M6
+        // Compare runs the topic gate; the "content" and "leak" variants are run by the safety layer and the tutor.
+        TYPES.put(Task.SAFETY_CHECK, new Entry(TopicVerdict.class, "topic"));
     }
 
     private TaskSchemas() {}

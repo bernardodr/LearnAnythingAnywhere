@@ -42,6 +42,7 @@ export default function Library() {
           {user.role === 'OWNER' && Platform.OS === 'web' ? (
             <Button label="Owner console" variant="quiet" onPress={() => router.push('/owner')} />
           ) : null}
+          <Button label="Settings" variant="quiet" onPress={() => router.push('/settings')} accessibilityLabel="Reader settings" />
           <Button label="Sign out" variant="quiet" onPress={() => void signOut().then(() => router.replace('/'))}
             accessibilityLabel={`Sign out ${user.email}`} />
         </View>

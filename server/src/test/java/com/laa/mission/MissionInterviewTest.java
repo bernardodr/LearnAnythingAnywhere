@@ -135,6 +135,7 @@ class MissionInterviewTest extends IntegrationTest {
         String base = "/textbooks/" + id + "/mission";
         ok(sse(base + "/messages", learner, null));
 
+        safetyCheckOnFakeB();
         fakes.set(Provider.FAKE, FailureMode.SERVER_ERROR);
         SseResp failed = sse(base + "/messages", learner, Map.of("content", "To climb with friends."));
         assertThat(failed.status()).isEqualTo(200);
@@ -156,6 +157,7 @@ class MissionInterviewTest extends IntegrationTest {
         fakes.setCannedText(Task.MISSION_INTERVIEW, "Got it, thanks! " + MissionInterview.MARKER);
         ok(sse(base + "/messages", learner, null));
 
+        safetyCheckOnFakeB();
         fakes.set(Provider.FAKE, FailureMode.INVALID_OUTPUT); // streams still work; structured output doesn't validate
         SseResp turn = sse(base + "/messages", learner, Map.of("content", "I want to climb a V3."));
         assertThat(turn.named("draft_failed")).hasSize(1);

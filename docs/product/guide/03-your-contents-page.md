@@ -57,4 +57,6 @@ Books, articles, videos and websites you trust for this subject.
 2. Fill in its **Title** (for example *Book: The Self-Coached Climber*), its **Web address** (starting with `https://`) and, if you like, **What it's good for** (for example *Use for: footwork drills*).
 3. Tap **Add source**.
 
+If your [reader settings](07-reader-settings.md#your-settings) turn links **Off**, your sources are listed without their web addresses, and **Add a source** isn't available.
+
 From your next lesson on, LAA can point you to your sources: a small reference like *[1]* after a paragraph that draws on one, and a **Primary source** box suggesting the best one to read or watch.

@@ -10,7 +10,88 @@
 | M3 Lessons | ✅ Done (2026-11-09) |
 | M4 Tutor | ✅ Done (2026-11-14) |
 | M5 Owner console | ✅ Done (2026-11-14) |
-| M6 Safety and settings | In progress |
+| M6 Safety and settings | ✅ Done (2026-11-14) |
+
+## M6: Safety and settings (done 2026-11-14)
+
+**Done**
+- **Generation profiles** (`V7__profiles.sql`, `profile/`):
+  - One profile per learner: age (5–18, or adult), child-safe, filters (category keys plus free-text extras), links policy and reveal-after-attempts. `owner_user_id` is who manages it.
+  - Adults get `ADULT_DEFAULT` on first use (links ALLOWLIST, answers never revealed).
+  - A parent adds a child (`POST /profiles/children`), which creates a learner account under them. Ages under 13 exist only on children's profiles.
+  - A child can read their profile but not change it (403). A parent's PIN (BCrypt, `X-Parent-Pin`) is needed for every change once set.
+  - Another user's profile is a 404.
+  - Every textbook records the profile its topic was checked against (`textbooks.profile_id`).
+- **The safety layer (BRIEF §8):** LAA's own deterministic rules plus the `SAFETY_CHECK` classifier, and the stricter wins.
+  - **`SafetyRules`:**
+    - **Always declined:** intent to cause serious harm (making weapons or drugs, self-harm, sexual content involving minors, account hacking, forgery). It matches intent, not mentions.
+    - **Left out by the profile:** the `Category` word lists (all of them in child-safe mode), plus the extras.
+    - The word lists avoid common innocent lookalikes ("carbon dating", "naked eye", "bath bomb", "glue gun").
+  - **Topic gate:** `TopicGate.withRules` puts the rules on top of the classifier's verdict, and a left-out topic gets a kind decline naming the category.
+  - **`Moderation`:** checks a batch of items (the `content` prompt variant, items wrapped in `<item id>` tags). An item the classifier doesn't answer for doesn't pass. If the classifier can't run, it throws `Moderation.Unavailable`, so nothing unchecked is saved or sent (a 503, or an SSE `error`).
+  - **Lessons:**
+    - `LessonSafety` applies the links policy to every field.
+    - It moderates the header, each block (with its rubric and hints) and the reference sheet.
+    - A failing block goes back to the writer with the rule problems for one rewrite, then becomes a placeholder note.
+    - If the header or sheet still fails, or the placeholders break the lesson rules, nothing is saved (422).
+    - Held-back runs are logged `BLOCKED` with `safety_flags`.
+  - **Streamed replies** (`ReplyGuard`, interview and tutor chat):
+    - **Strict profiles** (child-safe or under 13): the reply is buffered and sent only after the check.
+    - **Everyone else:** it streams, then is checked, and a `replace` event swaps the text if the check or the links policy changed it.
+    - Only the checked text is stored.
+  - **Grading:** the coaching message is moderated after the leak guard; one that fails falls back to the next hint and is logged `BLOCKED`.
+  - **Input:** interview answers, practice answers and tutor-chat questions are checked before anything runs. A refused one is a plain 400 and nothing is stored.
+  - **Links policy (`LinkPolicy`):**
+    - **OFF** keeps the link text but drops the address.
+    - **ALLOWLIST** keeps only the learner's own source URLs.
+    - It's applied when lessons are written and again when they're shown (`applyAll` over lesson JSON, sheets, glossary, records), so a later change still holds.
+    - With OFF, sources are listed without URLs and can't be added (403).
+- **Compare** now runs moderation on each side (`checks.moderation`), as for an adult reader, and logs its runs as COMPARE.
+- **Reveal answer:**
+  - Practice state now carries `revealAfter`.
+  - The lesson page offers **Show a strong answer** once hints are used up and enough tries were made, and otherwise says how many tries are left.
+- **Practice provider:**
+  - It answers the content check with PASS for every item except text containing `[fake:block]` (`FakeBehaviour.BLOCK_MARKER`).
+  - A pinned reply (`setCanned`) now answers only calls expecting its shape, so pinning a leak verdict no longer feeds the content check.
+- **App (screen 7, `/settings`, linked as *Settings* from the shelf):**
+  - **Controls:** child-safe switch; an age stepper (an accessible *adjustable*, 13 to Adult for adults, 5 to 18 for children) with the reading level; "Leave out of lessons" switches plus extras; links (Off / Allowlist / Open) as radios; "Reveal answer after 3 tries".
+  - **Parents:** *Your children* (add a child, change each child's settings with the PIN) and the parent PIN lock.
+  - **Children:** a read-only summary.
+  - **Streaming:** the preface and the tutor chat handle `replace`.
+  - **Contrast:** a new `colors.control` token for switch tracks (3:1 on paper).
+- **Red team:**
+  - `server/src/test/resources/redteam-topics.txt` holds 16 risky topics.
+  - `RedTeamTest` runs them for a 9-year-old child-safe profile with the practice provider, whose topic classifier allows everything, so the test proves LAA's own layer holds.
+  - `scripts/redteam.sh` runs the same list against whatever `SAFETY_CHECK` is routed to.
+
+**Verified**
+- `./mvnw test`: **110 tests, 0 failures**. New:
+  - `SafetyRulesTest` 4, `LinkPolicyTest` 5, `ProfilesApiTest` 4, `RedTeamTest` 3, `ModerationApiTest` 8;
+  - the reveal test in `TutorApiTest`;
+  - the moderation check in `OwnerApiTest`.
+- `scripts/redteam.sh` against the practice provider: 16 of 16 declined.
+- **Browser:** headless Chrome ran against a fresh test database:
+  - a parent opens Settings;
+  - the age stepper stops at 13 for an adult;
+  - the parent adds Sam (9, child-safe) and sets a PIN;
+  - changing Sam's settings: Save is disabled without the PIN, a wrong PIN is refused, the right one saves;
+  - Sam sees read-only settings;
+  - **demo step 7:** "Sports betting for beginners" is kindly declined;
+  - an ordinary topic opens the preface with a checked reply;
+  - with reveal on, the lesson offers and shows a strong answer.
+
+  No console errors.
+- **Bugs found and fixed:**
+  1. The settings screen crashed on load: React Compiler read `me.data.id` from a memoised callback before the profile loaded.
+  2. "Saved" vanished at once, because saving refreshed the profile and remounted the form; the parent now holds it.
+  3. The app had no way to ask for the answer once the hints ran out.
+  4. The links filter collapsed every run of spaces (breaking nested Markdown lists) and swallowed the full stop after an address.
+
+**Left / known gaps (M6)**
+- **Real providers:** the red-team script and the moderation prompt haven't been run against a real provider yet. The Anthropic key in `.env` is rejected (401) and needs replacing.
+- **Not moderated:** learning records and glossary terms (`RECORD_UPDATE`, written in the background from the learner's own answer). The links policy is applied to them when they're shown.
+- **Fail-closed paths:** the leak guard's own "couldn't be checked" fallback is still there but now rarely reached, because moderation of the learner's answer fails closed first.
+- **Profile ownership:** the profile used is the learner's current one, not the one recorded on the textbook (they're the same row today).
 
 ## M5: Owner console (done 2026-11-14)
 
@@ -407,4 +488,12 @@
 | 2026-11-14 | The tutor **chat** never sees rubrics or hints; only the grader does, and the leak guard watches the grader | Streaming chat can't be checked before it's shown without losing the streaming. Not giving it the hidden answer prevents leaks by construction. |
 | 2026-11-14 | Evidence (`RECORD_UPDATE`) runs in the background, once per met block | The tutor's note shouldn't wait several seconds for record-keeping. The contents page refreshes when it comes back into view. |
 | 2026-11-14 | **Product documentation** in `docs/product/` (user guide plus release notes), updated with every new feature (user request) | So the product can be understood, and each release read, without technical knowledge. |
+| 2026-11-14 | **LAA's own safety rules run alongside the classifier, and the stricter verdict wins.** The rules match harmful *intent* for everyone, and word lists for categories a profile leaves out. | BRIEF §8: "switching provider never turns it off". The red-team test passes with a classifier that allows everything. |
+| 2026-11-14 | Moderation **fails closed by refusing the action** (503 / SSE `error`) rather than showing a placeholder | Nothing unchecked is saved or shown, and the learner can simply retry; a placeholder would store a broken turn. |
+| 2026-11-14 | Streamed replies are **buffered for child profiles** (child-safe or under 13) and **streamed then replaced** for everyone else | BRIEF §8 says replies are checked "before they're saved or sent". For children, nothing unchecked is shown. For adults, streaming stays, and the checked text is what's kept. |
+| 2026-11-14 | A lesson block that fails moderation is rewritten once, then replaced by a **placeholder note**. If the title or reference sheet fails, the lesson isn't saved. | BRIEF §8: "regenerated once, then replaced with a safe placeholder and logged". A lesson can't stand without its title or sheet. |
+| 2026-11-14 | New adults get links **ALLOWLIST** (was OFF); children get **OFF** | With OFF, adults couldn't add or see their own sources, which M3 relies on. ALLOWLIST still keeps out every link the learner didn't add. |
+| 2026-11-14 | The links policy is applied **when shown** as well as when written | A parent who turns links off later expects it to hold on lessons already written. |
+| 2026-11-14 | The parent PIN is a 4–8 digit code stored as a BCrypt hash, sent per request in `X-Parent-Pin` | BRIEF §8's "parent PIN stub". It's per change, so there's no unlocked session to forget. `spring-security-crypto` was already a dependency. |
+| 2026-11-14 | No new app packages: React Native's `Switch`, and an *adjustable* stepper for the age "slider" | The brief names no slider package. The stepper is accessible (screen-reader increment and decrement) and has 44px targets. |
 | 2026-11-09 | Researched "Sign in with ChatGPT" (user request): see `docs/research/sign-in-with-chatgpt.md` | It exists, but only for selected partners via a waitlist, so it's not available to LAA now. Dev sign-in stays, and a real auth provider is out of scope for the prototype (BRIEF §2). |

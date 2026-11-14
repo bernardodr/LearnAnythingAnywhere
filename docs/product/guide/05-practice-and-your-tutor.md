@@ -38,8 +38,9 @@ A few seconds later, the **Tutor's note** appears under your answer.
 - Tap **Revise answer** to jump back to your answer. Change it, then tap **Send your revised answer**. You can try as many times as you like.
 - **Need a nudge?** After your first answer, a **Hint 1 of 3** button appears in the tutor's note. Hints come one at a time, from gentle to more direct, so you only take as much help as you need. They stay on the page, so you can reread them.
 - Once you've used all three hints, try again with what they've told you, or ask your tutor in the chat below the lesson.
+- **Seeing the answer.** Normally your tutor never shows it. If your [reader settings](07-reader-settings.md#your-settings) have **Reveal answer after 3 tries** on, then once you've used every hint and tried three times, tapping for another hint shows **A strong answer** instead.
 
-Sometimes, instead of a message, the note shows **Hint *n* of 3**. That means the tutor's own reply would have given too much away, so you get the next prepared hint instead.
+Sometimes, instead of a message, the note shows **Hint *n* of 3**. That means the tutor's own reply would have given too much away, or didn't fit your reader settings, so you get the next prepared hint instead.
 
 ## When you get it
 

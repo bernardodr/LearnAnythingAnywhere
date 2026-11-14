@@ -133,7 +133,8 @@ class OwnerApiTest extends IntegrationTest {
             assertThat(checks.get("schemaValid").asBoolean()).isTrue();
             assertThat(checks.get("quizRules").size()).as("the fake lesson passes the rules").isZero();
             assertThat(checks.get("readingAge").asDouble()).isBetween(5.0, 25.0);
-            assertThat(checks.get("notYetAvailable").toString()).contains("moderation").doesNotContain("quizRules");
+            assertThat(checks.get("moderation").get("passed").asBoolean()).as("the fake lesson passes moderation").isTrue();
+            assertThat(checks.get("moderation").get("flags").size()).isZero();
         }
 
         // A lesson that breaks the rules is flagged, not hidden.

@@ -21,6 +21,8 @@ import com.laa.auth.CurrentUser;
 import com.laa.lesson.LessonRepository;
 import com.laa.lesson.LessonRepository.Lesson;
 import com.laa.llm.GenerationProfile;
+import com.laa.profile.Profiles;
+import com.laa.safety.Moderation;
 import com.laa.textbook.Textbook;
 import com.laa.textbook.TextbookRepository;
 import com.laa.web.ApiException;
@@ -32,7 +34,8 @@ import com.laa.web.Sse;
  *   <li>{@code POST /lessons/{id}/blocks/{blockId}/attempts}: grade a free-response answer; returns the tutor's note</li>
  *   <li>{@code POST /lessons/{id}/blocks/{blockId}/hint}: the next hint on the ladder</li>
  *   <li>{@code POST /textbooks/{id}/tutor/messages}: one tutor-chat turn about lesson {@code lessonSeq}, streamed
- *       ({@code token} events, then {@code done}, or {@code error})</li>
+ *       ({@code token} events, a {@code replace} if the safety check changed the reply, then {@code done}, or
+ *       {@code error}). A question the safety check refuses is a plain 400 before streaming starts.</li>
  *   <li>{@code GET /textbooks/{id}/tutor/messages?lessonSeq=n}: that lesson's chat so far</li>
  * </ul>
  */
@@ -49,18 +52,20 @@ class TutorController {
     private final LessonRepository lessons;
     private final Practice practice;
     private final TutorChat chat;
+    private final Profiles profiles;
+    private final Moderation moderation;
     private final ExecutorService executor;
 
-    TutorController(TextbookRepository textbooks, LessonRepository lessons, Practice practice, TutorChat chat,
-                    @Qualifier("llmExecutor") ExecutorService executor) {
+    TutorController(TextbookRepository textbooks, LessonRepository lessons, Practice practice, TutorChat chat, Profiles profiles,
+                    Moderation moderation, @Qualifier("llmExecutor") ExecutorService executor) {
         this.textbooks = textbooks;
         this.lessons = lessons;
         this.practice = practice;
         this.chat = chat;
+        this.profiles = profiles;
+        this.moderation = moderation;
         this.executor = executor;
     }
-
-    // Profiles are stored per learner from M6; until then everyone gets the adult defaults (answers never revealed).
 
     @PostMapping("/lessons/{lessonId}/blocks/{blockId}/attempts")
     Practice.Note attempt(@PathVariable UUID lessonId, @PathVariable String blockId, @RequestBody(required = false) AttemptRequest request,
@@ -68,13 +73,13 @@ class TutorController {
         UUID userId = CurrentUser.id(jwt);
         Lesson lesson = lesson(lessonId, userId);
         Textbook tb = textbooks.requireForUser(lesson.textbookId(), userId);
-        return practice.attempt(tb, lesson, blockId, userId, request == null ? null : request.answer(), GenerationProfile.ADULT_DEFAULT);
+        return practice.attempt(tb, lesson, blockId, userId, request == null ? null : request.answer(), profiles.forUser(userId));
     }
 
     @PostMapping("/lessons/{lessonId}/blocks/{blockId}/hint")
     Practice.HintView hint(@PathVariable UUID lessonId, @PathVariable String blockId, @AuthenticationPrincipal Jwt jwt) {
         UUID userId = CurrentUser.id(jwt);
-        return practice.hint(lesson(lessonId, userId), blockId, userId, GenerationProfile.ADULT_DEFAULT);
+        return practice.hint(lesson(lessonId, userId), blockId, userId, profiles.forUser(userId));
     }
 
     @GetMapping("/textbooks/{id}/tutor/messages")
@@ -91,12 +96,21 @@ class TutorController {
         if (request == null || request.lessonSeq() == null) throw new ApiException(HttpStatus.BAD_REQUEST, "lessonSeq is required");
         Lesson lesson = lessonBySeq(tb, request.lessonSeq());
         chat.check(tb, request.content());
+        GenerationProfile profile = profiles.forUser(userId);
+        if (!moderation.checkText(request.content(), profile, Moderation.Kind.INPUT, userId, id).passed()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, Moderation.INPUT_REFUSED);
+        }
         return Sse.stream(executor, "Tutor chat for textbook " + id,
                 "Your tutor couldn’t reply just now. Your question wasn’t lost: send it again.",
-                sse -> chat.turn(tb, lesson, userId, request.content(), GenerationProfile.ADULT_DEFAULT, new TutorChat.Events() {
+                sse -> chat.turn(tb, lesson, userId, request.content(), profile, new TutorChat.Events() {
                     @Override
                     public void token(String text) {
                         sse.send("token", Map.of("text", text));
+                    }
+
+                    @Override
+                    public void replace(String text) {
+                        sse.send("replace", Map.of("text", text));
                     }
 
                     @Override

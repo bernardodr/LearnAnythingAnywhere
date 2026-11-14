@@ -126,16 +126,21 @@ public class DefaultLlmGateway implements LlmGateway {
 
     @Override
     public Flux<String> stream(Task task, PromptContext ctx, GenerationProfile profile) {
+        return stream(task, ctx, profile, id -> { });
+    }
+
+    @Override
+    public Flux<String> stream(Task task, PromptContext ctx, GenerationProfile profile, java.util.function.Consumer<UUID> onRun) {
         return Flux.defer(() -> {
             RoutingSnapshot snapshot = router.snapshot();
             Route route = snapshot.resolve(task);
             Call call = new Call(task, route, systemPrompt(task, route.promptVersion(), ctx, profile), messages(ctx),
                     ctx.userId(), ctx.textbookId(), ctx.origin());
-            return streamFrom(call, chain(snapshot, route), 0, new ArrayList<>());
+            return streamFrom(call, chain(snapshot, route), 0, new ArrayList<>(), onRun);
         });
     }
 
-    private Flux<String> streamFrom(Call call, List<Step> chain, int index, List<String> failures) {
+    private Flux<String> streamFrom(Call call, List<Step> chain, int index, List<String> failures, java.util.function.Consumer<UUID> onRun) {
         if (index >= chain.size()) {
             return Flux.error(new LlmUnavailableException(
                     call.task() + ": no provider answered. " + String.join("; ", failures)));
@@ -143,7 +148,7 @@ public class DefaultLlmGateway implements LlmGateway {
         Step step = chain.get(index);
         if (step.unusableReason() != null) {
             failures.add(step.unusableReason());
-            return streamFrom(call, chain, index + 1, failures);
+            return streamFrom(call, chain, index + 1, failures, onRun);
         }
         return Flux.defer(() -> {
             long started = System.nanoTime();
@@ -157,8 +162,8 @@ public class DefaultLlmGateway implements LlmGateway {
 
             Runnable onComplete = () -> {
                 if (recorded.compareAndSet(false, true)) {
-                    record(call, step, index > 0 ? RunStatus.FALLBACK : RunStatus.OK, null, null,
-                            tokensIn.get(), tokensOut.get(), started);
+                    onRun.accept(record(call, step, index > 0 ? RunStatus.FALLBACK : RunStatus.OK, null, null,
+                            tokensIn.get(), tokensOut.get(), started));
                 }
             };
             // Some adapters do blocking work when the stream is subscribed; do that on a virtual thread so the
@@ -191,7 +196,7 @@ public class DefaultLlmGateway implements LlmGateway {
                         log.warn("{} stream via {} failed: {} {}", call.task(), step.provider(), kind, message);
                         if (!emitted.get()) {
                             failures.add(step.provider() + " " + kind + ": " + message);
-                            return streamFrom(call, chain, index + 1, failures);
+                            return streamFrom(call, chain, index + 1, failures, onRun);
                         }
                         return Flux.error(new LlmUnavailableException(
                                 call.task() + ": " + step.provider() + " failed mid-stream (" + kind + ")"));

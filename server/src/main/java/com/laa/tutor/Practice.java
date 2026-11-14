@@ -25,6 +25,7 @@ import com.laa.llm.PromptContext;
 import com.laa.llm.StructuredOutputException;
 import com.laa.llm.Task;
 import com.laa.llm.runs.Origin;
+import com.laa.safety.Moderation;
 import com.laa.security.SecretRedactor;
 import com.laa.textbook.Textbook;
 import com.laa.tutor.GradeResult.CoachingMove;
@@ -51,6 +52,11 @@ import com.laa.workspace.WorkspaceFiles.WorkspaceFile;
  * regeneration with the reason; if that leaks too, the learner gets the next pre-written hint instead. If the
  * classifier can't run, the guard fails closed and uses the hint.
  *
+ * <p><b>Safety</b> (BRIEF section 8). The learner's answer is checked before it's graded; one the check refuses isn't
+ * graded or stored. The coaching message is checked against the learner's profile before it's shown; one that
+ * doesn't pass is logged as BLOCKED and the learner gets the next pre-written hint instead (hints were checked with
+ * the lesson).
+ *
  * <p><b>Evidence.</b> The first time a block is met, RECORD_UPDATE runs in the background and may write a learning
  * record and glossary terms in the /teach formats. Covering material alone never does.
  */
@@ -60,6 +66,7 @@ public class Practice {
     private static final Logger log = LoggerFactory.getLogger(Practice.class);
     public static final int MAX_ANSWER_CHARS = 4_000;
     static final String LEAK_VARIANT = "leak";
+    private static final String MET_FALLBACK = "Well done: your answer covers everything this question asks for.";
     private static final String NO_HINT_LEFT =
             "You’re on the right track. Look again at what the question asks, and add the part your answer doesn’t cover yet.";
 
@@ -74,14 +81,16 @@ public class Practice {
     private final TeachingContext teaching;
     private final WorkspaceFiles workspace;
     private final ExecutorService executor;
+    private final Moderation moderation;
 
     Practice(LlmGateway gateway, PracticeRepository practice, TeachingContext teaching, WorkspaceFiles workspace,
-             @Qualifier("llmExecutor") ExecutorService executor) {
+             @Qualifier("llmExecutor") ExecutorService executor, Moderation moderation) {
         this.gateway = gateway;
         this.practice = practice;
         this.teaching = teaching;
         this.workspace = workspace;
         this.executor = executor;
+        this.moderation = moderation;
     }
 
     // ------------------------------------------------------------------ grading
@@ -93,6 +102,9 @@ public class Practice {
         if (answer.isEmpty()) throw new ApiException(HttpStatus.BAD_REQUEST, "Write an answer first.");
         if (answer.length() > MAX_ANSWER_CHARS) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Please keep answers under " + MAX_ANSWER_CHARS + " characters.");
+        }
+        if (!moderation.checkText(answer, profile, Moderation.Kind.INPUT, userId, tb.id()).passed()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, Moderation.INPUT_REFUSED);
         }
 
         Map<String, String> points = pointIds(marking);
@@ -123,14 +135,23 @@ public class Practice {
                     Optional<String> again = leakCheck(graded.message(), secrets(points, graded.missing(), marking), answer, block, tb, userId);
                     guardLog.put("secondCheck", again.orElse("clean"));
                     if (again.isPresent()) {
-                        int revealed = practice.revealHint(lesson.id(), blockId, userId, marking.hints().size());
-                        boolean newHint = revealed > progress.hintsRevealed();
-                        hintNo = newHint ? revealed : null;
-                        String text = newHint ? marking.hints().get(revealed - 1) : NO_HINT_LEFT;
-                        graded = new Graded(graded.verdict(), graded.covered(), graded.missing(), CoachingMove.HINT, text, graded.runId());
-                        guardLog.put("fellBackTo", newHint ? "hint " + revealed : "generic nudge");
+                        Fallback f = fallBack(lesson, blockId, userId, marking, progress, graded);
+                        graded = f.graded();
+                        hintNo = f.hintNo();
+                        guardLog.put("fellBackTo", f.what());
                     }
                 }
+            }
+        }
+        if (!guardLog.containsKey("fellBackTo")) { // the message is the grader's own words, not a pre-written hint
+            Moderation.Result check = moderation.checkText(graded.message(), profile, Moderation.Kind.OUTPUT, userId, tb.id());
+            if (!check.passed()) {
+                moderation.markBlocked(graded.runId(), check.flags());
+                Fallback f = fallBack(lesson, blockId, userId, marking, progress, graded);
+                graded = f.graded();
+                hintNo = f.hintNo();
+                guardLog.put("safety", "blocked");
+                guardLog.put("fellBackTo", f.what());
             }
         }
 
@@ -156,6 +177,21 @@ public class Practice {
 
     private record Graded(Verdict verdict, List<String> covered, List<String> missing, CoachingMove coachingMove,
                           String message, UUID runId) {}
+
+    private record Fallback(Graded graded, Integer hintNo, String what) {}
+
+    /** The coaching message can't be shown: the next pre-written hint replaces it (or a general nudge, if none is left). */
+    private Fallback fallBack(Lesson lesson, String blockId, UUID userId, Marking marking, Progress progress, Graded graded) {
+        if (graded.verdict() == Verdict.MET) {
+            return new Fallback(new Graded(graded.verdict(), graded.covered(), graded.missing(), CoachingMove.CONFIRM,
+                    MET_FALLBACK, graded.runId()), null, "standard well done");
+        }
+        int revealed = practice.revealHint(lesson.id(), blockId, userId, marking.hints().size());
+        boolean newHint = revealed > progress.hintsRevealed();
+        String text = newHint ? marking.hints().get(revealed - 1) : NO_HINT_LEFT;
+        return new Fallback(new Graded(graded.verdict(), graded.covered(), graded.missing(), CoachingMove.HINT, text, graded.runId()),
+                newHint ? revealed : null, newHint ? "hint " + revealed : "generic nudge");
+    }
 
     private Graded grade(Map<String, String> vars, String learnerMessage, String correction, Map<String, String> points,
                          Textbook tb, UUID userId, GenerationProfile profile) {
@@ -230,7 +266,8 @@ public class Practice {
     }
 
     /** What the lesson page needs to restore a practice block: revealed hints, the latest note, met. */
-    public Map<String, Object> state(Lesson lesson, String blockId, UUID userId) {
+    /** {@code revealAfter}: the learner's reveal-after-attempts setting (null = never), so the page can offer the answer. */
+    public Map<String, Object> state(Lesson lesson, String blockId, UUID userId, Integer revealAfter) {
         Marking marking = lesson.marking().get(blockId);
         Progress progress = practice.progress(lesson.id(), blockId, userId);
         List<Attempt> attempts = practice.attempts(lesson.id(), blockId, userId);
@@ -241,6 +278,7 @@ public class Practice {
         s.put("met", progress.metAt() != null);
         s.put("evidence", progress.evidencePath());
         s.put("attempts", attempts.size());
+        s.put("revealAfter", revealAfter);
         if (!attempts.isEmpty()) {
             Attempt last = attempts.getLast();
             Map<String, Object> note = new LinkedHashMap<>(last.feedback());

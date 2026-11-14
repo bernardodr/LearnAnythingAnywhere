@@ -57,6 +57,9 @@ final class FakeScripts {
         if (request.task() == Task.SAFETY_CHECK && props.equals(LEAK_VERDICT)) {
             return json(Map.of("leaks", false, "reason", ""));
         }
+        if (request.task() == Task.SAFETY_CHECK && props.equals(MODERATION_VERDICT)) {
+            return moderation(request);
+        }
         if (request.task() == Task.RECORD_UPDATE && props.equals(RECORD_UPDATE)) {
             return json(Map.of(
                     "writeRecord", true,
@@ -72,6 +75,24 @@ final class FakeScripts {
 
     private static final Set<String> GRADE_RESULT = Set.of("verdict", "coveredPoints", "missingPoints", "coachingMove", "message");
     private static final Set<String> LEAK_VERDICT = Set.of("leaks", "reason");
+    private static final Set<String> MODERATION_VERDICT = Set.of("items");
+
+    /**
+     * Content moderation: every item ({@code <item id="…">…</item>}) passes, except one containing
+     * {@link FakeBehaviour#BLOCK_MARKER}.
+     * LAA's own deterministic rules run as well, so the fake still declines what they catch.
+     */
+    private static String moderation(ProviderRequest request) {
+        String message = request.messages().isEmpty() ? "" : request.messages().getLast().content();
+        List<Map<String, Object>> items = new ArrayList<>();
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(?s)<item id=\"([^\"]+)\">(.*?)</item>").matcher(message);
+        while (m.find()) {
+            boolean block = m.group(2).contains(FakeBehaviour.BLOCK_MARKER);
+            items.add(Map.of("id", m.group(1), "verdict", block ? "BLOCK" : "PASS",
+                    "categories", block ? List.of("scary_content") : List.of(), "reason", block ? "test block" : ""));
+        }
+        return json(Map.of("items", items));
+    }
     private static final Set<String> RECORD_UPDATE = Set.of("writeRecord", "slug", "title", "body", "evidence", "glossary");
 
     /**
@@ -180,6 +201,15 @@ final class FakeScripts {
                 "successLooksLike", List.of(tag + clip(second, 180)),
                 "constraints", List.of(),
                 "outOfScope", List.of()));
+    }
+
+    /** Whether a JSON object has exactly the schema's top-level properties. */
+    static boolean sameShape(String json, String schemaJson) {
+        Set<String> keys = new HashSet<>();
+        JsonNode node = MAPPER.readTree(json);
+        if (!node.isObject()) return false;
+        node.propertyNames().forEach(keys::add);
+        return keys.equals(propertyNames(schemaJson));
     }
 
     private static Set<String> propertyNames(String schemaJson) {

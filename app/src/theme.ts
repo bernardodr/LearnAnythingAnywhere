@@ -4,6 +4,8 @@ export const colors = {
   ink: '#1F1B16',
   muted: '#5E574D',
   rule: '#E6DFD0',
+  /** Controls drawn on paper (a switch's track when off): at least 3:1 against paper. */
+  control: '#8C8273',
   accent: '#9B2C1F',
   noteFill: '#F2EEE4',
   ribbon: '#C9962B',

@@ -68,7 +68,10 @@ export type Contents = {
     referenceSheets: { seq: number; lessonTitle: string; title: string; md: string }[];
     glossary: string | null;
     learned: { path: string; title: string; body: string }[];
+    /** With links off, sources come without their addresses. */
     sources: Source[];
+    /** The reader settings turn links off: sources can't be added. */
+    linksOff: boolean;
   };
 };
 
@@ -110,6 +113,8 @@ export type PracticeState = {
   met: boolean;
   evidence: string | null;
   attempts: number;
+  /** The reader settings' "reveal answer after n tries"; null = never. */
+  revealAfter: number | null;
   lastAnswer?: string;
   note?: TutorNote;
 };
@@ -214,9 +219,40 @@ export type CompareSide = {
     schemaErrors: string[];
     quizRules: string[] | null;
     readingAge: number | null;
-    moderation?: { passed: boolean; flags: string[] } | null;
-    notYetAvailable: string[];
+    /** `passed` null: no output to check, or the check couldn't run. */
+    moderation: { passed: boolean | null; flags: string[] };
   };
 };
 
 export type CompareResult = { task: TaskId; mode: string; a: CompareSide; b: CompareSide };
+
+// ---- Reader settings (server: com.laa.profile.Profiles) ----
+
+export type LinksPolicy = 'OFF' | 'ALLOWLIST' | 'OPEN';
+
+export type CategoryOption = { key: string; label: string };
+
+export type Profile = {
+  id: string;
+  userId: string;
+  /** null = adult. */
+  age: number | null;
+  readingLevel: string;
+  childSafe: boolean;
+  /** Category keys left out of lessons. */
+  categories: string[];
+  /** Extra topics to leave out, in the reader's words. */
+  extras: string[];
+  linksPolicy: LinksPolicy;
+  /** null = never reveal the answer. */
+  revealAfterAttempts: number | null;
+  managedByParent: boolean;
+  canEdit: boolean;
+  allCategories: CategoryOption[];
+};
+
+export type ProfileSettings = Pick<Profile, 'age' | 'childSafe' | 'categories' | 'extras' | 'linksPolicy' | 'revealAfterAttempts'>;
+
+export type Child = { userId: string; email: string; displayName: string | null; profile: Profile | null };
+
+export type ParentState = { pinSet: boolean; children: Child[] };

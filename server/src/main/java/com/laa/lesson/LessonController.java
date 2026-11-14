@@ -4,7 +4,10 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,7 +24,10 @@ import com.laa.job.Jobs;
 import com.laa.lesson.LessonDraft.ReferenceSheet;
 import com.laa.lesson.LessonRepository.Lesson;
 import com.laa.llm.GenerationProfile;
+import com.laa.llm.GenerationProfile.LinksPolicy;
 import com.laa.mission.MissionDraft;
+import com.laa.profile.Profiles;
+import com.laa.safety.LinkPolicy;
 import com.laa.textbook.Textbook;
 import com.laa.textbook.TextbookRepository;
 import com.laa.tutor.Practice;
@@ -44,6 +50,8 @@ import jakarta.validation.constraints.Size;
  *   <li>{@code POST /lessons/{id}/read}: the learner finished it, which unlocks the next one</li>
  *   <li>{@code POST /textbooks/{id}/resources}: the learner adds a source to RESOURCES.md</li>
  * </ul>
+ * The learner's links policy (BRIEF section 8) is applied to what's shown, as well as when a lesson is written, so a
+ * policy changed later still holds. With links off, sources are listed without their addresses and none can be added.
  */
 @RestController
 class LessonController {
@@ -59,7 +67,9 @@ class LessonController {
 
     record RecordView(String path, String title, String body) {}
 
-    record BackOfBook(List<SheetView> referenceSheets, String glossary, List<RecordView> learned, List<Resource> sources) {}
+    /** {@code linksOff}: the reader settings turn links off, so sources have no addresses and can't be added. */
+    record BackOfBook(List<SheetView> referenceSheets, String glossary, List<RecordView> learned, List<Resource> sources,
+                      boolean linksOff) {}
 
     record ContentsView(String id, String title, Textbook.Status status, String missionHeadline, String missionWhy,
                         List<LessonSummary> lessons, NextLesson next, BackOfBook back) {}
@@ -78,15 +88,17 @@ class LessonController {
     private final WorkspaceFiles workspace;
     private final Jobs jobs;
     private final Practice practice;
+    private final Profiles profiles;
 
     LessonController(TextbookRepository textbooks, LessonRepository lessons, LessonWriter writer, WorkspaceFiles workspace,
-                     Jobs jobs, Practice practice) {
+                     Jobs jobs, Practice practice, Profiles profiles) {
         this.textbooks = textbooks;
         this.lessons = lessons;
         this.writer = writer;
         this.workspace = workspace;
         this.jobs = jobs;
         this.practice = practice;
+        this.profiles = profiles;
     }
 
     @PostMapping("/textbooks/{id}/lessons/next")
@@ -103,14 +115,16 @@ class LessonController {
             throw new ApiException(HttpStatus.CONFLICT,
                     "Finish lesson " + written.getLast().seq() + " first: the next lesson is written from how it went.");
         }
-        // Profiles are stored per learner from M6; until then everyone gets the adult defaults.
-        UUID jobId = jobs.start(userId, tb.id(), progress -> writer.writeNext(tb, userId, GenerationProfile.ADULT_DEFAULT, progress));
+        GenerationProfile profile = profiles.forUser(userId);
+        UUID jobId = jobs.start(userId, tb.id(), progress -> writer.writeNext(tb, userId, profile, progress));
         return ResponseEntity.accepted().body(new NextResponse(jobId.toString()));
     }
 
     @GetMapping("/textbooks/{id}/contents")
     ContentsView contents(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
-        Textbook tb = textbooks.requireForUser(id, CurrentUser.id(jwt));
+        UUID userId = CurrentUser.id(jwt);
+        Textbook tb = textbooks.requireForUser(id, userId);
+        Links links = links(tb.id(), userId);
         List<Lesson> written = lessons.list(tb.id());
         List<LessonSummary> summaries = written.stream()
                 .map(l -> new LessonSummary(l.id().toString(), l.seq(), l.title(), l.subtitle(), l.readAt() != null)).toList();
@@ -120,19 +134,19 @@ class LessonController {
                 tb.status() == Textbook.Status.ACTIVE && lastRead && jobId == null, jobId);
 
         List<SheetView> sheets = written.stream().filter(l -> l.referenceSheet() != null)
-                .map(l -> new SheetView(l.seq(), l.title(), l.referenceSheet().title(), l.referenceSheet().md())).toList();
+                .map(l -> new SheetView(l.seq(), l.title(), l.referenceSheet().title(), links.apply(l.referenceSheet().md()))).toList();
         List<RecordView> learned = new ArrayList<>();
         for (String path : workspace.list(tb.id())) {
             if (!path.startsWith("learning-records/")) continue;
             String content = workspace.read(tb.id(), path).map(WorkspaceFile::content).orElse("");
             String[] parts = content.strip().split("\n", 2);
-            learned.add(new RecordView(path, parts[0].replaceFirst("^#\\s*", ""), parts.length > 1 ? parts[1].strip() : ""));
+            learned.add(new RecordView(path, parts[0].replaceFirst("^#\\s*", ""), parts.length > 1 ? links.apply(parts[1].strip()) : ""));
         }
-        String glossary = workspace.read(tb.id(), "GLOSSARY.md").map(WorkspaceFile::content).orElse(null);
+        String glossary = workspace.read(tb.id(), "GLOSSARY.md").map(WorkspaceFile::content).map(links::apply).orElse(null);
         MissionDraft mission = tb.missionDraft();
         return new ContentsView(tb.id().toString(), tb.title(), tb.status(), tb.missionHeadline(),
                 mission == null ? null : mission.why(), summaries, next,
-                new BackOfBook(sheets, glossary, learned, sources(tb.id())));
+                new BackOfBook(sheets, glossary, learned, links.sources(), links.off()));
     }
 
     @GetMapping("/textbooks/{id}/lessons/{seq}")
@@ -140,11 +154,17 @@ class LessonController {
         UUID userId = CurrentUser.id(jwt);
         Textbook tb = textbooks.requireForUser(id, userId);
         Lesson l = lessons.find(tb.id(), seq).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "No such lesson"));
+        GenerationProfile profile = profiles.forUser(userId);
+        Links links = new Links(profile.linksPolicy(), sources(tb.id()));
         int total = lessons.list(tb.id()).size();
         Map<String, Map<String, Object>> progress = new java.util.LinkedHashMap<>();
-        for (String blockId : l.marking().keySet()) progress.put(blockId, practice.state(l, blockId, userId));
+        for (String blockId : l.marking().keySet()) {
+            progress.put(blockId, practice.state(l, blockId, userId, profile.revealAfterAttempts()));
+        }
         return new LessonView(l.id().toString(), l.seq(), "Lesson " + l.seq() + " · " + tb.title(), l.title(), l.subtitle(),
-                l.win(), l.missionLink(), l.blocks(), l.referenceSheet(), sources(tb.id()), progress, l.readAt(),
+                links.apply(l.win()), l.missionLink(), links.blocks(l.blocks()),
+                l.referenceSheet() == null ? null : new ReferenceSheet(l.referenceSheet().title(), links.apply(l.referenceSheet().md())),
+                links.sources(), progress, l.readAt(),
                 l.seq() > 1 ? l.seq() - 1 : null, l.seq() < total ? l.seq() + 1 : null, total);
     }
 
@@ -158,7 +178,11 @@ class LessonController {
     @PostMapping("/textbooks/{id}/resources")
     ResponseEntity<List<Resource>> addSource(@PathVariable UUID id, @Valid @RequestBody SourceRequest request,
                                              @AuthenticationPrincipal Jwt jwt) {
-        Textbook tb = textbooks.requireForUser(id, CurrentUser.id(jwt));
+        UUID userId = CurrentUser.id(jwt);
+        Textbook tb = textbooks.requireForUser(id, userId);
+        if (profiles.forUser(userId).linksPolicy() == LinksPolicy.OFF) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Your reader settings turn links off, so sources can’t be added.");
+        }
         if (!Resources.isWebUrl(request.url())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "That doesn’t look like a web address (it should start with https://).");
         }
@@ -169,5 +193,33 @@ class LessonController {
 
     private List<Resource> sources(UUID textbookId) {
         return Resources.parse(workspace.read(textbookId, "RESOURCES.md").map(WorkspaceFile::content).orElse(null));
+    }
+
+    private Links links(UUID textbookId, UUID userId) {
+        return new Links(profiles.forUser(userId).linksPolicy(), sources(textbookId));
+    }
+
+    /** The learner's links policy over what a page shows; the allowlist is their own sources. */
+    private record Links(LinksPolicy policy, List<Resource> all) {
+        Set<String> allowed() {
+            return all.stream().map(Resource::url).filter(Objects::nonNull).collect(Collectors.toSet());
+        }
+
+        boolean off() {
+            return policy == LinksPolicy.OFF;
+        }
+
+        String apply(String text) {
+            return LinkPolicy.apply(text, policy, allowed());
+        }
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> blocks(List<Map<String, Object>> blocks) {
+            return (List<Map<String, Object>>) LinkPolicy.applyAll(blocks, policy, allowed());
+        }
+
+        List<Resource> sources() {
+            return off() ? all.stream().map(r -> new Resource(r.id(), r.title(), null, r.note())).toList() : all;
+        }
     }
 }

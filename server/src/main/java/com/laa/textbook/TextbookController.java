@@ -17,7 +17,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.HandlerMapping;
 
 import com.laa.auth.CurrentUser;
-import com.laa.llm.GenerationProfile;
+import com.laa.profile.ProfileRepository.Stored;
+import com.laa.profile.Profiles;
 import com.laa.safety.TopicGate;
 import com.laa.safety.TopicGate.Decision;
 import com.laa.web.ApiException;
@@ -54,11 +55,13 @@ class TextbookController {
     private final TextbookRepository textbooks;
     private final TopicGate gate;
     private final WorkspaceFiles workspace;
+    private final Profiles profiles;
 
-    TextbookController(TextbookRepository textbooks, TopicGate gate, WorkspaceFiles workspace) {
+    TextbookController(TextbookRepository textbooks, TopicGate gate, WorkspaceFiles workspace, Profiles profiles) {
         this.textbooks = textbooks;
         this.gate = gate;
         this.workspace = workspace;
+        this.profiles = profiles;
     }
 
     @GetMapping
@@ -71,17 +74,17 @@ class TextbookController {
         UUID userId = CurrentUser.id(jwt);
         String topic = request.topic().replaceAll("\\s+", " ").strip();
         if (topic.isEmpty()) throw new ApiException(HttpStatus.BAD_REQUEST, "Tell us what you’d like to learn.");
+        Stored profile = profiles.stored(userId);
         Decision decision;
         try {
-            // Profiles are stored per learner from M6; until then everyone gets the adult defaults.
-            decision = gate.check(topic, userId, GenerationProfile.ADULT_DEFAULT);
+            decision = gate.check(topic, userId, profile.settings());
         } catch (TopicGate.UnavailableException e) {
             throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, e.getMessage());
         }
         if (!decision.allowsCreation()) {
             return ResponseEntity.ok(new CreateResponse(decision.verdict().name(), decision.message(), null));
         }
-        Textbook created = textbooks.create(userId, decision.title(), topic, decision.asJson());
+        Textbook created = textbooks.create(userId, decision.title(), topic, decision.asJson(), profile.id());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new CreateResponse(decision.verdict().name(), decision.message(), TextbookView.of(created)));
     }

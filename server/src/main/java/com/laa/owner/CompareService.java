@@ -30,10 +30,12 @@ import com.laa.llm.routing.ProviderRecord;
 import com.laa.llm.routing.RoutingSnapshot;
 import com.laa.llm.runs.Origin;
 import com.laa.owner.OwnerViews.CompareChecks;
+import com.laa.owner.OwnerViews.ModerationCheck;
 import com.laa.owner.OwnerViews.CompareRequest;
 import com.laa.owner.OwnerViews.CompareResponse;
 import com.laa.owner.OwnerViews.CompareSide;
 import com.laa.owner.OwnerViews.RouteSpec;
+import com.laa.safety.Moderation;
 import com.laa.safety.ReadingAge;
 import com.laa.web.ApiException;
 
@@ -41,13 +43,12 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * "Compare before switching": the same task and input through two explicit routes (no fallbacks), side
- * by side, with automatic checks. Schema validity works now; quiz rules and reading age arrive with lessons
- * (M3) and moderation with the safety layer (M6).
+ * by side, with automatic checks: schema validity, the lesson rules (for LESSON_WRITE), reading age, and the safety
+ * layer's moderation of the output (as for an adult learner with the default reader settings, which is what the
+ * outputs were written for).
  */
 @Service
 public class CompareService {
-
-    private static final List<String> NOT_YET = List.of("moderation (M6)");
 
     private final DefaultLlmGateway gateway;
     private final ModelRouter router;
@@ -55,15 +56,18 @@ public class CompareService {
     private final OwnerRoutingService routing;
     private final ExecutorService executor;
     private final JsonMapper json;
+    private final Moderation moderation;
 
     public CompareService(DefaultLlmGateway gateway, ModelRouter router, PromptLibrary prompts,
-                          OwnerRoutingService routing, @Qualifier("llmExecutor") ExecutorService executor, JsonMapper json) {
+                          OwnerRoutingService routing, @Qualifier("llmExecutor") ExecutorService executor, JsonMapper json,
+                          Moderation moderation) {
         this.gateway = gateway;
         this.router = router;
         this.prompts = prompts;
         this.routing = routing;
         this.executor = executor;
         this.json = json;
+        this.moderation = moderation;
     }
 
     public CompareResponse compare(CompareRequest request, UUID ownerId) {
@@ -84,7 +88,7 @@ public class CompareService {
         Future<Outcome<?>> fa = executor.submit(() -> run(task, a, ctx, type));
         Future<Outcome<?>> fb = executor.submit(() -> run(task, b, ctx, type));
         return new CompareResponse(task, type == null ? "text" : "structured:" + type.getSimpleName(),
-                side(a, join(fa), type), side(b, join(fb), type));
+                side(a, join(fa), type, ownerId), side(b, join(fb), type, ownerId));
     }
 
     private Outcome<?> run(Task task, Resolved r, PromptContext ctx, Class<?> type) {
@@ -92,7 +96,7 @@ public class CompareService {
                 GenerationProfile.ADULT_DEFAULT);
     }
 
-    private CompareSide side(Resolved r, Outcome<?> o, Class<?> type) {
+    private CompareSide side(Resolved r, Outcome<?> o, Class<?> type, UUID ownerId) {
         // Only an output can have the wrong shape: a call that failed outright has no verdict.
         Boolean schemaValid = type == null ? null : o.ok() ? Boolean.TRUE
                 : o.errorKind() == com.laa.llm.provider.ErrorKind.INVALID_OUTPUT ? Boolean.FALSE : null;
@@ -102,7 +106,27 @@ public class CompareService {
         Double readingAge = parsed != null ? ReadingAge.ofJson(parsed) : o.ok() ? ReadingAge.of(o.raw()) : null;
         return new CompareSide(r.spec().provider(), r.model().id(), o.ok(), o.raw(), parsed, o.errorKind(), o.message(),
                 o.latencyMs(), o.tokensIn(), o.tokensOut(), o.costEstimate(), o.runId(),
-                new CompareChecks(schemaValid, schemaErrors, quizRules, readingAge, NOT_YET));
+                new CompareChecks(schemaValid, schemaErrors, quizRules, readingAge, moderate(o, parsed, ownerId)));
+    }
+
+    /** The output's text (every string in a structured output) through the safety layer. */
+    private ModerationCheck moderate(Outcome<?> o, tools.jackson.databind.JsonNode parsed, UUID ownerId) {
+        if (!o.ok()) return new ModerationCheck(null, List.of());
+        List<String> parts = new ArrayList<>();
+        if (parsed != null) strings(parsed, parts);
+        else parts.add(o.raw());
+        try {
+            Moderation.Result r = moderation.check(List.of(new Moderation.Item("output", String.join("\n", parts))),
+                    GenerationProfile.ADULT_DEFAULT, Moderation.Kind.OUTPUT, ownerId, null, Origin.COMPARE);
+            return new ModerationCheck(r.passed(), r.flags());
+        } catch (Moderation.Unavailable e) {
+            return new ModerationCheck(null, List.of("The safety check couldn’t run."));
+        }
+    }
+
+    private static void strings(tools.jackson.databind.JsonNode node, List<String> out) {
+        if (node.isString()) out.add(node.asString());
+        else if (node.isArray() || node.isObject()) node.values().forEach(v -> strings(v, out));
     }
 
     /** The lesson rules a stored lesson must pass, as if it were lesson 2 with no sources (warm-up required). */

@@ -13,8 +13,11 @@ public enum Task {
     TUTOR(new Needs(false, false, true, 16_000), ModelTier.SMALL),
     GRADE(new Needs(true, false, false, 8_000), ModelTier.SMALL),
     RECORD_UPDATE(new Needs(true, false, false, 16_000), ModelTier.SMALL),
-    /** Variant "topic": the topic gate (BRIEF section 8). Variant "leak": the tutor's leak guard (BRIEF section 6.5). */
-    SAFETY_CHECK(new Needs(true, false, false, 8_000), ModelTier.SMALL, "topic", "leak");
+    /**
+     * Variant "topic": the topic gate. "content": moderation of generated text and learner input (BRIEF section 8).
+     * "leak": the tutor's leak guard (BRIEF section 6.5).
+     */
+    SAFETY_CHECK(new Needs(true, false, false, 8_000), ModelTier.SMALL, "topic", "content", "leak");
 
     public record Needs(boolean structuredOutput, boolean toolCalling, boolean streaming, int minContext) {}
 

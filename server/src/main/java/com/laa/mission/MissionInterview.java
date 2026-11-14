@@ -4,7 +4,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -16,15 +18,21 @@ import com.laa.chat.ChatMessageRepository.StoredMessage;
 import com.laa.llm.ChatMessage;
 import com.laa.llm.GenerationProfile;
 import com.laa.llm.LlmGateway;
+import com.laa.llm.LlmResult;
 import com.laa.llm.PromptContext;
 import com.laa.llm.Task;
 import com.laa.llm.runs.Origin;
+import com.laa.safety.Moderation;
+import com.laa.safety.ReplyGuard;
 import com.laa.safety.TopicVerdict;
 import com.laa.textbook.Textbook;
 import com.laa.textbook.TextbookRepository;
 import com.laa.web.ApiException;
 import com.laa.workspace.WorkspaceFiles;
 import com.laa.workspace.WorkspaceFiles.WorkspaceFile;
+
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 /**
  * The preface: a short streamed interview about why the learner wants this topic (BRIEF section 6.2,
@@ -43,10 +51,8 @@ public class MissionInterview {
     static final String DRAFT_VARIANT = "draft";
     private static final String WRAP_UP = "Thank you, that’s everything I need for your mission.";
 
-    /** Where a turn's output goes, as it happens. */
-    public interface Events {
-        void token(String text);
-
+    /** Where a turn's output goes, as it happens: the reply ({@code token}, {@code replace}), then the rest. */
+    public interface Events extends ReplyGuard.Out {
         void draft(MissionDraft draft);
 
         /** The draft couldn't be written; the turn itself was saved. */
@@ -61,12 +67,17 @@ public class MissionInterview {
     private final ChatMessageRepository chats;
     private final TextbookRepository textbooks;
     private final WorkspaceFiles workspace;
+    private final ReplyGuard guard;
+    private final Moderation moderation;
 
-    MissionInterview(LlmGateway gateway, ChatMessageRepository chats, TextbookRepository textbooks, WorkspaceFiles workspace) {
+    MissionInterview(LlmGateway gateway, ChatMessageRepository chats, TextbookRepository textbooks, WorkspaceFiles workspace,
+                     ReplyGuard guard, Moderation moderation) {
         this.gateway = gateway;
         this.chats = chats;
         this.textbooks = textbooks;
         this.workspace = workspace;
+        this.guard = guard;
+        this.moderation = moderation;
     }
 
     public Transcript transcript(Textbook tb) {
@@ -108,26 +119,21 @@ public class MissionInterview {
                 userId, tb.id(), Origin.APP);
 
         MarkerFilter filter = new MarkerFilter(MARKER);
-        gateway.stream(Task.MISSION_INTERVIEW, ctx, profile)
-                .doOnNext(chunk -> {
-                    String shown = filter.accept(chunk);
-                    if (!shown.isEmpty()) events.token(shown);
-                })
-                .blockLast();
-        String tail = filter.finish();
-        if (!tail.isEmpty()) events.token(tail);
+        AtomicReference<UUID> runId = new AtomicReference<>();
+        Flux<String> shown = gateway.stream(Task.MISSION_INTERVIEW, ctx, profile, runId::set)
+                .map(filter::accept)
+                .concatWith(Mono.fromSupplier(filter::finish))
+                .filter(chunk -> !chunk.isEmpty());
+        String reply = guard.deliver(shown, runId, WRAP_UP, profile, Set.of(), userId, tb.id(), events);
 
         boolean complete = answersAfter >= 1 && (filter.markerSeen() || finalTurn);
-        String reply = filter.text();
-        if (reply.isEmpty()) {
-            reply = WRAP_UP;
-            events.token(reply);
-        }
         UUID messageId = chats.appendTurn(tb.id(), Kind.MISSION, learnerAnswer, reply);
 
         if (complete) {
             try {
                 events.draft(writeDraft(tb, userId, profile));
+            } catch (ApiException e) {
+                events.draftFailed(e.getMessage());
             } catch (RuntimeException e) {
                 events.draftFailed("Your answers are saved, but the mission draft couldn’t be written just now. Try again.");
             }
@@ -145,7 +151,16 @@ public class MissionInterview {
         }
         PromptContext ctx = new PromptContext(variables(tb, answers(thread), true), List.of(), transcript.toString(),
                 userId, tb.id(), Origin.APP).withVariant(DRAFT_VARIANT);
-        MissionDraft draft = gateway.structured(Task.MISSION_INTERVIEW, ctx, MissionDraft.class, profile);
+        LlmResult<MissionDraft> result = gateway.structuredResult(Task.MISSION_INTERVIEW, ctx, MissionDraft.class, profile);
+        MissionDraft draft = result.value();
+        String text = String.join("\n", draft.headline(), draft.why(), String.join("\n", draft.successLooksLike()),
+                String.join("\n", draft.constraints()), String.join("\n", draft.outOfScope()));
+        Moderation.Result check = moderation.checkText(text, profile, Moderation.Kind.OUTPUT, userId, tb.id());
+        if (!check.passed()) {
+            moderation.markBlocked(result.runId(), check.flags());
+            throw new ApiException(HttpStatus.UNPROCESSABLE_CONTENT,
+                    "Your answers are saved, but the mission draft didn’t fit your reader settings. Try again.");
+        }
         textbooks.saveDraft(tb.id(), draft);
         return draft;
     }

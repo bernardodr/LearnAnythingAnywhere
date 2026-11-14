@@ -190,7 +190,11 @@ export default function ContentsPage() {
                 ))
               : null}
           </BackSection>
-          <AddSource textbookId={id} token={token} onAdded={() => queryClient.invalidateQueries({ queryKey: ['contents', id] })} />
+          {data.back.linksOff ? (
+            <Text style={styles.small}>Links are turned off in your reader settings, so sources show without their web addresses.</Text>
+          ) : (
+            <AddSource textbookId={id} token={token} onAdded={() => queryClient.invalidateQueries({ queryKey: ['contents', id] })} />
+          )}
         </View>
       ) : null}
     </Page>

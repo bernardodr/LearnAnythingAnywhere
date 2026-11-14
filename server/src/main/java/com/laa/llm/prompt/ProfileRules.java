@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.laa.llm.GenerationProfile;
+import com.laa.safety.Category;
+import com.laa.safety.SafetyRules;
 
 /**
  * Renders a learner's generation profile into explicit rules appended to every system prompt
@@ -24,8 +26,11 @@ public final class ProfileRules {
         if (profile.childSafe()) {
             rules.add("Child-safe mode is ON: keep all content suitable for children; no graphic, frightening or adult material.");
         }
-        if (!profile.filters().isEmpty()) {
-            rules.add("Leave out entirely: " + String.join(", ", profile.filters()) + ".");
+        List<String> leaveOut = new ArrayList<>();
+        for (Category c : SafetyRules.excluded(profile)) leaveOut.add(c.label());
+        leaveOut.addAll(SafetyRules.extras(profile));
+        if (!leaveOut.isEmpty()) {
+            rules.add("Leave out entirely (don't mention, describe or allude to): " + String.join(", ", leaveOut) + ".");
         }
         rules.add(switch (profile.linksPolicy()) {
             case OFF -> "Links: include no URLs or links.";

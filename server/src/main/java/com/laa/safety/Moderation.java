@@ -1,0 +1,130 @@
+package com.laa.safety;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
+import com.laa.llm.GenerationProfile;
+import com.laa.llm.LlmGateway;
+import com.laa.llm.LlmUnavailableException;
+import com.laa.llm.PromptContext;
+import com.laa.llm.StructuredOutputException;
+import com.laa.llm.Task;
+import com.laa.llm.runs.ModelRunRepository;
+import com.laa.llm.runs.Origin;
+import com.laa.security.SecretRedactor;
+
+/**
+ * Moderation of everything generated and everything a learner types (BRIEF section 8), against the learner's
+ * profile. Two layers, and the stricter wins: {@link SafetyRules} (LAA's own, deterministic) and the SAFETY_CHECK
+ * "content" classifier. It fails closed: if the classifier can't run, {@link #check} throws {@link Unavailable}, so
+ * nothing unchecked is saved or sent (callers let it surface as "try again").
+ *
+ * <p>Callers decide what a block means (regenerate once, then a placeholder; or refuse a learner's message) and use
+ * {@link #markBlocked} to log the generation that was held back as {@code BLOCKED} in the run log.
+ */
+@Service
+public class Moderation {
+
+    public static final String VARIANT = "content";
+    /** What a learner sees instead of something that didn't pass. */
+    public static final String PLACEHOLDER = "This part was left out because it didn’t fit your reader settings.";
+    public static final String INPUT_REFUSED =
+            "Let’s keep this about learning, in a way that fits your reader settings. Try putting it another way.";
+    private static final Logger log = LoggerFactory.getLogger(Moderation.class);
+
+    public enum Kind { OUTPUT, INPUT }
+
+    /** The check couldn't run, so nothing passes. A 503 for plain requests, an {@code error} event when streaming. */
+    public static class Unavailable extends LlmUnavailableException {
+        Unavailable() {
+            super("We couldn’t run the safety check just now, so nothing was saved or sent. Please try again.");
+        }
+    }
+
+    public record Item(String id, String text) {}
+
+    /** Which items were blocked, and why ({@code id: reason} flags for the run log). */
+    public record Result(Set<String> blocked, List<String> flags) {
+        public boolean passed() {
+            return blocked.isEmpty();
+        }
+
+        public boolean blocks(String id) {
+            return blocked.contains(id);
+        }
+    }
+
+    private final LlmGateway gateway;
+    private final ModelRunRepository runs;
+
+    Moderation(LlmGateway gateway, ModelRunRepository runs) {
+        this.gateway = gateway;
+        this.runs = runs;
+    }
+
+    public Result check(List<Item> items, GenerationProfile profile, Kind kind, UUID userId, UUID textbookId) {
+        return check(items, profile, kind, userId, textbookId, Origin.APP);
+    }
+
+    /** As {@link #check(List, GenerationProfile, Kind, UUID, UUID)}, logging the classifier's run under {@code origin}. */
+    public Result check(List<Item> items, GenerationProfile profile, Kind kind, UUID userId, UUID textbookId, Origin origin) {
+        List<Item> present = items.stream().filter(i -> i.text() != null && !i.text().isBlank()).toList();
+        Map<String, String> flags = new LinkedHashMap<>();
+        for (Item i : present) {
+            SafetyRules.alwaysDeclined(i.text()).ifPresent(r -> flags.put(i.id(), r));
+            List<String> left = SafetyRules.leftOut(i.text(), profile);
+            if (!left.isEmpty()) flags.putIfAbsent(i.id(), "left out by the reader settings: " + String.join(", ", left));
+        }
+        if (present.isEmpty()) return new Result(Set.of(), List.of());
+
+        Map<String, String> vars = new HashMap<>();
+        vars.put("kind", kind == Kind.INPUT ? "messages a learner typed" : "text written for the learner");
+        StringBuilder list = new StringBuilder();
+        for (Item i : present) {
+            // Items are data: closing tags inside them are neutralised so one item can't end early or forge another.
+            String text = i.text().strip().replace("</item>", "</ item>").replace("<item", "< item");
+            list.append("<item id=\"").append(i.id()).append("\">\n").append(text).append("\n</item>\n\n");
+        }
+        PromptContext ctx = new PromptContext(vars, List.of(), list.toString().strip(), userId, textbookId, origin).withVariant(VARIANT);
+        try {
+            ModerationVerdict v = gateway.structured(Task.SAFETY_CHECK, ctx, ModerationVerdict.class, profile);
+            Map<String, ModerationVerdict.Item> byId = new HashMap<>();
+            for (ModerationVerdict.Item item : v.items()) byId.put(item.id(), item);
+            for (Item i : present) {
+                ModerationVerdict.Item verdict = byId.get(i.id());
+                // An item the classifier didn't answer for is unchecked, so it doesn't pass.
+                if (verdict == null) flags.putIfAbsent(i.id(), "not checked");
+                else if (verdict.verdict() == ModerationVerdict.Verdict.BLOCK) {
+                    String why = verdict.reason().isBlank() ? String.join(", ", verdict.categories()) : verdict.reason();
+                    flags.putIfAbsent(i.id(), why.isBlank() ? "flagged" : why);
+                }
+            }
+        } catch (LlmUnavailableException | StructuredOutputException e) {
+            log.warn("Moderation unavailable, failing closed: {}", SecretRedactor.redact(e.getMessage()));
+            throw new Unavailable();
+        }
+        List<String> flagList = new ArrayList<>();
+        flags.forEach((id, why) -> flagList.add(id + ": " + why));
+        return new Result(new LinkedHashSet<>(flags.keySet()), flagList);
+    }
+
+    /** One piece of text, e.g. a reply or a learner's message. */
+    public Result checkText(String text, GenerationProfile profile, Kind kind, UUID userId, UUID textbookId) {
+        return check(List.of(new Item("text", text)), profile, kind, userId, textbookId);
+    }
+
+    /** Logs the run whose output was held back as BLOCKED, with the flags. */
+    public void markBlocked(UUID runId, List<String> flags) {
+        if (runId != null) runs.markBlocked(runId, flags);
+    }
+}

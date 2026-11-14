@@ -71,7 +71,7 @@ public class TopicGate {
         TopicVerdict v = result.value();
         String title = clean(v.title());
         String message = clean(v.message());
-        return switch (v.verdict()) {
+        Decision model = switch (v.verdict()) {
             case ALLOW -> new Decision(Verdict.ALLOW, title.isEmpty() ? tidy(topic) : title, "", v.categories(), result.runId());
             // A reframe without a framing can't be honoured safely; treat it as a decline.
             case REFRAME -> title.isEmpty()
@@ -79,6 +79,30 @@ public class TopicGate {
                     : new Decision(Verdict.REFRAME, title, message.isEmpty() ? DEFAULT_REFRAME : message, v.categories(), result.runId());
             case DECLINE -> new Decision(Verdict.DECLINE, "", message.isEmpty() ? DEFAULT_DECLINE : message, v.categories(), result.runId());
         };
+        return withRules(model, topic, profile);
+    }
+
+    /**
+     * LAA's own layer over the classifier's verdict ({@link SafetyRules}): the stricter wins, so the gate holds
+     * whichever AI service is active. A topic that's always declined is declined; one the profile leaves out is
+     * declined unless the classifier's reframe steers clear of it.
+     */
+    static Decision withRules(Decision model, String topic, GenerationProfile profile) {
+        if (model.verdict() == Verdict.DECLINE) return model;
+        var always = SafetyRules.alwaysDeclined(topic);
+        if (always.isPresent()) {
+            return new Decision(Verdict.DECLINE, "", DEFAULT_DECLINE, List.of(always.get()), model.runId());
+        }
+        List<String> leftOut = SafetyRules.leftOut(model.verdict() == Verdict.REFRAME ? model.title() : topic, profile);
+        if (!leftOut.isEmpty()) {
+            return new Decision(Verdict.DECLINE, "", leftOutMessage(leftOut), leftOut, model.runId());
+        }
+        return model;
+    }
+
+    private static String leftOutMessage(List<String> leftOut) {
+        return "That topic touches on " + String.join(" and ", leftOut) + ", which your reader settings leave out. "
+                + "Is there something else you’d like to learn? Animals, space, how things work and making things are all great places to start.";
     }
 
     private static String clean(String s) {

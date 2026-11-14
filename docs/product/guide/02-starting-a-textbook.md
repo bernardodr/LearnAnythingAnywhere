@@ -18,6 +18,8 @@ Before anything is written, LAA checks that the topic is something it can write 
 - **It's approached in a different way.** For some topics, LAA suggests a version that keeps what's worth learning. You'll see a short note explaining the approach at the top of the next screen, and your textbook takes that title.
 - **It's declined.** For topics LAA won't write about, you'll see a kind message instead, often with an idea for something related you could learn. Nothing is created, so just try another topic.
 
+The check also follows your [reader settings](07-reader-settings.md). If a topic touches on something your settings leave out (gambling, say, with child-safe mode on), the message tells you so and suggests other things to learn.
+
 If you see *"We couldn't check this topic just now, so nothing was created"*, the check couldn't run. Try again in a moment. LAA never skips the check.
 
 ## 3. The preface: why do you want to learn this?

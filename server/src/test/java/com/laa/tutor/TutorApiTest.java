@@ -31,6 +31,7 @@ class TutorApiTest extends IntegrationTest {
     void aPartialAnswerGetsANoteWithoutTheAnswerThenHintsThenAMetAnswerBecomesEvidence() {
         String learner = login("tutor@test.dev");
         Practice p = practice(learner);
+        long checksBefore = safetyChecks(p.textbookId()); // the preface and the lesson were checked too
 
         // Demo step 3: a partial answer gets a tutor's note that doesn't give the rest away.
         Resp partial = attempt(learner, p, "I'd practise one small step, like a single move, ten times.");
@@ -86,11 +87,12 @@ class TutorApiTest extends IntegrationTest {
         assertThat(state.get("evidence").asString()).isEqualTo("learning-records/0001-explains-why-small-steps-work.md");
         assertThat(state.toString()).doesNotContain("leakGuard", "gradeRunId");
 
-        var tasks = jdbc.sql("SELECT task, count(*) AS n FROM model_runs WHERE textbook_id = :t::uuid AND task IN ('GRADE', 'SAFETY_CHECK', 'RECORD_UPDATE') GROUP BY task ORDER BY task")
+        var tasks = jdbc.sql("SELECT task, count(*) AS n FROM model_runs WHERE textbook_id = :t::uuid AND task IN ('GRADE', 'RECORD_UPDATE') GROUP BY task ORDER BY task")
                 .param("t", p.textbookId()).query().listOfRows();
-        // 3 grades; 1 leak check (only the partial answer has anything hidden left); 1 record update.
-        assertThat(tasks).containsExactly(Map.of("task", "GRADE", "n", 3L), Map.of("task", "RECORD_UPDATE", "n", 1L),
-                Map.of("task", "SAFETY_CHECK", "n", 1L));
+        assertThat(tasks).containsExactly(Map.of("task", "GRADE", "n", 3L), Map.of("task", "RECORD_UPDATE", "n", 1L));
+        // 7 safety checks while practising: each of the 3 answers and 3 coaching messages, plus 1 leak check (only the
+        // partial answer has anything hidden left).
+        assertThat(safetyChecks(p.textbookId()) - checksBefore).isEqualTo(7);
     }
 
     @Test
@@ -131,29 +133,60 @@ class TutorApiTest extends IntegrationTest {
     }
 
     @Test
-    void theLeakGuardFailsClosedWhenTheClassifierIsDown() {
+    void nothingIsGradedWhenTheSafetyCheckIsDown() {
         String learner = login("leak-down@test.dev");
         Practice p = practice(learner);
-        String owner = ownerToken();
-        ok(patch("/owner/routes/SAFETY_CHECK", owner, Map.of("providerChoice", "FAKE_B")));
+        safetyCheckOnFakeB();
         fakes.set(Provider.FAKE_B, FailureMode.SERVER_ERROR);
 
+        // The answer can't be checked, so it fails closed before grading: nothing is graded, shown or saved.
         Resp r = attempt(learner, p, "One small step.");
-        ok(r);
-        assertThat(r.body().get("coachingMove").asString()).isEqualTo("HINT");
-        assertThat(jdbc.sql("SELECT feedback->'leakGuard'->>'firstCheck' FROM attempts").query(String.class).single())
-                .contains("couldn’t be checked");
+        assertThat(r.status()).isEqualTo(503);
+        assertThat(r.body().get("detail").asString()).contains("safety check", "try again");
+        assertThat(jdbc.sql("SELECT count(*) FROM attempts").query(Long.class).single()).isZero();
+        assertThat(jdbc.sql("SELECT count(*) FROM model_runs WHERE task = 'GRADE'").query(Long.class).single()).isZero();
     }
 
     @Test
     void aGraderOutageSavesNoAttempt() {
         String learner = login("grader-down@test.dev");
         Practice p = practice(learner);
+        safetyCheckOnFakeB();
         fakes.set(Provider.FAKE, FailureMode.SERVER_ERROR);
         Resp r = attempt(learner, p, "One small step.");
         assertThat(r.status()).isEqualTo(503);
         assertThat(r.body().get("detail").asString()).contains("send it again");
         assertThat(jdbc.sql("SELECT count(*) FROM attempts").query(Long.class).single()).isZero();
+    }
+
+    @Test
+    void theAnswerIsShownOnlyWhenTheReaderSettingsAllowIt() {
+        String learner = login("reveal@test.dev");
+        Practice p = practice(learner);
+        String hintPath = "/lessons/" + p.lessonId() + "/blocks/" + p.blockId() + "/hint";
+        String profile = get("/profiles/me", learner).body().get("id").asString();
+        Map<String, Object> reveal = new java.util.HashMap<>();
+        reveal.put("childSafe", false);
+        reveal.put("linksPolicy", "ALLOWLIST");
+        reveal.put("revealAfterAttempts", 3);
+        ok(put("/profiles/" + profile, learner, reveal));
+
+        for (int i = 0; i < 3; i++) ok(post(hintPath, learner, null));
+        // Every hint used, but too few tries yet.
+        Resp early = post(hintPath, learner, null);
+        assertThat(early.body().get("exhausted").asBoolean()).isTrue();
+        assertThat(early.body().get("answer").isNull()).isTrue();
+
+        for (int i = 0; i < 3; i++) ok(attempt(learner, p, "One small step."));
+        JsonNode state = get("/textbooks/" + p.textbookId() + "/lessons/1", learner).body().get("practice").get(p.blockId());
+        assertThat(state.get("revealAfter").asInt()).isEqualTo(3);
+        assertThat(state.get("attempts").asInt()).isEqualTo(3);
+
+        Resp shown = post(hintPath, learner, null);
+        ok(shown);
+        assertThat(shown.body().get("answer").asString()).isEqualTo("A specific small action, plus why repeating it gives quick feedback.");
+        assertThat(get("/textbooks/" + p.textbookId() + "/lessons/1", learner).body().get("practice").get(p.blockId())
+                .get("answer").asString()).startsWith("A specific small action");
     }
 
     @Test
@@ -190,6 +223,7 @@ class TutorApiTest extends IntegrationTest {
         assertThat(sse(path, learner, Map.of("content", "hi", "lessonSeq", 9)).status()).isEqualTo(404);
         assertThat(sse(path, login("someone@test.dev"), Map.of("content", "hi", "lessonSeq", 1)).status()).isEqualTo(404);
 
+        safetyCheckOnFakeB();
         fakes.set(Provider.FAKE, FailureMode.SERVER_ERROR);
         SseResp failed = sse(path, learner, Map.of("content", "And then?", "lessonSeq", 1));
         assertThat(failed.named("error").getFirst().data().get("message").asString()).contains("wasn’t lost");
@@ -197,6 +231,11 @@ class TutorApiTest extends IntegrationTest {
     }
 
     // ------------------------------------------------------------------ helpers
+
+    private long safetyChecks(String textbookId) {
+        return jdbc.sql("SELECT count(*) FROM model_runs WHERE textbook_id = :t::uuid AND task = 'SAFETY_CHECK'")
+                .param("t", textbookId).query(Long.class).single();
+    }
 
     private Resp attempt(String token, Practice p, String answer) {
         return post("/lessons/" + p.lessonId() + "/blocks/" + p.blockId() + "/attempts", token, Map.of("answer", answer));

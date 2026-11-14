@@ -33,13 +33,16 @@ public class TextbookRepository {
         this.json = json;
     }
 
-    /** The next volume number goes to this textbook; the unique (user_id, volume) key guards a race. */
-    public Textbook create(UUID userId, String title, String topic, Map<String, Object> topicGate) {
+    /**
+     * The next volume number goes to this textbook; the unique (user_id, volume) key guards a race. {@code profileId}
+     * is the learner's generation profile the topic was checked against (null in tests that don't need one).
+     */
+    public Textbook create(UUID userId, String title, String topic, Map<String, Object> topicGate, UUID profileId) {
         int volume = jdbc.sql("SELECT coalesce(max(volume), 0) + 1 FROM textbooks WHERE user_id = :u")
                 .param("u", userId).query(Integer.class).single();
-        return jdbc.sql("INSERT INTO textbooks (user_id, title, topic, status, cover_color, volume, topic_gate) "
-                        + "VALUES (:u, :title, :topic, 'INTERVIEW', :cover, :volume, :gate::jsonb) RETURNING " + COLUMNS)
-                .param("u", userId).param("title", title).param("topic", topic)
+        return jdbc.sql("INSERT INTO textbooks (user_id, title, topic, status, cover_color, volume, topic_gate, profile_id) "
+                        + "VALUES (:u, :title, :topic, 'INTERVIEW', :cover, :volume, :gate::jsonb, :profile) RETURNING " + COLUMNS)
+                .param("u", userId).param("title", title).param("topic", topic).param("profile", profileId)
                 .param("cover", Textbook.coverFor(volume)).param("volume", volume)
                 .param("gate", json.writeValueAsString(topicGate))
                 .query(this::map).single();

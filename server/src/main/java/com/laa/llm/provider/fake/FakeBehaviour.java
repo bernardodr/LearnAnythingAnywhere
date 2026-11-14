@@ -17,11 +17,15 @@ import com.laa.llm.Task;
 public class FakeBehaviour {
 
     private final Map<Provider, FailureMode> modes = new EnumMap<>(Provider.class);
+    /** Text containing this is blocked by the fake content check, so tests can trigger a block where they want one. */
+    public static final String BLOCK_MARKER = "[fake:block]";
+
     private final Map<Task, String> canned = new EnumMap<>(Task.class);
     private final Map<Task, String> cannedText = new EnumMap<>(Task.class);
     private volatile Duration hang = Duration.ofSeconds(30);
 
     /** Structured calls for {@code task} return {@code json} as-is (it's still validated by the gateway). */
+    /** Pins the structured reply for {@code task}'s calls whose output schema has exactly this JSON's properties. */
     public synchronized void setCanned(Task task, String json) {
         canned.put(task, json);
     }

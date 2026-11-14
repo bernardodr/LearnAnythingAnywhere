@@ -76,6 +76,10 @@ export default function Preface() {
             if (event === 'token') {
               reply += String(d.text ?? '');
               setStreaming(reply);
+            } else if (event === 'replace') {
+              // The safety check changed the reply after it streamed: show (and keep) the checked version.
+              reply = String(d.text ?? '');
+              setStreaming(reply);
             } else if (event === 'draft') {
               update((s) => ({ ...s, draft: data as MissionDraft }));
             } else if (event === 'draft_failed') {

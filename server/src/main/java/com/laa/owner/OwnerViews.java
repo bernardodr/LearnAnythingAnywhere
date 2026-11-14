@@ -57,8 +57,11 @@ final class OwnerViews {
      * (LESSON_WRITE only; null when not applicable, empty when they pass). {@code readingAge}: estimated reading age
      * of the output's prose (null when there's too little). {@code moderation}: arrives with the safety layer (M6).
      */
+    /** {@code passed} null: there was no output to check, or the check couldn't run ({@code flags} says which). */
+    record ModerationCheck(Boolean passed, List<String> flags) {}
+
     record CompareChecks(Boolean schemaValid, List<String> schemaErrors, List<String> quizRules, Double readingAge,
-                         List<String> notYetAvailable) {}
+                         ModerationCheck moderation) {}
 
     record CompareSide(
             Provider provider,

@@ -55,6 +55,13 @@ public class ModelRunRepository {
                 .single();
     }
 
+    /** A run whose output the safety layer held back: status BLOCKED, with what was flagged. */
+    public void markBlocked(UUID runId, List<String> flags) {
+        List<String> clean = flags.stream().map(f -> truncate(SecretRedactor.redact(f), 300)).toList();
+        jdbc.sql("UPDATE model_runs SET status = 'BLOCKED', safety_flags = :f::jsonb WHERE id = :id")
+                .param("f", json.writeValueAsString(clean)).param("id", runId).update();
+    }
+
     /** Newest first. Null filters are ignored. */
     public List<ModelRun> recent(Task task, Provider provider, int limit) {
         return jdbc.sql("""
