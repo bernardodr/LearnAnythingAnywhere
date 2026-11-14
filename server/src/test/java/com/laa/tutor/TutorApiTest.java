@@ -10,8 +10,8 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 import com.laa.IntegrationTest;
+import com.laa.llm.Calls;
 import com.laa.llm.Provider;
-import com.laa.llm.Task;
 import com.laa.llm.provider.fake.FailureMode;
 
 import tools.jackson.databind.JsonNode;
@@ -90,16 +90,16 @@ class TutorApiTest extends IntegrationTest {
         var tasks = jdbc.sql("SELECT task, count(*) AS n FROM model_runs WHERE textbook_id = :t::uuid AND task IN ('GRADE', 'RECORD_UPDATE') GROUP BY task ORDER BY task")
                 .param("t", p.textbookId()).query().listOfRows();
         assertThat(tasks).containsExactly(Map.of("task", "GRADE", "n", 3L), Map.of("task", "RECORD_UPDATE", "n", 1L));
-        // 7 safety checks while practising: each of the 3 answers and 3 coaching messages, plus 1 leak check (only the
-        // partial answer has anything hidden left).
-        assertThat(safetyChecks(p.textbookId()) - checksBefore).isEqualTo(7);
+        // 8 safety checks while practising: each of the 3 answers and 3 coaching messages, 1 leak check (only the
+        // partial answer has anything hidden left), and the evidence written for the back of the book.
+        assertThat(safetyChecks(p.textbookId()) - checksBefore).isEqualTo(8);
     }
 
     @Test
     void aMessageThatRepeatsTheHiddenAnswerIsRegeneratedThenReplacedByTheNextHint() {
         String learner = login("leak-similar@test.dev");
         Practice p = practice(learner);
-        fakes.setCanned(Task.GRADE, """
+        fakes.setCanned(Calls.GRADE, """
                 {"verdict": "PARTIAL", "coveredPoints": ["p1"], "missingPoints": ["p2"], "coachingMove": "ASK",
                  "message": "Good. Now you just need to say it explains how it gives quick feedback."}""");
 
@@ -122,7 +122,7 @@ class TutorApiTest extends IntegrationTest {
     void aParaphraseTheClassifierCatchesIsAlsoReplacedByAHint() {
         String learner = login("leak-classifier@test.dev");
         Practice p = practice(learner);
-        fakes.setCanned(Task.SAFETY_CHECK, """
+        fakes.setCanned(Calls.LEAK_CHECK, """
                 {"leaks": true, "reason": "spells out the feedback point"}""");
 
         Resp r = attempt(learner, p, "One small step.");

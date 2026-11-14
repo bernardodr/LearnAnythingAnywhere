@@ -8,8 +8,8 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 import com.laa.IntegrationTest;
+import com.laa.llm.Calls;
 import com.laa.llm.Provider;
-import com.laa.llm.Task;
 import com.laa.llm.provider.fake.FailureMode;
 
 /** The preface: streamed mission interview, mission card, MISSION.md (BRIEF section 6.2, milestone M2). */
@@ -54,7 +54,7 @@ class MissionInterviewTest extends IntegrationTest {
 
         SseResp first = sse(base + "/messages", learner, Map.of("content", "I want to climb V3 with my friends by spring."));
         assertThat(first.text()).contains("What would success look like");
-        assertThat(first.named("token")).hasSizeGreaterThan(1); // really streamed, not one blob
+        assertThat(first.named("token")).hasSize(1); // sent in one piece, once it has been checked (BRIEF section 8)
 
         SseResp last = sse(base + "/messages", learner, Map.of("content", "Sending a V3 at my gym, twice a week."));
         assertThat(last.text()).isEqualTo("[FAKE] Thank you, I have what I need to draft your mission.");
@@ -104,7 +104,7 @@ class MissionInterviewTest extends IntegrationTest {
         String learner = login("cap@test.dev");
         String id = newTextbook(learner, "Sourdough");
         String base = "/textbooks/" + id + "/mission";
-        fakes.setCannedText(Task.MISSION_INTERVIEW, "And what else would you like to know about it?");
+        fakes.setCannedText(Calls.INTERVIEW_TURN, "And what else would you like to know about it?");
 
         ok(sse(base + "/messages", learner, null));
         for (int answer = 1; answer <= 4; answer++) {
@@ -120,7 +120,7 @@ class MissionInterviewTest extends IntegrationTest {
     void aMarkerBeforeTheFirstAnswerIsIgnored() {
         String learner = login("early@test.dev");
         String id = newTextbook(learner, "Chess");
-        fakes.setCannedText(Task.MISSION_INTERVIEW, "Hi! Why chess? " + MissionInterview.MARKER);
+        fakes.setCannedText(Calls.INTERVIEW_TURN, "Hi! Why chess? " + MissionInterview.MARKER);
 
         SseResp open = sse("/textbooks/" + id + "/mission/messages", learner, null);
         assertThat(open.text()).isEqualTo("Hi! Why chess?");
@@ -154,7 +154,7 @@ class MissionInterviewTest extends IntegrationTest {
         String learner = login("draft-retry@test.dev");
         String id = newTextbook(learner, "Bouldering");
         String base = "/textbooks/" + id + "/mission";
-        fakes.setCannedText(Task.MISSION_INTERVIEW, "Got it, thanks! " + MissionInterview.MARKER);
+        fakes.setCannedText(Calls.INTERVIEW_TURN, "Got it, thanks! " + MissionInterview.MARKER);
         ok(sse(base + "/messages", learner, null));
 
         safetyCheckOnFakeB();

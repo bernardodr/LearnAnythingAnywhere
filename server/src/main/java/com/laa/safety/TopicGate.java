@@ -8,13 +8,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import com.laa.llm.Calls;
 import com.laa.llm.GenerationProfile;
 import com.laa.llm.LlmGateway;
 import com.laa.llm.LlmResult;
 import com.laa.llm.LlmUnavailableException;
 import com.laa.llm.PromptContext;
 import com.laa.llm.StructuredOutputException;
-import com.laa.llm.Task;
 import com.laa.llm.runs.Origin;
 import com.laa.safety.TopicVerdict.Verdict;
 import com.laa.security.SecretRedactor;
@@ -25,8 +25,6 @@ import com.laa.security.SecretRedactor;
  */
 @Component
 public class TopicGate {
-
-    public static final String VARIANT = "topic";
 
     private static final Logger log = LoggerFactory.getLogger(TopicGate.class);
     private static final String DEFAULT_DECLINE =
@@ -59,11 +57,10 @@ public class TopicGate {
     }
 
     public Decision check(String topic, UUID userId, GenerationProfile profile) {
-        PromptContext ctx = new PromptContext(Map.of(), List.of(), "Topic: " + topic, userId, null, Origin.APP)
-                .withVariant(VARIANT);
+        PromptContext ctx = new PromptContext(Map.of(), List.of(), "Topic: " + topic, userId, null, Origin.APP);
         LlmResult<TopicVerdict> result;
         try {
-            result = gateway.structuredResult(Task.SAFETY_CHECK, ctx, TopicVerdict.class, profile);
+            result = gateway.structuredResult(Calls.TOPIC_GATE, ctx, profile);
         } catch (LlmUnavailableException | StructuredOutputException e) {
             log.warn("Topic gate unavailable, refusing to create: {}", SecretRedactor.redact(e.getMessage()));
             throw new UnavailableException("We couldn’t check this topic just now, so nothing was created. Please try again.", e);

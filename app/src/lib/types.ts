@@ -200,7 +200,12 @@ export type RunView = {
   errorKind: string | null;
   errorMessage: string | null;
   createdAt: string;
+  /** Which call it was, e.g. "SAFETY_CHECK.topic" (null for older runs). */
+  call: string | null;
 };
+
+/** A registered model call (server: llm/Calls): what Compare can run, and how the run log names a run. */
+export type CallView = { id: string; task: TaskId; label: string; structured: boolean };
 
 export type CompareSide = {
   provider: ProviderId;
@@ -224,7 +229,7 @@ export type CompareSide = {
   };
 };
 
-export type CompareResult = { task: TaskId; mode: string; a: CompareSide; b: CompareSide };
+export type CompareResult = { task: TaskId; call: string; mode: string; a: CompareSide; b: CompareSide };
 
 // ---- Reader settings (server: com.laa.profile.Profiles) ----
 

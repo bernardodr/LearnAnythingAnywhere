@@ -53,26 +53,6 @@ public final class LinkPolicy {
         return result.toString();
     }
 
-    /**
-     * The policy over stored JSON (lesson blocks): every string value, at any depth, except identifiers. Used when a
-     * lesson is shown, so a policy changed after the lesson was written still holds.
-     */
-    @SuppressWarnings("unchecked")
-    public static Object applyAll(Object node, LinksPolicy policy, Set<String> allowed) {
-        if (policy == LinksPolicy.OPEN) return node;
-        if (node instanceof String text) return apply(text, policy, allowed);
-        if (node instanceof java.util.List<?> list) return list.stream().map(v -> applyAll(v, policy, allowed)).toList();
-        if (node instanceof java.util.Map<?, ?> map) {
-            java.util.Map<String, Object> out = new java.util.LinkedHashMap<>();
-            ((java.util.Map<String, Object>) map).forEach((k, v) ->
-                    out.put(k, IDENTIFIERS.contains(k) ? v : applyAll(v, policy, allowed)));
-            return out;
-        }
-        return node;
-    }
-
-    private static final Set<String> IDENTIFIERS = Set.of("id", "type", "kind", "variant", "resource", "citations");
-
     private static Set<String> normalised(Set<String> urls) {
         return urls == null ? Set.of() : urls.stream().map(LinkPolicy::norm).collect(java.util.stream.Collectors.toSet());
     }

@@ -63,6 +63,12 @@ class OwnerController {
         return routing.patchRoute(parse(Task.class, task), body);
     }
 
+    /** The registered calls ({@code llm/Calls}): what Compare can run, and the names the run log uses. */
+    @GetMapping("/calls")
+    List<OwnerViews.CallView> calls() {
+        return CompareService.calls();
+    }
+
     @GetMapping("/runs")
     List<ModelRun> runs(@RequestParam(required = false) String task,
                         @RequestParam(required = false) String provider,

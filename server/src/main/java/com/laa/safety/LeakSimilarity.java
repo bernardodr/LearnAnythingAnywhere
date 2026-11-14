@@ -1,4 +1,4 @@
-package com.laa.tutor;
+package com.laa.safety;
 
 import java.util.ArrayList;
 import java.util.HashSet;

@@ -207,10 +207,6 @@ export function TutorChat({ examples, ctx }: { examples: string[]; ctx: LessonCo
           if (event === 'token') {
             reply += String(d.text ?? '');
             setStreaming(reply);
-          } else if (event === 'replace') {
-            // The safety check changed the reply after it streamed: show (and keep) the checked version.
-            reply = String(d.text ?? '');
-            setStreaming(reply);
           } else if (event === 'done') {
             saved = true;
             const turn: ChatTurn[] = [
@@ -256,7 +252,7 @@ export function TutorChat({ examples, ctx }: { examples: string[]; ctx: LessonCo
           {pending ? <ChatLine role="USER" text={pending} /> : null}
           {streaming !== null ? (
             <View accessibilityLiveRegion="polite">
-              <ChatLine role="ASSISTANT" text={streaming || '…'} />
+              <ChatLine role="ASSISTANT" text={streaming || 'Your tutor is writing…'} />
             </View>
           ) : null}
         </View>

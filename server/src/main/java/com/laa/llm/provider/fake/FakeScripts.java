@@ -6,8 +6,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.laa.llm.Call;
+import com.laa.llm.Calls;
 import com.laa.llm.ChatMessage;
-import com.laa.llm.Task;
+import com.laa.llm.TextCall;
 import com.laa.llm.provider.ProviderRequest;
 import com.laa.mission.MissionInterview;
 
@@ -17,28 +19,35 @@ import tools.jackson.databind.json.JsonMapper;
 /**
  * Task-aware replies that make the offline demo read like the real thing, where schema-generated JSON
  * ("[FAKE] title") would not: the topic gate allows the topic as typed, the mission draft is built from the
- * learner's own answers, and the preface interview follows a short script. Matched on task and schema shape,
- * so other calls for the same task (the owner's dev ping) still get schema-generated JSON.
+ * learner's own answers, and the preface interview follows a short script. Matched on the call ({@link Calls}), so
+ * an unregistered call for the same task (the dev ping) still gets schema-generated JSON.
  */
 final class FakeScripts {
 
     private static final JsonMapper MAPPER = JsonMapper.builder().build();
-    private static final Set<String> TOPIC_VERDICT = Set.of("verdict", "title", "message", "categories");
-    private static final Set<String> MISSION_DRAFT = Set.of("headline", "why", "successLooksLike", "constraints", "outOfScope");
+
+    /** The structured calls with a scripted reply; every other structured call gets schema-generated JSON. */
+    private static final Set<Call> SCRIPTED = Set.of(Calls.TOPIC_GATE, Calls.MISSION_DRAFT, Calls.LESSON_PLAN, Calls.LESSON_WRITE,
+            Calls.GRADE, Calls.LEAK_CHECK, Calls.CONTENT_CHECK, Calls.RECORD_UPDATE);
 
     private FakeScripts() {}
 
+    /** True if practice mode has a reply written for this call (text calls always do: a script or a fixed sentence). */
+    static boolean scripted(Call call) {
+        return call instanceof TextCall || SCRIPTED.contains(call);
+    }
+
     /** A scripted structured reply, or null to fall back to schema-generated JSON. */
     static String structured(ProviderRequest request, String tag) {
-        Set<String> props = propertyNames(request.outputSchema());
-        if (request.task() == Task.SAFETY_CHECK && props.equals(TOPIC_VERDICT)) {
+        Call call = request.call();
+        if (call.equals(Calls.TOPIC_GATE)) {
             // Empty title: the gate then uses the learner's topic, tidied.
             return json(Map.of("verdict", "ALLOW", "title", "", "message", "", "categories", List.of()));
         }
-        if (request.task() == Task.MISSION_INTERVIEW && props.equals(MISSION_DRAFT)) {
+        if (call.equals(Calls.MISSION_DRAFT)) {
             return missionDraft(request, tag);
         }
-        if (request.task() == Task.LESSON_PLAN && props.equals(LESSON_PLAN)) {
+        if (call.equals(Calls.LESSON_PLAN)) {
             return json(Map.of(
                     "title", tag + "Your next small step",
                     "skill", tag + "Do one small, concrete thing from your mission with confidence",
@@ -48,19 +57,19 @@ final class FakeScripts {
                     "practice", tag + "Describe how you would take the step, in your own words",
                     "warmupFromLesson", 0));
         }
-        if (request.task() == Task.LESSON_WRITE && props.equals(LESSON_DRAFT)) {
+        if (call.equals(Calls.LESSON_WRITE)) {
             return lesson(request, tag);
         }
-        if (request.task() == Task.GRADE && props.equals(GRADE_RESULT)) {
+        if (call.equals(Calls.GRADE)) {
             return grade(request, tag);
         }
-        if (request.task() == Task.SAFETY_CHECK && props.equals(LEAK_VERDICT)) {
+        if (call.equals(Calls.LEAK_CHECK)) {
             return json(Map.of("leaks", false, "reason", ""));
         }
-        if (request.task() == Task.SAFETY_CHECK && props.equals(MODERATION_VERDICT)) {
+        if (call.equals(Calls.CONTENT_CHECK)) {
             return moderation(request);
         }
-        if (request.task() == Task.RECORD_UPDATE && props.equals(RECORD_UPDATE)) {
+        if (call.equals(Calls.RECORD_UPDATE)) {
             return json(Map.of(
                     "writeRecord", true,
                     "slug", "explains-why-small-steps-work",
@@ -73,9 +82,6 @@ final class FakeScripts {
         return null;
     }
 
-    private static final Set<String> GRADE_RESULT = Set.of("verdict", "coveredPoints", "missingPoints", "coachingMove", "message");
-    private static final Set<String> LEAK_VERDICT = Set.of("leaks", "reason");
-    private static final Set<String> MODERATION_VERDICT = Set.of("items");
 
     /**
      * Content moderation: every item ({@code <item id="…">…</item>}) passes, except one containing
@@ -93,7 +99,6 @@ final class FakeScripts {
         }
         return json(Map.of("items", items));
     }
-    private static final Set<String> RECORD_UPDATE = Set.of("writeRecord", "slug", "title", "body", "evidence", "glossary");
 
     /**
      * Grades by a simple rule so the demo can show both outcomes: an answer that explains why (contains "because")
@@ -115,8 +120,6 @@ final class FakeScripts {
                 "message", tag + "Good start: you picked a clear step. What happens straight after you try it once?"));
     }
 
-    private static final Set<String> LESSON_PLAN = Set.of("title", "skill", "win", "whyNow", "knowledge", "practice", "warmupFromLesson");
-    private static final Set<String> LESSON_DRAFT = Set.of("title", "subtitle", "win", "blocks", "referenceSheet", "rubrics");
 
     /**
      * A lesson with every block type that passes the server's rules: options of equal length and word count,
@@ -203,22 +206,6 @@ final class FakeScripts {
                 "outOfScope", List.of()));
     }
 
-    /** Whether a JSON object has exactly the schema's top-level properties. */
-    static boolean sameShape(String json, String schemaJson) {
-        Set<String> keys = new HashSet<>();
-        JsonNode node = MAPPER.readTree(json);
-        if (!node.isObject()) return false;
-        node.propertyNames().forEach(keys::add);
-        return keys.equals(propertyNames(schemaJson));
-    }
-
-    private static Set<String> propertyNames(String schemaJson) {
-        Set<String> names = new HashSet<>();
-        if (schemaJson == null) return names;
-        JsonNode props = MAPPER.readTree(schemaJson).path("properties");
-        props.propertyNames().forEach(names::add);
-        return names;
-    }
 
     private static String words(String s, int n) {
         String[] w = s.split("\\s+");

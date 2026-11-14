@@ -1,27 +1,26 @@
 package com.laa.safety;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import com.laa.llm.Calls;
 import com.laa.llm.GenerationProfile;
 import com.laa.llm.LlmGateway;
 import com.laa.llm.LlmUnavailableException;
 import com.laa.llm.PromptContext;
 import com.laa.llm.StructuredOutputException;
-import com.laa.llm.Task;
 import com.laa.llm.runs.ModelRunRepository;
 import com.laa.llm.runs.Origin;
 import com.laa.security.SecretRedactor;
+import com.laa.web.ApiException;
 
 /**
  * Moderation of everything generated and everything a learner types (BRIEF section 8), against the learner's
@@ -35,7 +34,6 @@ import com.laa.security.SecretRedactor;
 @Service
 public class Moderation {
 
-    public static final String VARIANT = "content";
     /** What a learner sees instead of something that didn't pass. */
     public static final String PLACEHOLDER = "This part was left out because it didn’t fit your reader settings.";
     public static final String INPUT_REFUSED =
@@ -44,23 +42,37 @@ public class Moderation {
 
     public enum Kind { OUTPUT, INPUT }
 
-    /** The check couldn't run, so nothing passes. A 503 for plain requests, an {@code error} event when streaming. */
-    public static class Unavailable extends LlmUnavailableException {
+    /**
+     * The check couldn't run, so nothing passes. An {@link ApiException} on purpose, not an AI outage: every surface
+     * shows its message as it is (a 503 response, a stream's {@code error} event, a lesson job's error), so the
+     * learner always learns that it was the safety check, as the guide promises.
+     */
+    public static class Unavailable extends ApiException {
         Unavailable() {
-            super("We couldn’t run the safety check just now, so nothing was saved or sent. Please try again.");
+            super(HttpStatus.SERVICE_UNAVAILABLE,
+                    "We couldn’t run the safety check just now, so nothing was saved or sent. Please try again.");
         }
     }
 
     public record Item(String id, String text) {}
 
-    /** Which items were blocked, and why ({@code id: reason} flags for the run log). */
-    public record Result(Set<String> blocked, List<String> flags) {
+    /** Which items were held back, and why: item id to reason, in the order checked (empty when all passed). */
+    public record Result(Map<String, String> reasons) {
+        public Result {
+            reasons = java.util.Collections.unmodifiableMap(new LinkedHashMap<>(reasons));
+        }
+
         public boolean passed() {
-            return blocked.isEmpty();
+            return reasons.isEmpty();
         }
 
         public boolean blocks(String id) {
-            return blocked.contains(id);
+            return reasons.containsKey(id);
+        }
+
+        /** {@code id: reason}, one per item held back, for the run log. */
+        public List<String> flags() {
+            return reasons.entrySet().stream().map(e -> e.getKey() + ": " + e.getValue()).toList();
         }
     }
 
@@ -85,7 +97,7 @@ public class Moderation {
             List<String> left = SafetyRules.leftOut(i.text(), profile);
             if (!left.isEmpty()) flags.putIfAbsent(i.id(), "left out by the reader settings: " + String.join(", ", left));
         }
-        if (present.isEmpty()) return new Result(Set.of(), List.of());
+        if (present.isEmpty()) return new Result(Map.of());
 
         Map<String, String> vars = new HashMap<>();
         vars.put("kind", kind == Kind.INPUT ? "messages a learner typed" : "text written for the learner");
@@ -95,9 +107,9 @@ public class Moderation {
             String text = i.text().strip().replace("</item>", "</ item>").replace("<item", "< item");
             list.append("<item id=\"").append(i.id()).append("\">\n").append(text).append("\n</item>\n\n");
         }
-        PromptContext ctx = new PromptContext(vars, List.of(), list.toString().strip(), userId, textbookId, origin).withVariant(VARIANT);
+        PromptContext ctx = new PromptContext(vars, List.of(), list.toString().strip(), userId, textbookId, origin);
         try {
-            ModerationVerdict v = gateway.structured(Task.SAFETY_CHECK, ctx, ModerationVerdict.class, profile);
+            ModerationVerdict v = gateway.structured(Calls.CONTENT_CHECK, ctx, profile);
             Map<String, ModerationVerdict.Item> byId = new HashMap<>();
             for (ModerationVerdict.Item item : v.items()) byId.put(item.id(), item);
             for (Item i : present) {
@@ -113,9 +125,7 @@ public class Moderation {
             log.warn("Moderation unavailable, failing closed: {}", SecretRedactor.redact(e.getMessage()));
             throw new Unavailable();
         }
-        List<String> flagList = new ArrayList<>();
-        flags.forEach((id, why) -> flagList.add(id + ": " + why));
-        return new Result(new LinkedHashSet<>(flags.keySet()), flagList);
+        return new Result(flags);
     }
 
     /** One piece of text, e.g. a reply or a learner's message. */

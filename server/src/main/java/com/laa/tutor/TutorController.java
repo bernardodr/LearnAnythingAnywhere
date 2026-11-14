@@ -20,9 +20,8 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import com.laa.auth.CurrentUser;
 import com.laa.lesson.LessonRepository;
 import com.laa.lesson.LessonRepository.Lesson;
-import com.laa.llm.GenerationProfile;
 import com.laa.profile.Profiles;
-import com.laa.safety.Moderation;
+import com.laa.safety.SafetyLayer;
 import com.laa.textbook.Textbook;
 import com.laa.textbook.TextbookRepository;
 import com.laa.web.ApiException;
@@ -33,9 +32,9 @@ import com.laa.web.Sse;
  * <ul>
  *   <li>{@code POST /lessons/{id}/blocks/{blockId}/attempts}: grade a free-response answer; returns the tutor's note</li>
  *   <li>{@code POST /lessons/{id}/blocks/{blockId}/hint}: the next hint on the ladder</li>
- *   <li>{@code POST /textbooks/{id}/tutor/messages}: one tutor-chat turn about lesson {@code lessonSeq}, streamed
- *       ({@code token} events, a {@code replace} if the safety check changed the reply, then {@code done}, or
- *       {@code error}). A question the safety check refuses is a plain 400 before streaming starts.</li>
+ *   <li>{@code POST /textbooks/{id}/tutor/messages}: one tutor-chat turn about lesson {@code lessonSeq}, as server-sent
+ *       events: one {@code token} with the whole reply once it has passed the safety check, then {@code done}, or
+ *       {@code error}. A question the safety check refuses is a plain 400 before the stream opens.</li>
  *   <li>{@code GET /textbooks/{id}/tutor/messages?lessonSeq=n}: that lesson's chat so far</li>
  * </ul>
  */
@@ -53,17 +52,17 @@ class TutorController {
     private final Practice practice;
     private final TutorChat chat;
     private final Profiles profiles;
-    private final Moderation moderation;
+    private final SafetyLayer safety;
     private final ExecutorService executor;
 
     TutorController(TextbookRepository textbooks, LessonRepository lessons, Practice practice, TutorChat chat, Profiles profiles,
-                    Moderation moderation, @Qualifier("llmExecutor") ExecutorService executor) {
+                    SafetyLayer safety, @Qualifier("llmExecutor") ExecutorService executor) {
         this.textbooks = textbooks;
         this.lessons = lessons;
         this.practice = practice;
         this.chat = chat;
         this.profiles = profiles;
-        this.moderation = moderation;
+        this.safety = safety;
         this.executor = executor;
     }
 
@@ -73,7 +72,7 @@ class TutorController {
         UUID userId = CurrentUser.id(jwt);
         Lesson lesson = lesson(lessonId, userId);
         Textbook tb = textbooks.requireForUser(lesson.textbookId(), userId);
-        return practice.attempt(tb, lesson, blockId, userId, request == null ? null : request.answer(), profiles.forUser(userId));
+        return practice.attempt(tb, lesson, blockId, userId, request == null ? null : request.answer());
     }
 
     @PostMapping("/lessons/{lessonId}/blocks/{blockId}/hint")
@@ -96,21 +95,13 @@ class TutorController {
         if (request == null || request.lessonSeq() == null) throw new ApiException(HttpStatus.BAD_REQUEST, "lessonSeq is required");
         Lesson lesson = lessonBySeq(tb, request.lessonSeq());
         chat.check(tb, request.content());
-        GenerationProfile profile = profiles.forUser(userId);
-        if (!moderation.checkText(request.content(), profile, Moderation.Kind.INPUT, userId, id).passed()) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, Moderation.INPUT_REFUSED);
-        }
+        safety.admit(userId, id, request.content());
         return Sse.stream(executor, "Tutor chat for textbook " + id,
                 "Your tutor couldn’t reply just now. Your question wasn’t lost: send it again.",
-                sse -> chat.turn(tb, lesson, userId, request.content(), profile, new TutorChat.Events() {
+                sse -> chat.turn(tb, lesson, userId, request.content(), new TutorChat.Events() {
                     @Override
                     public void token(String text) {
                         sse.send("token", Map.of("text", text));
-                    }
-
-                    @Override
-                    public void replace(String text) {
-                        sse.send("replace", Map.of("text", text));
                     }
 
                     @Override

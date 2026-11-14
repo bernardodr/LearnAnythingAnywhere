@@ -112,7 +112,7 @@ class GatewayAcceptanceTest extends IntegrationTest {
         bodies.add(viaOpenAi.raw());
         bodies.add(ping(owner, "GRADE").raw());
         bodies.add(pingStream(owner, "TUTOR").raw());
-        bodies.add(post("/owner/compare", owner, Map.of("task", "GRADE", "input", Map.of("message", "hello"),
+        bodies.add(post("/owner/compare", owner, Map.of("call", "GRADE", "input", Map.of("message", "hello"),
                 "a", Map.of("provider", "OPENAI"), "b", Map.of("provider", "ANTHROPIC"))).raw());
         bodies.add(get("/owner/providers", owner).raw());
         bodies.add(get("/owner/routes", owner).raw());

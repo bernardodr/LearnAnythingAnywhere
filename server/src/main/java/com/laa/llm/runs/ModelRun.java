@@ -25,4 +25,6 @@ public record ModelRun(
         List<String> safetyFlags,
         UUID userId,
         UUID textbookId,
-        OffsetDateTime createdAt) {}
+        OffsetDateTime createdAt,
+        /** Which call it was, e.g. {@code SAFETY_CHECK.topic} (null for older runs). */
+        String call) {}

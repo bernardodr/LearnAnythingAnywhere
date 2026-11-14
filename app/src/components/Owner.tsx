@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Button, Kicker, Note, type Option, Select } from '@/components/ui';
 import { ApiError, apiGet, apiPatch, apiPost } from '@/lib/api';
-import type { CompareResult, CompareSide, ProviderId, ProviderView, RouteView, RunView, TaskId, Tier } from '@/lib/types';
+import type { CallView, CompareResult, CompareSide, ProviderId, ProviderView, RouteView, RunView, TaskId, Tier } from '@/lib/types';
 import { colors, fonts, minTouch, type } from '@/theme';
 
 /** Plain names for what each task does, as the owner thinks of it. */
@@ -28,6 +28,23 @@ const STATUS: Record<string, { fg: string; bg: string }> = {
 };
 
 type Changed = () => void;
+
+/** The registered calls (server: llm/Calls), for Compare and the run log. */
+function useCalls(token: string | null) {
+  return useQuery({ queryKey: ['owner', 'calls'], queryFn: () => apiGet<CallView[]>('/owner/calls', token), enabled: !!token });
+}
+
+/** A request to start from, per call, so a comparison runs on something that call would really see. */
+const SAMPLE: Record<string, string> = {
+  LESSON_WRITE: 'Write lesson 2 from this plan: {"title": "Placing your feet on purpose", "skill": "Choose and place each foot deliberately"}',
+  MISSION_INTERVIEW: 'I want to climb a V3 with my friends by spring.',
+  'MISSION_INTERVIEW.draft': 'Interview transcript:\nLEARNER: I want to climb a V3 with my friends by spring.\nLEARNER: Twice a week at my local gym.',
+  GRADE: "Attempt 1. The learner's answer:\nI'd practise one small step, like a single move, ten times.",
+  TUTOR: 'Why do small steps work better than big ones?',
+  'SAFETY_CHECK.topic': 'Topic: Bouldering',
+  'SAFETY_CHECK.content': '<item id="a">\nVolcanoes erupt when pressure builds up under the ground.\n</item>',
+  'SAFETY_CHECK.leak': 'Tutor message to check:\nGood start. What happens straight after you try it once?',
+};
 
 function useOwnerData(token: string | null) {
   const providers = useQuery({ queryKey: ['owner', 'providers'], queryFn: () => apiGet<ProviderView[]>('/owner/providers', token), enabled: !!token });
@@ -216,8 +233,14 @@ export function RunLog({ token, providers }: { token: string | null; providers: 
     queryFn: () => apiGet<RunView[]>(`/owner/runs?${query.toString()}`, token),
     enabled: !!token,
   });
+  const calls = useCalls(token);
   const total = (runs.data ?? []).reduce((sum, r) => sum + (r.costEstimate ?? 0), 0);
   const label = (id: string) => providers.find((p) => p.id === id)?.label ?? id;
+  /** The call's own name where the task has several (the three safety checks); otherwise the task's. */
+  const what = (r: RunView) => {
+    const call = r.call ? calls.data?.find((c) => c.id === r.call) : undefined;
+    return call && (calls.data ?? []).filter((c) => c.task === r.task).length > 1 ? call.label : (TASK_LABEL[r.task] ?? r.task);
+  };
 
   return (
     <View>
@@ -244,7 +267,7 @@ export function RunLog({ token, providers }: { token: string | null; providers: 
           <Text style={[styles.badge, { color: STATUS[r.status].fg, backgroundColor: STATUS[r.status].bg }]}>{r.status}</Text>
           <View style={styles.runMain}>
             <Text style={styles.runTitle}>
-              {TASK_LABEL[r.task] ?? r.task} <Text style={styles.muted}>· {label(r.provider)} · {r.model}</Text>
+              {what(r)} <Text style={styles.muted}>· {label(r.provider)} · {r.model}</Text>
             </Text>
             <Text style={styles.muted}>
               {new Date(r.createdAt).toLocaleString()} · {(r.latencyMs / 1000).toFixed(1)}s · {r.tokensIn ?? '?'} in / {r.tokensOut ?? '?'} out
@@ -263,8 +286,12 @@ export function RunLog({ token, providers }: { token: string | null; providers: 
 
 export function ComparePanel({ token, providers, routes, onChanged }: { token: string | null; providers: ProviderView[]; routes: RouteView[]; onChanged: Changed }) {
   const usable = providers.filter((p) => p.usable);
-  const [task, setTask] = useState<TaskId>('LESSON_WRITE');
-  const [message, setMessage] = useState('Write lesson 2 from this plan: {"title": "Placing your feet on purpose", "skill": "Choose and place each foot deliberately"}');
+  const calls = useCalls(token);
+  const [callId, setCallId] = useState('LESSON_WRITE');
+  const call = calls.data?.find((c) => c.id === callId);
+  const task: TaskId = call?.task ?? 'LESSON_WRITE';
+  const siblings = (calls.data ?? []).filter((c) => c.task === task);
+  const [message, setMessage] = useState(SAMPLE.LESSON_WRITE);
   // A: the default service (what most tasks use now); B: another one to weigh against it.
   const current = usable.find((p) => p.isDefault) ?? usable[0];
   const other = usable.find((p) => p.id !== current?.id) ?? current;
@@ -285,7 +312,7 @@ export function ComparePanel({ token, providers, routes, onChanged }: { token: s
     setApplied(null);
     try {
       setResult(await apiPost<CompareResult>('/owner/compare', {
-        task, input: { message, variables: {} },
+        call: callId, input: { message, variables: {} },
         a: { provider: a, modelTier: tierA }, b: { provider: b, modelTier: tierB },
       }, token));
     } catch (e) {
@@ -319,9 +346,20 @@ export function ComparePanel({ token, providers, routes, onChanged }: { token: s
       </Text>
       <View style={styles.filters}>
         <View style={styles.filter}>
-          <Select label="Task" value={task} onChange={(t) => setTask(t)} options={TASKS.filter((t) => t !== 'RESEARCH').map((t) => ({ value: t, label: TASK_LABEL[t] }))} />
+          <Select label="Call" value={callId}
+            onChange={(id) => {
+              setCallId(id);
+              setResult(null);
+              if (SAMPLE[id]) setMessage(SAMPLE[id]);
+            }}
+            options={(calls.data ?? []).filter((c) => c.task !== 'RESEARCH').map((c) => ({ value: c.id, label: c.label }))} />
         </View>
       </View>
+      {siblings.length > 1 ? (
+        <Text style={styles.small}>
+          Switching moves the whole task, {TASK_LABEL[task]}, so all its calls change together: {siblings.map((c) => c.label).join(', ')}.
+        </Text>
+      ) : null}
       <Text style={styles.label} nativeID="compare-input">Request to send</Text>
       <TextInput accessibilityLabel="Request to send" aria-labelledby="compare-input" value={message} onChangeText={setMessage} multiline
         style={styles.input} />

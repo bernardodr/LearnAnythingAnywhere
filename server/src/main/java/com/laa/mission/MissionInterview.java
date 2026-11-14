@@ -4,9 +4,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -15,24 +14,17 @@ import org.springframework.transaction.annotation.Transactional;
 import com.laa.chat.ChatMessageRepository;
 import com.laa.chat.ChatMessageRepository.Kind;
 import com.laa.chat.ChatMessageRepository.StoredMessage;
+import com.laa.llm.Calls;
 import com.laa.llm.ChatMessage;
-import com.laa.llm.GenerationProfile;
-import com.laa.llm.LlmGateway;
-import com.laa.llm.LlmResult;
 import com.laa.llm.PromptContext;
-import com.laa.llm.Task;
 import com.laa.llm.runs.Origin;
-import com.laa.safety.Moderation;
-import com.laa.safety.ReplyGuard;
+import com.laa.safety.SafetyLayer;
 import com.laa.safety.TopicVerdict;
 import com.laa.textbook.Textbook;
 import com.laa.textbook.TextbookRepository;
 import com.laa.web.ApiException;
 import com.laa.workspace.WorkspaceFiles;
 import com.laa.workspace.WorkspaceFiles.WorkspaceFile;
-
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 
 /**
  * The preface: a short streamed interview about why the learner wants this topic (BRIEF section 6.2,
@@ -48,11 +40,13 @@ public class MissionInterview {
     public static final String MARKER = "[[MISSION_READY]]";
     public static final int MAX_ANSWERS = 5;
     public static final int MAX_ANSWER_CHARS = 2_000;
-    static final String DRAFT_VARIANT = "draft";
     private static final String WRAP_UP = "Thank you, that’s everything I need for your mission.";
 
-    /** Where a turn's output goes, as it happens: the reply ({@code token}, {@code replace}), then the rest. */
-    public interface Events extends ReplyGuard.Out {
+    /** Where a turn's output goes, as it happens. */
+    public interface Events {
+        /** The interviewer's reply, whole, once it has passed the safety check. */
+        void token(String text);
+
         void draft(MissionDraft draft);
 
         /** The draft couldn't be written; the turn itself was saved. */
@@ -63,21 +57,16 @@ public class MissionInterview {
 
     public record Transcript(List<StoredMessage> messages, int answers) {}
 
-    private final LlmGateway gateway;
+    private final SafetyLayer safety;
     private final ChatMessageRepository chats;
     private final TextbookRepository textbooks;
     private final WorkspaceFiles workspace;
-    private final ReplyGuard guard;
-    private final Moderation moderation;
 
-    MissionInterview(LlmGateway gateway, ChatMessageRepository chats, TextbookRepository textbooks, WorkspaceFiles workspace,
-                     ReplyGuard guard, Moderation moderation) {
-        this.gateway = gateway;
+    MissionInterview(SafetyLayer safety, ChatMessageRepository chats, TextbookRepository textbooks, WorkspaceFiles workspace) {
+        this.safety = safety;
         this.chats = chats;
         this.textbooks = textbooks;
         this.workspace = workspace;
-        this.guard = guard;
-        this.moderation = moderation;
     }
 
     public Transcript transcript(Textbook tb) {
@@ -103,10 +92,11 @@ public class MissionInterview {
     }
 
     /**
-     * One turn: streams the interviewer's reply, stores the answer and reply together, and once the interview
-     * is complete writes the draft. Blocks until done; call {@link #checkTurn} first.
+     * One turn: the interviewer's reply (checked by the safety layer before it's sent), the answer and reply stored
+     * together, and once the interview is complete, the draft. Blocks until done; call {@link #checkTurn} and
+     * {@link SafetyLayer#admit} first.
      */
-    public void turn(Textbook tb, UUID userId, String answer, GenerationProfile profile, Events events) {
+    public void turn(Textbook tb, UUID userId, String answer, Events events) {
         List<StoredMessage> thread = chats.thread(tb.id(), Kind.MISSION);
         String learnerAnswer = answer == null || answer.isBlank() ? null : answer.strip();
         int answersAfter = answers(thread) + (learnerAnswer == null ? 0 : 1);
@@ -118,20 +108,19 @@ public class MissionInterview {
         PromptContext ctx = new PromptContext(variables(tb, answersAfter, finalTurn), history, learnerAnswer,
                 userId, tb.id(), Origin.APP);
 
-        MarkerFilter filter = new MarkerFilter(MARKER);
-        AtomicReference<UUID> runId = new AtomicReference<>();
-        Flux<String> shown = gateway.stream(Task.MISSION_INTERVIEW, ctx, profile, runId::set)
-                .map(filter::accept)
-                .concatWith(Mono.fromSupplier(filter::finish))
-                .filter(chunk -> !chunk.isEmpty());
-        String reply = guard.deliver(shown, runId, WRAP_UP, profile, Set.of(), userId, tb.id(), events);
+        AtomicBoolean markerSeen = new AtomicBoolean();
+        String reply = safety.reply(Calls.INTERVIEW_TURN, ctx, WRAP_UP, raw -> {
+            markerSeen.set(raw.contains(MARKER));
+            return raw.replace(MARKER, "");
+        });
+        events.token(reply);
 
-        boolean complete = answersAfter >= 1 && (filter.markerSeen() || finalTurn);
+        boolean complete = answersAfter >= 1 && (markerSeen.get() || finalTurn);
         UUID messageId = chats.appendTurn(tb.id(), Kind.MISSION, learnerAnswer, reply);
 
         if (complete) {
             try {
-                events.draft(writeDraft(tb, userId, profile));
+                events.draft(writeDraft(tb, userId));
             } catch (ApiException e) {
                 events.draftFailed(e.getMessage());
             } catch (RuntimeException e) {
@@ -141,8 +130,8 @@ public class MissionInterview {
         events.done(messageId, complete);
     }
 
-    /** (Re)writes the draft from the transcript so far. */
-    public MissionDraft writeDraft(Textbook tb, UUID userId, GenerationProfile profile) {
+    /** (Re)writes the draft from the transcript so far, through the safety layer. */
+    public MissionDraft writeDraft(Textbook tb, UUID userId) {
         List<StoredMessage> thread = chats.thread(tb.id(), Kind.MISSION);
         if (answers(thread) == 0) throw new ApiException(HttpStatus.CONFLICT, "Answer at least one question first.");
         StringBuilder transcript = new StringBuilder("Interview transcript:\n");
@@ -150,19 +139,14 @@ public class MissionInterview {
             transcript.append(m.role() == ChatMessage.Role.USER ? "LEARNER: " : "INTERVIEWER: ").append(m.content()).append('\n');
         }
         PromptContext ctx = new PromptContext(variables(tb, answers(thread), true), List.of(), transcript.toString(),
-                userId, tb.id(), Origin.APP).withVariant(DRAFT_VARIANT);
-        LlmResult<MissionDraft> result = gateway.structuredResult(Task.MISSION_INTERVIEW, ctx, MissionDraft.class, profile);
-        MissionDraft draft = result.value();
-        String text = String.join("\n", draft.headline(), draft.why(), String.join("\n", draft.successLooksLike()),
-                String.join("\n", draft.constraints()), String.join("\n", draft.outOfScope()));
-        Moderation.Result check = moderation.checkText(text, profile, Moderation.Kind.OUTPUT, userId, tb.id());
-        if (!check.passed()) {
-            moderation.markBlocked(result.runId(), check.flags());
+                userId, tb.id(), Origin.APP);
+        SafetyLayer.Checked<MissionDraft> draft = safety.write(Calls.MISSION_DRAFT, ctx);
+        if (draft.blocked()) {
             throw new ApiException(HttpStatus.UNPROCESSABLE_CONTENT,
                     "Your answers are saved, but the mission draft didn’t fit your reader settings. Try again.");
         }
-        textbooks.saveDraft(tb.id(), draft);
-        return draft;
+        textbooks.saveDraft(tb.id(), draft.value());
+        return draft.value();
     }
 
     /** Writes MISSION.md (as the learner confirmed or edited it) and opens the textbook. */

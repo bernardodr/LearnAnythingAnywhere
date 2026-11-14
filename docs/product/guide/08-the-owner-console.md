@@ -55,7 +55,7 @@ For each job you choose:
 
 Try two services on the same request, side by side, before you switch.
 
-1. Choose the **Task**, and edit the **Request to send** if you like.
+1. Choose the **Call**: one of the requests LAA really makes, such as *Lesson writing*, *Grading*, *Tutor reply*, or one of the three safety checks (*Topic gate*, *Content check*, *Leak check*). A sample request appears; edit it in **Request to send** if you like.
 2. Choose a service and size for **A** and **B**.
 3. Tap **Run comparison**.
 
@@ -66,7 +66,7 @@ Each side shows what came back, how long it took, roughly what it cost, and auto
 - **Reads like it's for age *n*:** a rough guide to how hard the writing is to read.
 - **Passes the safety check:** LAA's own safety checks, as for an adult reader, found nothing to hold back. If something was blocked, the reasons are listed.
 
-Happy with one? Tap **Use A for this task** or **Use B for this task** to switch the job to it straight away.
+Happy with one? Tap **Use A for this task** or **Use B for this task** to switch the job to it straight away. Switching moves the whole job: the three safety checks share one route, so choosing a service for the content check moves the topic gate and the leak check too. The panel reminds you when that's the case.
 
 Comparisons are real requests, so a comparison with a paid service costs a little.
 
@@ -75,6 +75,6 @@ Comparisons are real requests, so a comparison with a paid service costs a littl
 Every request LAA sends to an AI service, newest first:
 
 - **Status:** *OK*, *FALLBACK* (a backup service answered), *ERROR* (it failed; the reason is shown) or *BLOCKED* (held back by a safety check).
-- **The job and service**, when it happened, how long it took, how much text went in and out, and roughly what it cost. Requests from comparisons are marked *compare*.
+- **The job and service**, when it happened, how long it took, how much text went in and out, and roughly what it cost. Requests from comparisons are marked *compare*. The safety checks are named one by one (*Topic gate*, *Content check*, *Leak check*), so you can see which check a request was.
 
 Filter by **Task** or **Service**, and tap **Refresh** to see the latest. The total at the top is a rough cost for the requests shown.

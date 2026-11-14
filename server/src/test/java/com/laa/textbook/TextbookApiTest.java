@@ -7,8 +7,8 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 import com.laa.IntegrationTest;
+import com.laa.llm.Calls;
 import com.laa.llm.Provider;
-import com.laa.llm.Task;
 import com.laa.llm.provider.fake.FailureMode;
 
 /** The library and the topic gate (BRIEF sections 8 and 10, milestone M2). */
@@ -62,7 +62,7 @@ class TextbookApiTest extends IntegrationTest {
     @Test
     void aDeclinedTopicCreatesNothingAndSaysWhyKindly() {
         String learner = login("decline@test.dev");
-        fakes.setCanned(Task.SAFETY_CHECK, """
+        fakes.setCanned(Calls.TOPIC_GATE, """
                 {"verdict": "DECLINE", "title": "", "message": "That’s not something we can write about. How about the history of locks?",
                  "categories": ["illegal_activity"]}""");
 
@@ -77,7 +77,7 @@ class TextbookApiTest extends IntegrationTest {
     @Test
     void aReframedTopicBecomesTheTitleAndKeepsTheOriginalTopic() {
         String learner = login("reframe@test.dev");
-        fakes.setCanned(Task.SAFETY_CHECK, """
+        fakes.setCanned(Calls.TOPIC_GATE, """
                 {"verdict": "REFRAME", "title": "How castles were defended",
                  "message": "We’ll look at how castles were built to keep people safe.", "categories": ["violence_weapons"]}""");
 
@@ -92,7 +92,7 @@ class TextbookApiTest extends IntegrationTest {
     @Test
     void aReframeWithoutAFramingIsTreatedAsADecline() {
         String learner = login("reframe-empty@test.dev");
-        fakes.setCanned(Task.SAFETY_CHECK, """
+        fakes.setCanned(Calls.TOPIC_GATE, """
                 {"verdict": "REFRAME", "title": "", "message": "", "categories": []}""");
         Resp r = post("/textbooks", learner, Map.of("topic", "x"));
         assertThat(r.body().get("verdict").asString()).isEqualTo("DECLINE");

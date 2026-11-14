@@ -1,6 +1,6 @@
 # Learn Anything Anywhere (LAA)
 
-A prototype that turns a learner's *why* into a personal textbook, using the `/teach` method. **`docs/BRIEF.md` is the spec.** Read the relevant section before starting any milestone. `docs/PROGRESS.md` records what's done, what's left and the decisions made so far.
+A prototype that turns a learner's *why* into a personal textbook, using the `/teach` method. **`docs/BRIEF.md` is the spec.** Read the relevant section before starting any milestone. `docs/PROGRESS.md` records what's done, what's left and the decisions made so far. `GLOSSARY.md` holds the domain words (safety layer, reader settings, shown text, …): use them in code and docs.
 
 ## Workflow
 
@@ -22,14 +22,18 @@ app/      Expo (React Native + web), Expo Router; screens in app/src/app/, token
                   Owner (owner console panels; the screen is src/app/owner.tsx, web only)
                   Settings (reader settings form + read-only summary; the screen is src/app/settings.tsx)
 server/   Spring Boot 4 + Spring AI 2, Java 21, Maven wrapper; package com.laa
-  llm/      gateway (DefaultLlmGateway), routing/ (ModelRouter, capability checks), provider/ (adapters + fake/),
+  llm/      Calls (every model call: task · variant · output), CallsCheck (startup), gateway (DefaultLlmGateway),
+            routing/ (ModelRouter, capability checks), provider/ (adapters + fake/),
             prompt/, structured/ (schema validation), runs/ (model_runs)
   textbook/ library API + repository             mission/ preface interview (SSE), MissionDraft, MISSION.md
-  lesson/   LessonWriter (plan → write → LessonRules + LessonSafety → retry), contents + lesson API   job/ Jobs (SSE progress)
-  safety/   SafetyRules + Category (LAA's own rules), TopicGate, Moderation (fails closed), ReplyGuard (streamed
-            replies), LinkPolicy                 workspace/ /teach files + versions, Resources, TeachingContext
-  profile/  generation profiles (Profiles), children, parent PIN
-  tutor/    Practice (grade → leak guard → hint fallback; hints; evidence), TutorChat, LeakSimilarity
+  lesson/   LessonWriter (plan → write → LessonChecks → rewrite once → save), LessonChecks (links · safety check · LessonRules ·
+            final-attempt decisions), contents + lesson API                                     job/ Jobs (SSE progress)
+  safety/   SafetyLayer (the only way learner flows reach a model: admit · reply · write), ReaderView (+ advice: the
+            links rule on every learner JSON response), SafetyRules + Category (LAA's own rules), Moderation (fails
+            closed), LinkPolicy, TopicGate, LeakCheck (+ LeakSimilarity)
+  workspace/ /teach files + versions, Resources, TeachingContext
+  profile/  reader settings (Profiles; the brief's "generation profile"), children, parent PIN
+  tutor/    Practice (grade → leak guard → hint fallback; hints; evidence), TutorChat
   chat/     chat_messages
   auth/     dev login + JWT + SecurityConfig     owner/  owner API + compare     dev/  /dev smoke endpoints
   security/ SecretRedactor + log converters      web/    ApiException, problem responses, Sse (chat streaming)
@@ -37,6 +41,7 @@ docs/     BRIEF.md (spec), PROGRESS.md, product/ (user guide + release notes, fo
           research/, reference/ (skills/ is a git-ignored clone of mattpocock/skills)
 scripts/  m1-switch-default.sh (curl demo of the gateway), redteam.sh (red-team topics against real providers)
 dev.sh    one-command dev start
+GLOSSARY.md  domain words (safety layer, reader settings, shown text, held back, …)
 ```
 
 ## Commands
@@ -57,18 +62,27 @@ dev.sh    one-command dev start
 - **Server:** use `JdbcClient` and Flyway SQL, not JPA. Every table gets a UUID primary key (`gen_random_uuid()`), `created_at` and `updated_at`. Attach the `set_updated_at()` trigger from `V1__baseline.sql`.
 - **Spring Boot 4 modules:** autoconfig is split into separate modules. For example, `RestClient.Builder` isn't a bean without `spring-boot-restclient`. Tests build clients with `RestClient.create(...)`.
 - **LLM calls** go through `LlmGateway` only. Code outside `llm/provider/` never touches a `ChatClient` or provider SDK, so routing, fallbacks, metering and safety stay in one place.
-- **New task output:** define a record (Jakarta-annotated) and register it in `TaskSchemas`. Prompts are `server/src/main/resources/prompts/<task>.vN.md`; `<!-- -->` comments are stripped before sending. A new prompt version is a new file, and the route picks it.
-- **Prompt variants:** a second prompt for the same task is `<task>.<variant>.vN.md`. Declare it on the `Task` enum (a version must ship every variant) and select it with `PromptContext.withVariant`. Examples: `mission_interview.draft`, `safety_check.topic`.
+- **Model calls are registered descriptors (`llm/Calls`).** Every call the app makes is one constant: a `TextCall` (streamed) or a `StructuredCall<T>` (a Jakarta-annotated record, schema-validated). Each names its task (the unit of routing), its prompt variant (null for the main prompt) and an owner-console label. Callers pass the constant (`gateway.structuredResult(Calls.TOPIC_GATE, ctx, profile)`, `safety.write(Calls.GRADE, ctx)`), never a task plus a type.
+  - **A new call** is one constant plus its prompt file `server/src/main/resources/prompts/<task>[.<variant>].vN.md`, e.g. `safety_check.content.v1.md`; its id is `TASK[.variant]`.
+  - **`CallsCheck` refuses to start the app** if a registered call lacks its v1 prompt, its output type has no schema, or its task's `Needs` don't cover it (text needs streaming; structured needs structured output). Give it a scripted reply in `FakeScripts` too: `FakeScriptsTest` fails otherwise.
+  - **Prompts:** `<!-- -->` comments are stripped before sending. A new prompt version is a new file, and the route picks it.
+  - **Dev and ad-hoc calls:** the dev ping builds unregistered descriptors; the gateway accepts them.
 - **Streaming endpoints:** validate everything that can fail *before* creating the `SseEmitter`, so those failures are plain JSON errors. Run the turn on the `llmExecutor`, send named events (`token`, …, `done`, or `error`), and save a turn only after it finishes. Clients send `Accept: text/event-stream, application/json`.
 - **Ownership:** load a learner's textbook with `TextbookRepository.requireForUser`. Another user's id is a 404, never a 403.
-- **Lessons:** the model writes `LessonDraft` (one compact block shape). `LessonRules` is the only path to stored lesson JSON: it enforces the quiz rules and citations and moves rubrics and hints into the server-only `rubrics` column. Never send `rubrics` or `plan` to the app. Teaching prompts get their workspace variables from `TeachingContext`.
+- **Lessons:** the model writes `LessonDraft` (one compact block shape). `LessonChecks` is the only path to a stored lesson. `LessonRepository.insert` takes a `CheckedLesson`, which only `LessonChecks` can make. Its `check(draft, FIRST|FINAL, about)` answers `Pass`, `Rewrite` (typed problems) or `Refuse`. Inside, `LessonRules` enforces the quiz rules and citations and moves rubrics and hints into the server-only `rubrics` column. Never send `rubrics` or `plan` to the app. Teaching prompts get their workspace variables from `TeachingContext`.
 - **Long-running work** (lesson writing): run it through `Jobs.start` and return the job id; the app follows `GET /jobs/{id}/events`. Save only once the work has passed its checks.
-- **Safety (BRIEF §8) is built to spec.** Get a learner's profile with `Profiles.forUser(userId)`; `ADULT_DEFAULT` is only for calls with no learner. Everything learner-facing a model writes passes `Moderation` before it's saved or sent: lessons through `LessonSafety`, streamed replies through `ReplyGuard` (buffered for child profiles, otherwise streamed then `replace`d), and anything else with `checkText`. A held-back run gets `markBlocked`. Check learner input before starting work or opening the stream. Never catch `Moderation.Unavailable` to carry on: unchecked text is never saved or shown. Links go through `LinkPolicy` when written and when shown.
+- **Safety (BRIEF §8) is built to spec: learner flows reach a model only through `SafetyLayer`.** `ArchitectureTest` fails if anything outside `llm..`, `safety..`, `owner..`, `dev..` (or its frozen exception list, today only `LessonWriter`) depends on `LlmGateway`.
+  - **`admit(userId, textbookId, typed)`:** checks what the learner typed. Call it before any work starts and before opening a stream.
+  - **`reply(task, ctx, ifEmpty[, prepare])`:** a reply written in full, checked, then returned for sending and storing. Nothing is sent before the check.
+  - **`write(task, ctx, Type)`:** for structured results. The result type implements `ShownText.mapShown` over every string a learner will see, and gets back `Checked(value, blocked, runId)`. `value` is always safe to show (held-back text is the placeholder); the caller decides what blocked means.
+  - The layer looks up the reader settings and the links allowlist itself, from the `PromptContext`.
+  - **`Moderation.Unavailable` is an `ApiException(503)`.** Never catch it to carry on: unchecked text is never saved or shown.
+  - **Display time:** `ReaderViewAdvice` puts every JSON response through the learner's `ReaderView` (their links policy; the allowlist is every source they've added, in any textbook). Owner and dev controllers are left out. Return stored text as it is, and never apply links per endpoint. For the rule at write time, use `ReaderView.of(userId)`.
 - **The tutor never hands over the answer.** Learner-facing text from a model that has seen a rubric (the grader) goes through `Practice`'s leak guard; the chat tutor gets no rubrics or hints at all. Show covered rubric points in full and missing ones only as a count: showing a missing point's text is a leak.
 - **Model IDs, tiers, capabilities and prices** live in `application.yml` under `laa.llm.providers` and are synced into `providers` on every start. Change them there, never in code.
 - **Secrets:** any text that might hold provider output or errors goes through `SecretRedactor.redact` before it's logged, stored or returned. Logback's `%m` and `%wEx` are redacted too (`logback-spring.xml`).
 - **Jackson 3** (`tools.jackson.*`): a missing JSON field can't fill a primitive, so optional request booleans must be `Boolean`.
-- **Tests** extend `IntegrationTest`, which gives a shared context, Testcontainers `postgres:18` and routing re-seeded before each test. They use the `FAKE` and `FAKE_B` providers. Make a fake fail with `FakeBehaviour` or `PUT /dev/fake/{provider}/failure`, and pin a reply with `fakes.setCanned(task, json)` (it answers only calls expecting that JSON's shape) or `setCannedText(task, text)`. Text containing `FakeBehaviour.BLOCK_MARKER` fails the fake safety check. `safetyCheckOnFakeB()` keeps the safety check up while FAKE fails, and `family(age, childSafe)` makes a parent and child. `FakeScripts` holds the scripted offline preface. Read a streamed endpoint with `sse(...)`. The real adapters get canary keys pointed at a dead port, so tests never need real keys or the network.
+- **Tests** extend `IntegrationTest`, which gives a shared context, Testcontainers `postgres:18` and routing re-seeded before each test. They use the `FAKE` and `FAKE_B` providers. Make a fake fail with `FakeBehaviour` or `PUT /dev/fake/{provider}/failure`, and pin a reply to exactly one call with `fakes.setCanned(Calls.X, json)` or `setCannedText(Calls.X, text)`. Text containing `FakeBehaviour.BLOCK_MARKER` fails the fake safety check. `safetyCheckOnFakeB()` keeps the safety check up while FAKE fails, and `family(age, childSafe)` makes a parent and child. Test the safety layer through its interface (`SafetyLayerTest`); `ModerationApiTest` covers each flow end to end. `FakeScripts` holds the scripted offline preface. Read a streamed endpoint with `sse(...)`. The real adapters get canary keys pointed at a dead port, so tests never need real keys or the network.
 - **Postgres port:** this machine runs Postgres.app on 5432, so the local `.env` sets `POSTGRES_PORT=5433` and `DATABASE_URL` to match. `docker-compose.yml` reads `POSTGRES_PORT`.
 - **App:** before touching an Expo API, read `app/AGENTS.md`. Expo changes between SDKs, so check the versioned docs.
 - **App data:** server state lives in TanStack Query. A streamed turn updates the cache with `setQueryData`, never a copied `useState` (lint rejects setState in effects). Links use typed routes (`{ pathname: '/textbooks/[id]', params }`). Screens wait for `useSession().ready`, then `<Redirect href="/" />` when signed out. To return to a screen that's already open (the contents page), use `router.dismissTo`, not `replace`, which stacks a second copy; a screen returned to this way keeps its old data, so refetch in `useFocusEffect`. Components that seed `useState` from query data get a `key` from that data, so fresh data remounts them. Subscriptions (SSE) live in a `useEffect` with state set only in callbacks, and abort in the cleanup.

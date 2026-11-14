@@ -8,6 +8,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 import com.laa.IntegrationTest;
+import com.laa.llm.Calls;
 
 import tools.jackson.databind.JsonNode;
 
@@ -97,7 +98,7 @@ class OwnerApiTest extends IntegrationTest {
     void compareRunsBothRoutesSideBySideWithSchemaChecks() {
         String owner = ownerToken();
         Resp r = post("/owner/compare", owner, Map.of(
-                "task", "GRADE",
+                "call", "GRADE",
                 "input", Map.of("message", "The answer is 42."),
                 "a", Map.of("provider", "FAKE"),
                 "b", Map.of("provider", "FAKE_B", "modelTier", "LARGE")));
@@ -113,17 +114,51 @@ class OwnerApiTest extends IntegrationTest {
         assertThat(latestRuns(2)).extracting(m -> m.get("origin")).containsOnly("COMPARE");
 
         Resp incapable = post("/owner/compare", owner, Map.of(
-                "task", "RESEARCH", "input", Map.of("message", "x"),
+                "call", "RESEARCH", "input", Map.of("message", "x"),
                 "a", Map.of("provider", "FAKE", "modelTier", "SMALL"), "b", Map.of("provider", "FAKE_B")));
         assertThat(incapable.status()).isEqualTo(400);
         assertThat(incapable.raw()).contains("tool calling");
     }
 
     @Test
+    void compareCanRunEveryRegisteredCallIncludingTheSafetyChecks() {
+        String owner = ownerToken();
+        JsonNode calls = get("/owner/calls", owner).body();
+        assertThat(calls.valueStream().map(c -> c.get("id").asString()).toList())
+                .contains("SAFETY_CHECK.topic", "SAFETY_CHECK.content", "SAFETY_CHECK.leak", "MISSION_INTERVIEW", "TUTOR");
+        JsonNode leak = calls.valueStream().filter(c -> c.get("id").asString().equals("SAFETY_CHECK.leak")).findFirst().orElseThrow();
+        assertThat(leak.get("task").asString()).isEqualTo("SAFETY_CHECK");
+        assertThat(leak.get("label").asString()).isEqualTo("Leak check");
+        assertThat(leak.get("structured").asBoolean()).isTrue();
+
+        Resp content = post("/owner/compare", owner, Map.of("call", "SAFETY_CHECK.content",
+                "input", Map.of("message", "<item id=\"a\">\nHow volcanoes erupt.\n</item>"),
+                "a", Map.of("provider", "FAKE"), "b", Map.of("provider", "FAKE_B")));
+        ok(content);
+        assertThat(content.body().get("mode").asString()).isEqualTo("structured:ModerationVerdict");
+        assertThat(content.body().get("call").asString()).isEqualTo("SAFETY_CHECK.content");
+        for (String side : List.of("a", "b")) {
+            assertThat(content.body().get(side).get("checks").get("schemaValid").asBoolean()).isTrue();
+            assertThat(content.body().get(side).get("parsed").get("items").get(0).get("verdict").asString()).isEqualTo("PASS");
+        }
+
+        assertThat(post("/owner/compare", owner, Map.of("call", "SAFETY_CHECK.nope", "input", Map.of("message", "x"),
+                "a", Map.of("provider", "FAKE"), "b", Map.of("provider", "FAKE_B"))).status()).isEqualTo(400);
+    }
+
+    @Test
+    void theRunLogSaysWhichCallEachRunWas() {
+        String learner = login("run-log-call@test.dev");
+        ok(post("/textbooks", learner, Map.of("topic", "Bouldering")));
+        JsonNode runs = get("/owner/runs?task=SAFETY_CHECK", ownerToken()).body();
+        assertThat(runs.get(0).get("call").asString()).isEqualTo("SAFETY_CHECK.topic");
+    }
+
+    @Test
     void compareChecksLessonQuizRulesAndReadingAge() {
         String owner = ownerToken();
         Resp r = post("/owner/compare", owner, Map.of(
-                "task", "LESSON_WRITE",
+                "call", "LESSON_WRITE",
                 "input", Map.of("message", "Write lesson 2 from this plan: {\"title\": \"Small steps\"}"),
                 "a", Map.of("provider", "FAKE"),
                 "b", Map.of("provider", "FAKE_B")));
@@ -138,7 +173,7 @@ class OwnerApiTest extends IntegrationTest {
         }
 
         // A lesson that breaks the rules is flagged, not hidden.
-        fakes.setCanned(Task.LESSON_WRITE, """
+        fakes.setCanned(Calls.LESSON_WRITE, """
                 {"title": "T", "subtitle": "S", "win": "W", "referenceSheet": {"title": "R", "md": "- r"}, "rubrics": [],
                  "blocks": [
                    {"id": "h", "type": "HEADING", "style": "", "text": "Start", "items": [], "answer": -1, "explanation": "", "refs": []},
@@ -147,13 +182,13 @@ class OwnerApiTest extends IntegrationTest {
                    {"id": "q", "type": "QUIZ", "style": "check", "text": "Which?", "items": ["Yes", "No", "All of the above"], "answer": 0, "explanation": "E", "refs": []},
                    {"id": "c", "type": "CALLOUT", "style": "note", "text": "Note.", "items": [], "answer": -1, "explanation": "", "refs": []}
                  ]}""");
-        Resp broken = post("/owner/compare", owner, Map.of("task", "LESSON_WRITE", "input", Map.of("message", "x"),
+        Resp broken = post("/owner/compare", owner, Map.of("call", "LESSON_WRITE", "input", Map.of("message", "x"),
                 "a", Map.of("provider", "FAKE"), "b", Map.of("provider", "FAKE_B")));
         assertThat(broken.body().get("a").get("checks").get("quizRules").toString())
                 .contains("aren't allowed").contains("FREE_RESPONSE").contains("warm-up");
 
         // Tasks without lessons don't get a quiz-rules verdict.
-        Resp grade = post("/owner/compare", owner, Map.of("task", "GRADE", "input", Map.of("message", "x"),
+        Resp grade = post("/owner/compare", owner, Map.of("call", "GRADE", "input", Map.of("message", "x"),
                 "a", Map.of("provider", "FAKE"), "b", Map.of("provider", "FAKE_B")));
         assertThat(grade.body().get("a").get("checks").get("quizRules").isNull()).isTrue();
     }

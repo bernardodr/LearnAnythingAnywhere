@@ -58,13 +58,4 @@ class SafetyRulesTest {
             assertThat(SafetyRules.alwaysDeclined(innocent)).as(innocent).isEmpty();
         }
     }
-
-    @Test
-    void childrenSeeRepliesOnlyAfterTheyAreChecked() {
-        assertThat(SafetyRules.strict(CHILD)).isTrue();
-        assertThat(SafetyRules.strict(new GenerationProfile(11, false, Set.of(), LinksPolicy.OFF, null, null))).isTrue();
-        assertThat(SafetyRules.strict(new GenerationProfile(15, false, Set.of(), LinksPolicy.OFF, null, null))).isFalse();
-        assertThat(SafetyRules.strict(new GenerationProfile(null, true, Set.of(), LinksPolicy.OFF, null, null))).isTrue();
-        assertThat(SafetyRules.strict(ADULT)).isFalse();
-    }
 }

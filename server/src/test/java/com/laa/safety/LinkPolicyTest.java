@@ -2,8 +2,6 @@ package com.laa.safety;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import org.junit.jupiter.api.Test;
@@ -39,14 +37,5 @@ class LinkPolicyTest {
     void textWithoutLinksIsUntouchedIncludingIndentation() {
         String md = "- Step one\n    - a nested point\n\n    code  with  spaces";
         assertThat(LinkPolicy.apply(md, LinksPolicy.OFF, Set.of())).isEqualTo(md);
-    }
-
-    @Test
-    void storedLessonJsonKeepsItsIdentifiers() {
-        Map<String, Object> block = Map.of("id", "b1", "type", "text", "md", "See https://x.example.com for more",
-                "citations", List.of("r1"));
-        @SuppressWarnings("unchecked")
-        Map<String, Object> out = (Map<String, Object>) LinkPolicy.applyAll(block, LinksPolicy.OFF, Set.of());
-        assertThat(out).containsEntry("md", "See for more").containsEntry("id", "b1").containsEntry("citations", List.of("r1"));
     }
 }

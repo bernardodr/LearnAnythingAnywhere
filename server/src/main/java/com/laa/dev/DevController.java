@@ -24,7 +24,9 @@ import com.laa.llm.LlmGateway;
 import com.laa.llm.LlmResult;
 import com.laa.llm.PromptContext;
 import com.laa.llm.Provider;
+import com.laa.llm.StructuredCall;
 import com.laa.llm.Task;
+import com.laa.llm.TextCall;
 import com.laa.llm.provider.fake.FailureMode;
 import com.laa.llm.provider.fake.FakeBehaviour;
 import com.laa.llm.runs.ModelRun;
@@ -69,16 +71,18 @@ class DevController {
                 ? "Reply with a one-sentence greeting." : request.message();
         PromptContext ctx = PromptContext.of(message).forUser(CurrentUser.id(jwt)).withOrigin(Origin.DEV);
 
+        // A dev-only call, deliberately not registered in Calls: any task's main prompt, a generic reply.
         if (Boolean.TRUE.equals(request.stream())) {
-            List<String> chunks = gateway.stream(request.task(), ctx, GenerationProfile.ADULT_DEFAULT)
+            TextCall call = new TextCall(request.task(), null, "Dev ping");
+            List<String> chunks = gateway.stream(call, ctx, GenerationProfile.ADULT_DEFAULT).text()
                     .collectList().block(Duration.ofMinutes(5));
             // Streams don't return run metadata; the newest run for this task is this call's final attempt.
             ModelRun run = runs.recent(request.task(), null, 1).stream().findFirst().orElseThrow();
             return new PingResponse(request.task(), "stream", Provider.valueOf(run.provider()), run.model(),
                     run.status(), run.id(), String.join("", chunks == null ? List.of() : chunks));
         }
-        LlmResult<PingReply> result = gateway.structuredResult(request.task(), ctx, PingReply.class,
-                GenerationProfile.ADULT_DEFAULT);
+        StructuredCall<PingReply> call = new StructuredCall<>(request.task(), null, PingReply.class, "Dev ping");
+        LlmResult<PingReply> result = gateway.structuredResult(call, ctx, GenerationProfile.ADULT_DEFAULT);
         return new PingResponse(request.task(), "structured", result.provider(), result.model(),
                 result.status().name(), result.runId(), result.value());
     }

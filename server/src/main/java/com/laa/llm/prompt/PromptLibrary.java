@@ -12,6 +12,8 @@ import java.util.regex.Pattern;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 
+import com.laa.llm.Call;
+import com.laa.llm.Calls;
 import com.laa.llm.Task;
 
 /**
@@ -28,23 +30,31 @@ public class PromptLibrary {
 
     private final Map<String, Optional<String>> cache = new ConcurrentHashMap<>();
 
-    /** True when this version ships the task's main prompt and every one of its {@link Task#promptVariants()}. */
+    /**
+     * True when this version ships the task's main prompt and the prompt of every call registered for the task
+     * ({@link Calls}), so a route can't be moved to a version missing one.
+     */
     public boolean exists(Task task, String version) {
         if (load(task, null, version).isEmpty()) return false;
-        return task.promptVariants().stream().allMatch(v -> load(task, v, version).isPresent());
+        return Calls.forTask(task).stream().allMatch(c -> has(c, version));
     }
 
-    public String render(Task task, String version, Map<String, String> variables) {
-        return render(task, null, version, variables);
+    /** True when this version ships the call's prompt. */
+    public boolean has(Call call, String version) {
+        return load(call.task(), call.variant(), version).isPresent();
     }
 
-    /** {@code variant} null renders the main prompt; otherwise {@code prompts/<stem>.<variant>.<version>.md}. */
-    public String render(Task task, String variant, String version, Map<String, String> variables) {
-        if (variant != null && !task.promptVariants().contains(variant)) {
-            throw new IllegalArgumentException(task + " has no prompt variant '" + variant + "'");
-        }
+    /** The prompt file a call uses at a version, e.g. {@code safety_check.content.v1.md}. */
+    public static String fileName(Call call, String version) {
+        return fileStem(call.task(), call.variant()) + "." + version + ".md";
+    }
+
+    /** The call's prompt at this version, its placeholders filled. */
+    public String render(Call call, String version, Map<String, String> variables) {
+        Task task = call.task();
+        String variant = call.variant();
         String template = load(task, variant, version).orElseThrow(() ->
-                new IllegalStateException("Missing prompt prompts/" + fileStem(task, variant) + "." + version + ".md"));
+                new IllegalStateException("Missing prompt prompts/" + fileName(call, version)));
         Matcher m = PLACEHOLDER.matcher(COMMENT.matcher(template).replaceAll(""));
         StringBuilder out = new StringBuilder();
         while (m.find()) {

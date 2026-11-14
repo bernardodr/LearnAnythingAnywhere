@@ -24,14 +24,17 @@ import com.laa.llm.ChatMessage;
 import com.laa.llm.GenerationProfile;
 import com.laa.llm.LlmGateway;
 import com.laa.llm.LlmResult;
+import com.laa.llm.LlmStream;
 import com.laa.llm.LlmUnavailableException;
 import com.laa.llm.ModelInfo;
 import com.laa.llm.PromptContext;
 import com.laa.llm.Provider;
 import com.laa.llm.Route;
 import com.laa.llm.RunStatus;
+import com.laa.llm.StructuredCall;
 import com.laa.llm.StructuredOutputException;
 import com.laa.llm.Task;
+import com.laa.llm.TextCall;
 import com.laa.llm.config.LlmProperties;
 import com.laa.llm.prompt.ProfileRules;
 import com.laa.llm.prompt.PromptLibrary;
@@ -54,6 +57,7 @@ import com.laa.security.SecretRedactor;
 
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
@@ -94,11 +98,12 @@ public class DefaultLlmGateway implements LlmGateway {
     // ---------------------------------------------------------------- structured
 
     @Override
-    public <T> LlmResult<T> structuredResult(Task task, PromptContext ctx, Class<T> type, GenerationProfile profile) {
+    public <T> LlmResult<T> structuredResult(StructuredCall<T> spec, PromptContext ctx, GenerationProfile profile) {
+        Task task = spec.task();
         RoutingSnapshot snapshot = router.snapshot();
         Route route = snapshot.resolve(task);
-        OutputSchema<T> schema = outputs.forType(type);
-        Call call = new Call(task, route, systemPrompt(task, route.promptVersion(), ctx, profile), messages(ctx),
+        OutputSchema<T> schema = outputs.forType(spec.output());
+        Invocation call = new Invocation(spec, route, systemPrompt(spec, route.promptVersion(), ctx, profile), messages(ctx),
                 ctx.userId(), ctx.textbookId(), ctx.origin());
 
         List<String> failures = new ArrayList<>();
@@ -125,22 +130,19 @@ public class DefaultLlmGateway implements LlmGateway {
     // ---------------------------------------------------------------- streaming
 
     @Override
-    public Flux<String> stream(Task task, PromptContext ctx, GenerationProfile profile) {
-        return stream(task, ctx, profile, id -> { });
-    }
-
-    @Override
-    public Flux<String> stream(Task task, PromptContext ctx, GenerationProfile profile, java.util.function.Consumer<UUID> onRun) {
-        return Flux.defer(() -> {
+    public LlmStream stream(TextCall spec, PromptContext ctx, GenerationProfile profile) {
+        Sinks.One<UUID> run = Sinks.one();
+        Flux<String> text = Flux.defer(() -> {
             RoutingSnapshot snapshot = router.snapshot();
-            Route route = snapshot.resolve(task);
-            Call call = new Call(task, route, systemPrompt(task, route.promptVersion(), ctx, profile), messages(ctx),
+            Route route = snapshot.resolve(spec.task());
+            Invocation call = new Invocation(spec, route, systemPrompt(spec, route.promptVersion(), ctx, profile), messages(ctx),
                     ctx.userId(), ctx.textbookId(), ctx.origin());
-            return streamFrom(call, chain(snapshot, route), 0, new ArrayList<>(), onRun);
+            return streamFrom(call, chain(snapshot, route), 0, new ArrayList<>(), run::tryEmitValue);
         });
+        return new LlmStream(text, run.asMono());
     }
 
-    private Flux<String> streamFrom(Call call, List<Step> chain, int index, List<String> failures, java.util.function.Consumer<UUID> onRun) {
+    private Flux<String> streamFrom(Invocation call, List<Step> chain, int index, List<String> failures, java.util.function.Consumer<UUID> onRun) {
         if (index >= chain.size()) {
             return Flux.error(new LlmUnavailableException(
                     call.task() + ": no provider answered. " + String.join("; ", failures)));
@@ -157,7 +159,7 @@ public class DefaultLlmGateway implements LlmGateway {
             AtomicReference<Integer> tokensIn = new AtomicReference<>();
             AtomicReference<Integer> tokensOut = new AtomicReference<>();
             Duration idle = timeout(call.route().params());
-            ProviderRequest request = new ProviderRequest(call.task(), step.model().id(), call.system(),
+            ProviderRequest request = new ProviderRequest(call.spec(), step.model().id(), call.system(),
                     call.messages(), call.route().params(), null);
 
             Runnable onComplete = () -> {
@@ -226,24 +228,26 @@ public class DefaultLlmGateway implements LlmGateway {
     }
 
     /**
-     * Run a task once on an explicit provider and model, with no fallbacks (used by the owner's compare).
-     * {@code type} null means a plain-text call. Recorded with origin COMPARE.
+     * Run a call once on an explicit provider and model, with no fallbacks (used by the owner's compare). A text call
+     * isn't streamed here. Recorded with origin COMPARE.
      */
-    public Outcome<?> runOnce(Task task, Provider provider, ModelInfo model, Map<String, Object> params,
-                              String promptVersion, PromptContext ctx, Class<?> type, GenerationProfile profile) {
+    public Outcome<?> runOnce(com.laa.llm.Call spec, Provider provider, ModelInfo model, Map<String, Object> params,
+                              String promptVersion, PromptContext ctx, GenerationProfile profile) {
         ProviderClient client = clients.client(provider)
                 .orElseThrow(() -> new LlmUnavailableException(clients.unavailableReason(provider)));
-        Route route = new Route(null, task, provider, model.id(), model.tier(), params, promptVersion, List.of());
-        Call call = new Call(task, route, systemPrompt(task, promptVersion, ctx, profile), messages(ctx),
+        Route route = new Route(null, spec.task(), provider, model.id(), model.tier(), params, promptVersion, List.of());
+        Invocation call = new Invocation(spec, route, systemPrompt(spec, promptVersion, ctx, profile), messages(ctx),
                 ctx.userId(), ctx.textbookId(), Origin.COMPARE);
         Step step = new Step(provider, model, client, null, 1);
-        return type == null ? attemptText(call, step) : attemptStructured(call, step, outputs.forType(type), false);
+        return spec instanceof StructuredCall<?> structured
+                ? attemptStructured(call, step, outputs.forType(structured.output()), false)
+                : attemptText(call, step);
     }
 
-    private Outcome<String> attemptText(Call call, Step step) {
+    private Outcome<String> attemptText(Invocation call, Step step) {
         long started = System.nanoTime();
         try {
-            ProviderReply reply = callWithTimeout(step.client(), new ProviderRequest(call.task(), step.model().id(),
+            ProviderReply reply = callWithTimeout(step.client(), new ProviderRequest(call.spec(), step.model().id(),
                     call.system(), call.messages(), call.route().params(), null), timeout(call.route().params()));
             UUID runId = record(call, step, RunStatus.OK, null, null, reply.tokensIn(), reply.tokensOut(), started);
             return new Outcome<>(reply.text(), reply.text(), runId, RunStatus.OK, null, null, List.of(),
@@ -255,7 +259,7 @@ public class DefaultLlmGateway implements LlmGateway {
 
     // ---------------------------------------------------------------- internals
 
-    private <T> Outcome<T> attemptStructured(Call call, Step step, OutputSchema<T> schema, boolean isFallback) {
+    private <T> Outcome<T> attemptStructured(Invocation call, Step step, OutputSchema<T> schema, boolean isFallback) {
         long started = System.nanoTime();
         Integer in = null;
         Integer out = null;
@@ -264,7 +268,7 @@ public class DefaultLlmGateway implements LlmGateway {
                 ? call.system() : call.system() + "\n\n" + schema.formatInstructions();
         Duration timeout = timeout(call.route().params());
         try {
-            ProviderReply reply = callWithTimeout(step.client(), new ProviderRequest(call.task(), step.model().id(),
+            ProviderReply reply = callWithTimeout(step.client(), new ProviderRequest(call.spec(), step.model().id(),
                     system, call.messages(), call.route().params(), schema.json()), timeout);
             in = add(in, reply.tokensIn());
             out = add(out, reply.tokensOut());
@@ -275,7 +279,7 @@ public class DefaultLlmGateway implements LlmGateway {
                 List<ChatMessage> retry = new ArrayList<>(call.messages());
                 retry.add(ChatMessage.assistant(reply.text()));
                 retry.add(ChatMessage.user(correction(validation.errors())));
-                reply = callWithTimeout(step.client(), new ProviderRequest(call.task(), step.model().id(),
+                reply = callWithTimeout(step.client(), new ProviderRequest(call.spec(), step.model().id(),
                         system, retry, call.route().params(), schema.json()), timeout);
                 in = add(in, reply.tokensIn());
                 out = add(out, reply.tokensOut());
@@ -297,7 +301,7 @@ public class DefaultLlmGateway implements LlmGateway {
         }
     }
 
-    private <T> Outcome<T> failed(Call call, Step step, RuntimeException e, long started, Integer in, Integer out) {
+    private <T> Outcome<T> failed(Invocation call, Step step, RuntimeException e, long started, Integer in, Integer out) {
         ErrorKind kind = ErrorClassifier.classify(e);
         String message = describe(e);
         UUID runId = record(call, step, RunStatus.ERROR, kind, message, in, out, started);
@@ -346,9 +350,9 @@ public class DefaultLlmGateway implements LlmGateway {
         return chain;
     }
 
-    private String systemPrompt(Task task, String version, PromptContext ctx, GenerationProfile profile) {
+    private String systemPrompt(com.laa.llm.Call spec, String version, PromptContext ctx, GenerationProfile profile) {
         GenerationProfile p = profile == null ? GenerationProfile.ADULT_DEFAULT : profile;
-        return prompts.render(task, ctx.promptVariant(), version, ctx.variables()) + "\n\n" + ProfileRules.render(p);
+        return prompts.render(spec, version, ctx.variables()) + "\n\n" + ProfileRules.render(p);
     }
 
     private static List<ChatMessage> messages(PromptContext ctx) {
@@ -367,11 +371,11 @@ public class DefaultLlmGateway implements LlmGateway {
                 ? Duration.ofMillis(n.longValue()) : props.callTimeout();
     }
 
-    private UUID record(Call call, Step step, RunStatus status, ErrorKind kind, String message,
+    private UUID record(Invocation call, Step step, RunStatus status, ErrorKind kind, String message,
                         Integer in, Integer out, long started) {
         return runs.insert(new RunRecord(call.task(), step.provider(), step.model().id(), call.route().promptVersion(),
                 call.route().routeId(), call.origin(), step.attempt(), in, out, cost(step.model(), in, out),
-                elapsed(started), status, kind, message, call.userId(), call.textbookId()));
+                elapsed(started), status, kind, message, call.userId(), call.textbookId(), call.spec().id()));
     }
 
     static BigDecimal cost(ModelInfo model, Integer in, Integer out) {
@@ -404,8 +408,13 @@ public class DefaultLlmGateway implements LlmGateway {
         return SecretRedactor.redact(e.getClass().getSimpleName() + (message.isEmpty() ? "" : ": " + message));
     }
 
-    private record Call(Task task, Route route, String system, List<ChatMessage> messages,
-                        UUID userId, UUID textbookId, Origin origin) {}
+    /** One call prepared for its route: the descriptor, the rendered system prompt and the messages. */
+    private record Invocation(com.laa.llm.Call spec, Route route, String system, List<ChatMessage> messages,
+                              UUID userId, UUID textbookId, Origin origin) {
+        Task task() {
+            return spec.task();
+        }
+    }
 
     private record Step(Provider provider, ModelInfo model, ProviderClient client, String unusableReason, int attempt) {}
 }

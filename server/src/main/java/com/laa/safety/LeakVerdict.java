@@ -1,4 +1,4 @@
-package com.laa.tutor;
+package com.laa.safety;
 
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;

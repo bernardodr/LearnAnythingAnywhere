@@ -2,16 +2,19 @@ package com.laa.llm.provider.fake;
 
 import java.time.Duration;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.Map;
 
 import org.springframework.stereotype.Component;
 
+import com.laa.llm.Call;
 import com.laa.llm.Provider;
-import com.laa.llm.Task;
+import com.laa.llm.StructuredCall;
+import com.laa.llm.TextCall;
 
 /**
- * Mutable switches for FAKE and FAKE_B (tests and the /dev endpoint): failure modes, and canned structured
- * replies per task (e.g. a DECLINE from the topic gate) in place of the schema-generated JSON.
+ * Mutable switches for FAKE and FAKE_B (tests and the /dev endpoint): failure modes, and replies pinned per call
+ * (e.g. a DECLINE from the topic gate) in place of the scripted ones.
  */
 @Component
 public class FakeBehaviour {
@@ -20,27 +23,26 @@ public class FakeBehaviour {
     /** Text containing this is blocked by the fake content check, so tests can trigger a block where they want one. */
     public static final String BLOCK_MARKER = "[fake:block]";
 
-    private final Map<Task, String> canned = new EnumMap<>(Task.class);
-    private final Map<Task, String> cannedText = new EnumMap<>(Task.class);
+    private final Map<Call, String> canned = new HashMap<>();
+    private final Map<Call, String> cannedText = new HashMap<>();
     private volatile Duration hang = Duration.ofSeconds(30);
 
-    /** Structured calls for {@code task} return {@code json} as-is (it's still validated by the gateway). */
-    /** Pins the structured reply for {@code task}'s calls whose output schema has exactly this JSON's properties. */
-    public synchronized void setCanned(Task task, String json) {
-        canned.put(task, json);
+    /** Pins the reply to exactly this call ({@code json} as-is; the gateway still validates it). */
+    public synchronized void setCanned(StructuredCall<?> call, String json) {
+        canned.put(call, json);
     }
 
-    /** Text and streamed calls for {@code task} return {@code text} instead of the default script. */
-    public synchronized void setCannedText(Task task, String text) {
-        cannedText.put(task, text);
+    /** Pins the reply to exactly this text call, in place of its script. */
+    public synchronized void setCannedText(TextCall call, String text) {
+        cannedText.put(call, text);
     }
 
-    synchronized String canned(Task task) {
-        return canned.get(task);
+    synchronized String canned(Call call) {
+        return canned.get(call);
     }
 
-    synchronized String cannedText(Task task) {
-        return cannedText.get(task);
+    synchronized String cannedText(Call call) {
+        return cannedText.get(call);
     }
 
     public synchronized FailureMode mode(Provider provider) {

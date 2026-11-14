@@ -81,9 +81,4 @@ public final class SafetyRules {
     public static List<String> extras(GenerationProfile profile) {
         return profile.filters().stream().filter(f -> Category.fromKey(f).isEmpty()).sorted().toList();
     }
-
-    /** Child profiles (under 13, or child-safe) see replies only after they've been checked, never mid-stream. */
-    public static boolean strict(GenerationProfile profile) {
-        return profile != null && (profile.childSafe() || (profile.age() != null && profile.age() < 13));
-    }
 }

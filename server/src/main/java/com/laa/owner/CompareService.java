@@ -16,12 +16,14 @@ import org.springframework.stereotype.Service;
 
 import com.laa.lesson.LessonDraft;
 import com.laa.lesson.LessonRules;
+import com.laa.llm.Call;
+import com.laa.llm.Calls;
 import com.laa.llm.GenerationProfile;
 import com.laa.llm.ModelInfo;
 import com.laa.llm.ModelTier;
 import com.laa.llm.PromptContext;
+import com.laa.llm.StructuredCall;
 import com.laa.llm.Task;
-import com.laa.llm.TaskSchemas;
 import com.laa.llm.gateway.DefaultLlmGateway;
 import com.laa.llm.gateway.DefaultLlmGateway.Outcome;
 import com.laa.llm.prompt.PromptLibrary;
@@ -29,11 +31,12 @@ import com.laa.llm.routing.ModelRouter;
 import com.laa.llm.routing.ProviderRecord;
 import com.laa.llm.routing.RoutingSnapshot;
 import com.laa.llm.runs.Origin;
+import com.laa.owner.OwnerViews.CallView;
 import com.laa.owner.OwnerViews.CompareChecks;
-import com.laa.owner.OwnerViews.ModerationCheck;
 import com.laa.owner.OwnerViews.CompareRequest;
 import com.laa.owner.OwnerViews.CompareResponse;
 import com.laa.owner.OwnerViews.CompareSide;
+import com.laa.owner.OwnerViews.ModerationCheck;
 import com.laa.owner.OwnerViews.RouteSpec;
 import com.laa.safety.Moderation;
 import com.laa.safety.ReadingAge;
@@ -71,28 +74,35 @@ public class CompareService {
     }
 
     public CompareResponse compare(CompareRequest request, UUID ownerId) {
-        if (request == null || request.task() == null || request.a() == null || request.b() == null
+        if (request == null || request.call() == null || request.a() == null || request.b() == null
                 || request.input() == null || request.input().message() == null || request.input().message().isBlank()) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Send task, input.message, a and b");
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Send call, input.message, a and b");
         }
-        Task task = request.task();
+        Call call = Calls.byId(request.call())
+                .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "No such call: " + request.call()));
+        Task task = call.task();
         RoutingSnapshot snapshot = router.snapshot();
         List<String> errors = new ArrayList<>();
-        Resolved a = resolve(task, request.a(), snapshot, "a", errors);
-        Resolved b = resolve(task, request.b(), snapshot, "b", errors);
+        Resolved a = resolve(call, request.a(), snapshot, "a", errors);
+        Resolved b = resolve(call, request.b(), snapshot, "b", errors);
         if (!errors.isEmpty()) throw new ApiException(HttpStatus.BAD_REQUEST, "Compare rejected", errors);
 
-        Class<?> type = TaskSchemas.typeFor(task).orElse(null);
+        Class<?> type = call instanceof StructuredCall<?> structured ? structured.output() : null;
         PromptContext ctx = new PromptContext(request.input().variables(), List.of(), request.input().message(),
-                ownerId, null, Origin.COMPARE).withVariant(TaskSchemas.variantFor(task).orElse(null));
-        Future<Outcome<?>> fa = executor.submit(() -> run(task, a, ctx, type));
-        Future<Outcome<?>> fb = executor.submit(() -> run(task, b, ctx, type));
-        return new CompareResponse(task, type == null ? "text" : "structured:" + type.getSimpleName(),
+                ownerId, null, Origin.COMPARE);
+        Future<Outcome<?>> fa = executor.submit(() -> run(call, a, ctx));
+        Future<Outcome<?>> fb = executor.submit(() -> run(call, b, ctx));
+        return new CompareResponse(task, call.id(), type == null ? "text" : "structured:" + type.getSimpleName(),
                 side(a, join(fa), type, ownerId), side(b, join(fb), type, ownerId));
     }
 
-    private Outcome<?> run(Task task, Resolved r, PromptContext ctx, Class<?> type) {
-        return gateway.runOnce(task, r.spec().provider(), r.model(), r.params(), r.promptVersion(), ctx, type,
+    /** Every registered call, for the owner console's Compare panel and run log. */
+    public static List<CallView> calls() {
+        return Calls.all().stream().map(c -> new CallView(c.id(), c.task(), c.label(), c instanceof StructuredCall<?>)).toList();
+    }
+
+    private Outcome<?> run(Call call, Resolved r, PromptContext ctx) {
+        return gateway.runOnce(call, r.spec().provider(), r.model(), r.params(), r.promptVersion(), ctx,
                 GenerationProfile.ADULT_DEFAULT);
     }
 
@@ -137,7 +147,8 @@ public class CompareService {
 
     private record Resolved(RouteSpec spec, ModelInfo model, Map<String, Object> params, String promptVersion) {}
 
-    private Resolved resolve(Task task, RouteSpec spec, RoutingSnapshot s, String label, List<String> errors) {
+    private Resolved resolve(Call call, RouteSpec spec, RoutingSnapshot s, String label, List<String> errors) {
+        Task task = call.task();
         if (spec.provider() == null) {
             errors.add(label + ": provider is required");
             return null;
@@ -160,7 +171,7 @@ public class CompareService {
         Map<String, Object> params = spec.params() == null ? Map.of()
                 : routing.parseParams(json.valueToTree(spec.params()), errors);
         String version = spec.promptVersion() == null ? "v1" : spec.promptVersion();
-        if (!prompts.exists(task, version)) errors.add(label + ": no prompt version " + version + " for " + task);
+        if (!prompts.has(call, version)) errors.add(label + ": no prompt version " + version + " for " + call.id());
         return new Resolved(spec, model, params, version);
     }
 

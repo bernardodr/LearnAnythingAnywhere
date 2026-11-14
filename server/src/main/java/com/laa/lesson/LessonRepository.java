@@ -38,8 +38,11 @@ public class LessonRepository {
         this.json = json;
     }
 
-    public Lesson insert(UUID textbookId, int seq, LessonDraft draft, String missionLink, LessonRules.Result result,
-                         LessonPlan plan, UUID modelRunId) {
+    /** Saves a lesson that has passed its checks: only {@link LessonChecks} can make a {@link LessonChecks.CheckedLesson}. */
+    public Lesson insert(UUID textbookId, int seq, LessonChecks.CheckedLesson lesson, String missionLink, LessonPlan plan,
+                         UUID modelRunId) {
+        LessonDraft draft = lesson.draft();
+        LessonRules.Result result = lesson.result();
         return jdbc.sql("INSERT INTO lessons (textbook_id, seq, title, subtitle, win, mission_link, blocks, reference_sheet, "
                         + "rubrics, plan, status, model_run_id) VALUES (:t, :seq, :title, :subtitle, :win, :link, :blocks::jsonb, "
                         + ":sheet::jsonb, :rubrics::jsonb, :plan::jsonb, 'READY', :run) RETURNING " + COLUMNS)

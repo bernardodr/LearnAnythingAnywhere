@@ -1,6 +1,9 @@
 package com.laa.mission;
 
 import java.util.List;
+import java.util.function.UnaryOperator;
+
+import com.laa.safety.ShownText;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -17,4 +20,15 @@ public record MissionDraft(
         @NotBlank @Size(max = 600) String why,
         @NotNull @Size(min = 1, max = 6) List<@NotBlank @Size(max = 200) String> successLooksLike,
         @NotNull @Size(max = 6) List<@NotBlank @Size(max = 200) String> constraints,
-        @NotNull @Size(max = 6) List<@NotBlank @Size(max = 200) String> outOfScope) {}
+        @NotNull @Size(max = 6) List<@NotBlank @Size(max = 200) String> outOfScope) implements ShownText<MissionDraft> {
+
+    /** All of it is shown: on the mission card, and in MISSION.md. */
+    @Override
+    public MissionDraft mapShown(UnaryOperator<String> f) {
+        return new MissionDraft(f.apply(headline), f.apply(why), map(successLooksLike, f), map(constraints, f), map(outOfScope, f));
+    }
+
+    private static List<String> map(List<String> items, UnaryOperator<String> f) {
+        return items == null ? null : items.stream().map(f).toList();
+    }
+}

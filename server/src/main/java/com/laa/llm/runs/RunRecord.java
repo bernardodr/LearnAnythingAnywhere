@@ -25,4 +25,6 @@ public record RunRecord(
         ErrorKind errorKind,
         String errorMessage,
         UUID userId,
-        UUID textbookId) {}
+        UUID textbookId,
+        /** Which call it was ({@link com.laa.llm.Call#id}). */
+        String call) {}

@@ -30,7 +30,7 @@ Your textbook opens with its **Preface**: a short conversation with your tutor a
 
 **How it works:**
 
-- The tutor asks its first question as soon as the preface opens. Its reply appears word by word as it's written.
+- The tutor asks its first question as soon as the preface opens. Each reply appears in full once it's been written and checked against your [reader settings](07-reader-settings.md); until then you'll see *Your tutor is writing…*
 - Type in **Your answer** and tap **Send**. You'll see *Question 1 of up to 5* beneath the box.
 - Expect two to five questions. If an answer is vague, the tutor will gently ask you to be more concrete, for example what success would look like, or by when.
 

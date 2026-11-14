@@ -76,10 +76,6 @@ export default function Preface() {
             if (event === 'token') {
               reply += String(d.text ?? '');
               setStreaming(reply);
-            } else if (event === 'replace') {
-              // The safety check changed the reply after it streamed: show (and keep) the checked version.
-              reply = String(d.text ?? '');
-              setStreaming(reply);
             } else if (event === 'draft') {
               update((s) => ({ ...s, draft: data as MissionDraft }));
             } else if (event === 'draft_failed') {
@@ -175,7 +171,7 @@ export default function Preface() {
       {pendingAnswer ? <Turn role="USER" text={pendingAnswer} /> : null}
       {streaming !== null ? (
         <View accessibilityLiveRegion="polite">
-          <Turn role="ASSISTANT" text={streaming || '…'} />
+          <Turn role="ASSISTANT" text={streaming || 'Your tutor is writing…'} />
         </View>
       ) : null}
 

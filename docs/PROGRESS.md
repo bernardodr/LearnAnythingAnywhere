@@ -11,6 +11,144 @@
 | M4 Tutor | ✅ Done (2026-11-14) |
 | M5 Owner console | ✅ Done (2026-11-14) |
 | M6 Safety and settings | ✅ Done (2026-11-14) |
+| Refactor: the safety layer as one module | ✅ Done (2026-11-14) |
+| Refactor: one reader view for everything shown | ✅ Done (2026-11-14) |
+| Refactor: one call descriptor per task and variant | ✅ Done (2026-11-14) |
+| Refactor: the lesson checks as one module | ✅ Done (2026-11-14) |
+
+## Refactor: the lesson checks as one module (done 2026-11-14)
+
+From the architecture review (card 4). `LessonWriter.writeNext` used to sequence the checks itself:
+- pure helpers: `LessonSafety.links/check/problems/withPlaceholders/unrecoverable`;
+- `LessonRules.apply` four times, with `dropBrokenQuizzes` flipping;
+- the safety check only when the rules passed, and BLOCKED logged in two places;
+- rewrite problems re-parsed from `"id: reason"` strings.
+
+The branches could only be reached through a whole lesson job, and nothing stopped an unchecked lesson being saved.
+
+**Done**
+- **`lesson/LessonChecks`:** `check(draft, Attempt.FIRST|FINAL, About)` answers `Pass(CheckedLesson)`, `Rewrite(problems, checked draft)` or `Refuse(error, problems)`.
+  - **Every attempt, in one order:** the links rule (`ReaderView`), then the safety check in one batch (logged BLOCKED on a fail), then the lesson rules, once.
+  - **First attempt:** any problems of either kind mean `Rewrite`.
+  - **Final attempt:** blocked blocks become placeholders and broken quizzes are dropped. Then `Pass`, or `Refuse`: 422 for the reader settings (the title or sheet blocked, or placeholders broke the lesson), or 502 for the rules.
+- **Typed problems:** `Problem(kind: LESSON_RULES | READER_SETTINGS, target, message)`. `Moderation.Result` now carries a reason per item (`reasons()`), with `flags()` derived from it, so nothing re-parses strings.
+- **Only a checked lesson can be saved:** `LessonRepository.insert` takes a `CheckedLesson`, whose constructor is private to `LessonChecks`. `LessonWriter` is down to plan → write → check → rewrite once → check → save.
+- **Deleted:** `LessonSafety`. `ArchitectureTest`'s exception reason for `LessonWriter` is updated.
+
+**Verified**
+- `./mvnw test`: **137 tests, 0 failures**.
+- **`LessonChecksTest`, 10 branch tests** (written first, red until `LessonChecks` existed). They judge hand-built drafts directly, with no job:
+  - a clean draft passes, and lesson 1 drops its warm-up;
+  - a rule problem, and a block that doesn't fit (logged BLOCKED), each ask for a rewrite, and both kinds come back together;
+  - on the final attempt, a broken quiz is dropped, and a still-blocked block becomes a placeholder (logged);
+  - refusals: a blocked title (422), a lesson with no practice block (502), and a placeholder that breaks the lesson (422);
+  - the links rule is applied.
+- `ModerationApiTest`'s end-to-end title refusal is removed; it duplicated a branch test.
+- **Browser:** the tutor walk-through, which writes lesson 1, passes with no console errors.
+
+## Refactor: one call descriptor per task and variant (done 2026-11-14)
+
+From the architecture review (card 3). A model call was three loose arguments (task, prompt variant, output type), declared in two places (`Task.promptVariants`, `TaskSchemas`) and re-derived by the gateway, the practice provider (eight hand-copied property-name sets, plus a guess by shape in `setCanned`) and Compare. Nothing checked they agreed, and `TaskSchemas` allowed one type per task, so Compare couldn't reach the content or leak checks.
+
+**Done**
+- **`llm/Calls`: the registry.** It holds 11 descriptors: `TextCall` (streamed) or `StructuredCall<T>`. Each has a task, a variant, an output type and a label, and its id (`TASK[.variant]`) matches the prompt file.
+- **The gateway takes descriptors:** `structuredResult(StructuredCall<T>, ctx, profile)` and `stream(TextCall, ctx, profile)`. Passing a text call where a structured result is expected doesn't compile, and the result type comes from the descriptor.
+- **The safety layer and every caller pass descriptors.** `SafetyLayer.write(StructuredCall<T>, ctx)`, `reply(TextCall, …)`.
+- **Deleted:** `TaskSchemas`, `Task.promptVariants`, `PromptContext.withVariant` and its field, the four `VARIANT` constants, the property-name sets and `sameShape`.
+- **`CallsCheck` (a `SmartInitializingSingleton`) refuses to start the app** if a registered call's v1 prompt is missing, its output type has no schema, its task's `Needs` don't cover it, or two calls share an id. RESEARCH's `Needs` now include streaming, because text is only streamed.
+- **`ProviderRequest` carries the call.** The practice provider replies per call (`FakeScripts.scripted`), and `setCanned`/`setCannedText` pin a reply to exactly one call.
+- **Run log:** each run records its call (migration `V8__run_call.sql`, `model_runs.call`). The owner's run log names the safety checks one by one.
+- **Compare:** it runs any registered call (`POST /owner/compare {call, …}`), listed by `GET /owner/calls` with labels. The panel gives a sample request per call, and notes that "Use A/B" moves the whole task when several calls share it.
+- **Dev ping:** builds unregistered descriptors (a generic reply on a task's main prompt), and the gateway accepts them.
+
+**Verified**
+- `./mvnw test`: **128 tests, 0 failures**.
+  - New: `CallsTest` 3 (all registered calls fit; a misfit is caught: a streamed call on an unstreamed task, structured output on a text task, a missing prompt file; lookup by id and task) and `FakeScriptsTest` 1 (every structured call has a practice reply).
+  - `OwnerApiTest` +2: Compare runs the content check, and the run log records `SAFETY_CHECK.topic`.
+  - `PromptLibraryTest`: a missing prompt names the file.
+  - 38 pinned replies moved to calls.
+- App typecheck and lint pass.
+- **Browser:** the owner-console walk-through passes, plus a new one: Compare on the content check (sample request, the shared-route note, right shape, PASS) and the run log naming *Topic gate* and *Content check*. No console errors.
+
+**Left**
+- The practice provider still reads production prompt formats (`- p1:`, `- r1:`, `LEARNER:`, `<item id>`). That was deferred: a structured channel would be a test-only addition to production requests.
+
+## Refactor: one reader view for everything shown (done 2026-11-14)
+
+From the architecture review (card 2). The Decision "links are applied when shown as well as when written" held for only 4 of about 14 surfaces. The misses: lesson titles and subtitles, the tutor's note, hints, the strong answer, tutor-chat and preface history, the topic gate's note, textbook titles, the mission headline, and the raw files endpoint. The allowlist was also built three ways.
+
+**Done**
+- **`safety/ReaderView`: the one links rule.**
+  - The policy is the learner's current one.
+  - The allowlist is every source the learner has added, in any of their textbooks.
+  - `of(userId)` gives a `Reader` that applies the rule to a string, or to every string in a JSON tree.
+- **`safety/ReaderViewAdvice` (a `ResponseBodyAdvice`).** Every JSON response passes through the reader view on its way out.
+  - It's on by default; only `owner..` and `dev..` controllers are left out, since they show raw model output on purpose.
+  - It skips error bodies (`ProblemDetail`), unauthenticated requests and Open policies.
+  - A new learner endpoint is covered without doing anything.
+- **The links policy runs over every string.** It only ever changes web addresses, so ids and other values pass untouched. `LinkPolicy.applyAll` and its `IDENTIFIERS` key list are deleted.
+- **Callers on the one rule:** `SafetyLayer` and `LessonWriter`/`LessonSafety.links` now take the rule from `ReaderView`. `LessonController`'s private `Links` record is gone, and pages return stored text as it is.
+- **Sources with links Off:** the address now comes back empty (was null); the app already treats both as no link.
+
+**Verified**
+- `./mvnw test`: **122 tests, 0 failures**.
+- **`ReaderViewTest`:**
+  - An address is planted in every stored surface while links are Open, and the test checks the plant landed.
+  - Then links go Off, and 12 learner reads (shelf, textbook, mission, contents, lesson, tutor thread, the strong answer, 4 raw files, a new textbook) show no address, with the words around them intact.
+  - A unit test covers the tree transform, and another proves the owner console still sees raw output.
+- `SafetyLayerTest` adds the cross-textbook allowlist.
+- **Browser:** the tutor, strong-answer and reader-settings walk-throughs pass against a fresh database (every adult response now goes through the view), with no console errors.
+
+## Refactor: the safety layer as one module (done 2026-11-14)
+
+From the architecture review (card 1, "Deepen learner-facing generation"): M6 had spread the safety steps over seven files, and two had already gone missing. The choices made are in the Decisions table below.
+
+**Done**
+- **`safety/SafetyLayer`, the one way a learner flow reaches a model.** Its interface is three methods:
+  - `admit`: checks what the learner typed.
+  - `reply`: a reply written in full, with the links policy and the check, returned only once it has passed.
+  - `write`: a structured result whose shown text (declared by `ShownText.mapShown`) gets the links policy and the check.
+- **What the layer takes over:**
+  - It looks up the reader settings itself (from the `PromptContext`).
+  - It builds the allowlist from the textbook's sources.
+  - It logs a held-back run as BLOCKED.
+  - Anything it returns is safe to show: held-back text comes back as the placeholder.
+- **Callers:**
+  - **Preface:** `MissionController`/`MissionInterview` use `admit`, `reply` (the end marker is stripped in `prepare`) and `write` for the draft.
+  - **Tutor:** `TutorController`/`TutorChat` use `admit` and `reply`.
+  - **Practice:** `admit`, `write` for grading (a held-back note falls back to the hint) and `write` for evidence (held-back evidence isn't written).
+  - None of them depend on `LlmGateway` any more.
+- **Every reply is checked before any of it is sent**, for every reader (previously only children's were). The SSE endpoints send one `token` with the whole checked reply; the `replace` event is gone from server and app. The app shows *Your tutor is writing…* meanwhile.
+- **Removed:** `ReplyGuard`, `MarkerFilter`, `SafetyRules.strict`.
+- **Leak guard:** moved into `safety/` as `LeakCheck`, with `LeakSimilarity` and `LeakVerdict`.
+- **`LlmGateway.stream` now returns `LlmStream` (text plus run id).** The callback overload and its default method are gone, so any gateway adapter, test doubles included, has to supply the run id.
+- **`Moderation.Unavailable` is now an `ApiException(503)`** with the safety message, not an AI outage. `Sse.stream` shows `ApiException` messages, so the preface, tutor chat and lesson jobs all say "We couldn't run the safety check…".
+- **Lesson progress:** shows "Writing lesson n", no longer the model's plan title, since progress is sent before the lesson is checked.
+- **`ArchitectureTest` (ArchUnit):**
+  - Only `llm..`, `safety..`, `owner..`, `dev..` and a frozen list of exceptions with reasons may depend on `LlmGateway`. Today the only exception is `lesson.LessonWriter`, until card 4.
+  - Nothing outside `llm..` may touch Spring AI.
+  - A test fixture (`ForgetfulFlow`) proves the first rule fails when broken.
+- **`GLOSSARY.md`** (new): the safety vocabulary (safety layer, reader settings, shown text, held back, placeholder, links policy, topic gate, leak guard).
+
+**Defects fixed (each written as a failing test first)**
+1. The tutor's note and the mission draft skipped the links policy.
+2. When the safety check couldn't run, the preface, tutor chat and lesson writing showed a generic outage message, not the safety message.
+3. Learning notes and glossary entries were never checked.
+4. Lesson progress sent the model's plan title before any check.
+5. Adults' replies were sent before they were checked (the M6 trade-off, now reversed).
+
+**Verified**
+- `./mvnw test`: **119 tests, 0 failures**. New or changed:
+  - `ArchitectureTest` 3 and `SafetyLayerTest` 8;
+  - 6 defect tests in `ModerationApiTest`, trimmed to end-to-end flow checks;
+  - `RevealAnswerTest`, split out of `LeakSimilarityTest`.
+  - Removed: `MarkerFilterTest`, the strict-profile case in `SafetyRulesTest`, and the child-only reply test.
+- App typecheck and lint pass.
+- **Browser:** the M4 tutor walk-through and the M6 reader settings walk-through both pass against a fresh test database, with no console errors.
+
+**Left**
+- Card 4 (the lesson checks as one module) would remove the `LessonWriter` exception from `ArchitectureTest`.
+- Card 2 (one reader view for everything shown) is still open: the links policy at display time covers only some surfaces.
 
 ## M6: Safety and settings (done 2026-11-14)
 
@@ -89,7 +227,7 @@
 
 **Left / known gaps (M6)**
 - **Real providers:** the red-team script and the moderation prompt haven't been run against a real provider yet. The Anthropic key in `.env` is rejected (401) and needs replacing.
-- **Not moderated:** learning records and glossary terms (`RECORD_UPDATE`, written in the background from the learner's own answer). The links policy is applied to them when they're shown.
+- **Not moderated:** learning records and glossary terms (`RECORD_UPDATE`, written in the background from the learner's own answer). The links policy is applied to them when they're shown. *(Fixed by the safety layer refactor: evidence now goes through `SafetyLayer.write`.)*
 - **Fail-closed paths:** the leak guard's own "couldn't be checked" fallback is still there but now rarely reached, because moderation of the learner's answer fails closed first.
 - **Profile ownership:** the profile used is the learner's current one, not the one recorded on the textbook (they're the same row today).
 
@@ -490,10 +628,25 @@
 | 2026-11-14 | **Product documentation** in `docs/product/` (user guide plus release notes), updated with every new feature (user request) | So the product can be understood, and each release read, without technical knowledge. |
 | 2026-11-14 | **LAA's own safety rules run alongside the classifier, and the stricter verdict wins.** The rules match harmful *intent* for everyone, and word lists for categories a profile leaves out. | BRIEF §8: "switching provider never turns it off". The red-team test passes with a classifier that allows everything. |
 | 2026-11-14 | Moderation **fails closed by refusing the action** (503 / SSE `error`) rather than showing a placeholder | Nothing unchecked is saved or shown, and the learner can simply retry; a placeholder would store a broken turn. |
-| 2026-11-14 | Streamed replies are **buffered for child profiles** (child-safe or under 13) and **streamed then replaced** for everyone else | BRIEF §8 says replies are checked "before they're saved or sent". For children, nothing unchecked is shown. For adults, streaming stays, and the checked text is what's kept. |
+| 2026-11-14 | ~~Streamed replies are **buffered for child profiles** (child-safe or under 13) and **streamed then replaced** for everyone else~~ **Superseded the same day** by "every reply is checked before any of it is sent" (below) | BRIEF §8 says replies are checked "before they're saved or sent". For children, nothing unchecked is shown. For adults, streaming stays, and the checked text is what's kept. |
 | 2026-11-14 | A lesson block that fails moderation is rewritten once, then replaced by a **placeholder note**. If the title or reference sheet fails, the lesson isn't saved. | BRIEF §8: "regenerated once, then replaced with a safe placeholder and logged". A lesson can't stand without its title or sheet. |
 | 2026-11-14 | New adults get links **ALLOWLIST** (was OFF); children get **OFF** | With OFF, adults couldn't add or see their own sources, which M3 relies on. ALLOWLIST still keeps out every link the learner didn't add. |
 | 2026-11-14 | The links policy is applied **when shown** as well as when written | A parent who turns links off later expects it to hold on lessons already written. |
 | 2026-11-14 | The parent PIN is a 4–8 digit code stored as a BCrypt hash, sent per request in `X-Parent-Pin` | BRIEF §8's "parent PIN stub". It's per change, so there's no unlocked session to forget. `spring-security-crypto` was already a dependency. |
 | 2026-11-14 | No new app packages: React Native's `Switch`, and an *adjustable* stepper for the age "slider" | The brief names no slider package. The stepper is accessible (screen-reader increment and decrement) and has 44px targets. |
+| 2026-11-14 | **Every reply is checked before any of it is sent, for every reader** (the preface and the tutor chat). Replies arrive whole, not word by word. | BRIEF §8: "before it's saved **or sent**". Streaming-then-replacing sent unchecked words to adults, and made the guide's "nothing was saved or sent" false when the check couldn't run. The cost is waiting for the whole reply (a few seconds); the app says *Your tutor is writing…* |
+| 2026-11-14 | **Learner flows never call the LLM gateway; the safety layer does.** This is enforced by `ArchitectureTest` (ArchUnit **1.5.1**, test scope, user-approved), with a frozen exception list whose entries each carry a reason. | Moving the steps into one module wasn't enough: a new flow could still call the gateway and skip them, and no test would fail. The rule lists the allowed callers instead of the four flows, so a new model call inside an existing flow is caught too. |
+| 2026-11-14 | Structured results declare their **shown text** (`ShownText.mapShown`). The layer uses that one declaration for both the links policy and the check, and returns held-back text as the placeholder. | A result type can't get one without the other, and a caller that forgets to look at `blocked` still shows only safe text. |
+| 2026-11-14 | `LlmGateway.stream` returns the **run id with the text** (`LlmStream`), as `structuredResult` does | The callback had a default method that ignored it, so a second gateway adapter (a test double) would have silently stopped BLOCKED logging. |
+| 2026-11-14 | A safety check that can't run is an **`ApiException(503)` with the safety message**, not an AI outage | Every surface (HTTP, SSE, lesson jobs) then shows the message the guide promises, rather than "the interviewer couldn't reply". |
+| 2026-11-14 | **The reader view runs on every JSON response by default**, through one `ResponseBodyAdvice`; only the owner and dev tools are left out | Calling it from each endpoint would repeat card 1's problem: the next endpoint forgets, and no test fails. Coverage comes by construction. |
+| 2026-11-14 | **One allowlist: every source the learner has added, in any of their textbooks**, used when writing and when showing | It's what the guide promises ("only links to sources you've added"), and read paths like the shelf span several textbooks. |
+| 2026-11-14 | **Changed reader settings apply from then on.** Content already written isn't re-checked (user decision); only links follow the new setting at once, because they're applied when shown. | Re-checking older content against stricter settings would cost model calls on every page load, or per-version bookkeeping. |
+| 2026-11-14 | With links Off, **no address shows anywhere**, including ones the learner typed | Per-field exceptions for the learner's own words would bring back the key lists card 2 removed. |
+| 2026-11-14 | **Every model call is a registered descriptor** (`llm/Calls`), which callers pass instead of task + variant + type. The task stays the unit of routing and metering. | One place to add a call. The three parts can't disagree, the practice provider and Compare read the same list, and the run log can say which call a run was. |
+| 2026-11-14 | **The app refuses to start** if a registered call doesn't fit (prompt, schema, task needs) | Mismatches fail when made, in the test suite, not when a learner first reaches the call. |
+| 2026-11-14 | Practice-mode replies stay in `FakeScripts`, **keyed by call**, with a test that every structured call has one | Keeps practice-mode content out of the production registry, and still catches a call added without a reply. |
+| 2026-11-14 | **Compare runs any registered call;** "Use A/B" still switches the whole task | Routes are per task, so the safety checks always move together. The panel says so. |
+| 2026-11-14 | **`LessonChecks` owns the whole judgement of a lesson draft** and answers Pass, Rewrite or Refuse. Safety is checked on every attempt, even when the rules already demand a rewrite. | The branches are testable without a job. One rewrite can fix both kinds of problem; it costs one extra safety-check call, and only when the rules fail. |
+| 2026-11-14 | **Only a `CheckedLesson` can be saved.** `LessonWriter` stays the architecture rule's one exception rather than moving lesson writing behind the safety layer. | The type gives the guarantee. A generic "write, review, rewrite once" in the safety layer would widen its interface and pull lesson rules into it. |
 | 2026-11-09 | Researched "Sign in with ChatGPT" (user request): see `docs/research/sign-in-with-chatgpt.md` | It exists, but only for selected partners via a waitlist, so it's not available to LAA now. Dev sign-in stays, and a real auth provider is out of scope for the prototype (BRIEF §2). |

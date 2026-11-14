@@ -10,14 +10,19 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 import com.laa.IntegrationTest;
+import com.laa.llm.Calls;
+import com.laa.llm.Provider;
 import com.laa.llm.Task;
+import com.laa.llm.provider.fake.FailureMode;
 import com.laa.llm.provider.fake.FakeBehaviour;
 
 import tools.jackson.databind.JsonNode;
 
 /**
- * Output and input moderation through the API (BRIEF section 8; milestone M6). The practice provider's content check
- * blocks anything containing {@link FakeBehaviour#BLOCK_MARKER}; LAA's own rules run as well.
+ * The safety layer end to end, through each learner flow (BRIEF section 8): what each flow does when something is
+ * held back (placeholders in lessons, a hint instead of a blocked note, nothing saved), and that every surface says so
+ * when the check can't run. The layer's own cases are in {@link SafetyLayerTest}. The practice provider's content
+ * check blocks anything containing {@link FakeBehaviour#BLOCK_MARKER}; LAA's own rules run as well.
  */
 class ModerationApiTest extends IntegrationTest {
 
@@ -34,7 +39,7 @@ class ModerationApiTest extends IntegrationTest {
     void aLessonBlockThatFailsTwiceBecomesAPlaceholderAndIsLogged() {
         String learner = login("moderation-lesson@test.dev");
         String id = activeTextbook(learner);
-        fakes.setCanned(Task.LESSON_WRITE, lessonJson("Small, repeated steps beat one big leap. " + BLOCK, "Your next small step"));
+        fakes.setCanned(Calls.LESSON_WRITE, lessonJson("Small, repeated steps beat one big leap. " + BLOCK, "Your next small step"));
 
         String job = post("/textbooks/" + id + "/lessons/next", learner, null).body().get("jobId").asString();
         ok(sseGet("/jobs/" + job + "/events", learner));
@@ -53,24 +58,10 @@ class ModerationApiTest extends IntegrationTest {
     }
 
     @Test
-    void aLessonWhoseTitleFailsIsNotSaved() {
-        String learner = login("moderation-title@test.dev");
-        String id = activeTextbook(learner);
-        fakes.setCanned(Task.LESSON_WRITE, lessonJson("Small, repeated steps beat one big leap.", "A lesson " + BLOCK));
-
-        String job = post("/textbooks/" + id + "/lessons/next", learner, null).body().get("jobId").asString();
-        SseResp events = sseGet("/jobs/" + job + "/events", learner);
-        assertThat(events.raw()).contains("didn’t fit your reader settings");
-        assertThat(get("/textbooks/" + id + "/lessons/1", learner).status()).isEqualTo(404);
-    }
-
-    // ------------------------------------------------------------------ grading
-
-    @Test
     void aGradingMessageThatFailsFallsBackToTheNextHint() {
         String learner = login("moderation-grade@test.dev");
         Book b = lessonBook(learner);
-        fakes.setCanned(Task.GRADE, json(Map.of("verdict", "PARTIAL", "coveredPoints", List.of("p1"), "missingPoints", List.of("p2"),
+        fakes.setCanned(Calls.GRADE, json(Map.of("verdict", "PARTIAL", "coveredPoints", List.of("p1"), "missingPoints", List.of("p2"),
                 "coachingMove", "ASK", "message", "Think about this " + BLOCK)));
 
         Resp note = post("/lessons/" + b.lessonId() + "/blocks/" + b.blockId() + "/attempts", learner,
@@ -97,39 +88,26 @@ class ModerationApiTest extends IntegrationTest {
     // ------------------------------------------------------------------ tutor chat and the preface
 
     @Test
-    void anAdultsReplyStreamsThenIsReplacedIfItFailsAndOnlyThePlaceholderIsStored() {
+    void everyReplyIsSentOnlyOnceItHasBeenCheckedAndABlockedOneIsNeverSent() {
         String learner = login("moderation-chat@test.dev");
         Book b = lessonBook(learner);
-        fakes.setCannedText(Task.TUTOR, "Here is a tip you shouldn’t see " + BLOCK);
 
-        SseResp turn = sse("/textbooks/" + b.id() + "/tutor/messages", learner, Map.of("content", "Why do small steps work?", "lessonSeq", 1));
-        ok(turn);
-        assertThat(turn.text()).contains("Here is a tip");
-        assertThat(turn.named("replace")).hasSize(1);
-        assertThat(turn.named("replace").getFirst().data().get("text").asString()).isEqualTo(PLACEHOLDER);
-
-        JsonNode thread = get("/textbooks/" + b.id() + "/tutor/messages?lessonSeq=1", learner).body();
-        assertThat(thread.get(1).get("content").asString()).isEqualTo(PLACEHOLDER);
-        assertThat(blockedRuns(Task.TUTOR)).hasSize(1);
-    }
-
-    @Test
-    void aChildSeesAReplyOnlyOnceItHasBeenChecked() {
-        Family f = family(9, true);
-        Book b = lessonBook(f.child());
-
-        fakes.setCannedText(Task.TUTOR, "Small steps give you quick feedback, so you learn faster.");
-        SseResp clean = sse("/textbooks/" + b.id() + "/tutor/messages", f.child(), Map.of("content", "Why do small steps work?", "lessonSeq", 1));
+        fakes.setCannedText(Calls.TUTOR_REPLY, "Small steps give you quick feedback, so you learn faster.");
+        SseResp clean = sse("/textbooks/" + b.id() + "/tutor/messages", learner, Map.of("content", "Why do small steps work?", "lessonSeq", 1));
         ok(clean);
         assertThat(clean.named("token")).as("one piece, after the check").hasSize(1);
         assertThat(clean.text()).isEqualTo("Small steps give you quick feedback, so you learn faster.");
         assertThat(clean.named("replace")).isEmpty();
 
-        fakes.setCannedText(Task.TUTOR, "Something unsuitable " + BLOCK);
-        SseResp held = sse("/textbooks/" + b.id() + "/tutor/messages", f.child(), Map.of("content", "Tell me more", "lessonSeq", 1));
+        fakes.setCannedText(Calls.TUTOR_REPLY, "Here is a tip you shouldn’t see " + BLOCK);
+        SseResp held = sse("/textbooks/" + b.id() + "/tutor/messages", learner, Map.of("content", "Tell me more", "lessonSeq", 1));
         ok(held);
-        assertThat(held.raw()).doesNotContain("unsuitable", BLOCK);
+        assertThat(held.raw()).doesNotContain("shouldn’t see", BLOCK);
         assertThat(held.text()).isEqualTo(PLACEHOLDER);
+
+        JsonNode thread = get("/textbooks/" + b.id() + "/tutor/messages?lessonSeq=1", learner).body();
+        assertThat(thread.get(3).get("content").asString()).isEqualTo(PLACEHOLDER);
+        assertThat(blockedRuns(Task.TUTOR)).hasSize(1);
     }
 
     @Test
@@ -151,15 +129,9 @@ class ModerationApiTest extends IntegrationTest {
     }
 
     @Test
-    void linksFollowTheReaderSettingsOnTheServer() {
+    void withLinksOffSourcesShowWithoutAddressesAndNoneCanBeAdded() {
         String learner = login("moderation-links@test.dev");
         Book b = lessonBook(learner);
-        fakes.setCannedText(Task.TUTOR, "Read more at https://elsewhere.example.com/page. Then try it.");
-
-        // Adults start with links to their own sources only, so this one is removed after streaming.
-        SseResp turn = sse("/textbooks/" + b.id() + "/tutor/messages", learner, Map.of("content", "Where can I read more?", "lessonSeq", 1));
-        ok(turn);
-        assertThat(turn.named("replace").getFirst().data().get("text").asString()).isEqualTo("Read more at. Then try it.");
 
         // With links off, sources show without their addresses and none can be added.
         ok(post("/textbooks/" + b.id() + "/resources", learner, Map.of("title", "Guide", "url", "https://guide.example.com")));
@@ -171,12 +143,107 @@ class ModerationApiTest extends IntegrationTest {
         JsonNode back = get("/textbooks/" + b.id() + "/contents", learner).body().get("back");
         assertThat(back.get("linksOff").asBoolean()).isTrue();
         assertThat(back.get("sources").get(0).get("title").asString()).isEqualTo("Guide");
-        assertThat(back.get("sources").get(0).path("url").isMissingNode() || back.get("sources").get(0).get("url").isNull()).isTrue();
+        assertThat(back.get("sources").get(0).path("url").asString("")).as("no address").isEmpty();
         assertThat(post("/textbooks/" + b.id() + "/resources", learner, Map.of("title", "More", "url", "https://more.example.com")).status())
                 .isEqualTo(403);
     }
 
+    // ------------------------------------------------------------------ defects found in the architecture review (card 1)
+
+    @Test
+    void theTutorsNoteFollowsTheLinksPolicy() {
+        String learner = login("links-note@test.dev");
+        Book b = lessonBook(learner);
+        fakes.setCanned(Calls.GRADE, json(Map.of("verdict", "PARTIAL", "coveredPoints", List.of("p1"), "missingPoints", List.of("p2"),
+                "coachingMove", "ASK", "message", "Good start. Compare with https://elsewhere.example.com/guide before you try again.")));
+
+        Resp note = post("/lessons/" + b.lessonId() + "/blocks/" + b.blockId() + "/attempts", learner,
+                Map.of("answer", "I'd practise one small step."));
+        ok(note);
+        assertThat(note.body().get("message").asString()).isEqualTo("Good start. Compare with before you try again.");
+    }
+
+    @Test
+    void theMissionDraftFollowsTheLinksPolicy() {
+        String learner = login("links-draft@test.dev");
+        fakes.setCanned(Calls.MISSION_DRAFT, json(Map.of("headline", "Climb a V3, like on https://climbing.example.com",
+                "why", "To climb with my friends.", "successLooksLike", List.of("A clean V3"), "constraints", List.of(),
+                "outOfScope", List.of())));
+        String id = post("/textbooks", learner, Map.of("topic", "Bouldering")).body().get("textbook").get("id").asString();
+        String base = "/textbooks/" + id + "/mission";
+        ok(sse(base + "/messages", learner, null));
+        ok(sse(base + "/messages", learner, Map.of("content", "I want to climb a V3 with my friends by spring.")));
+        ok(sse(base + "/messages", learner, Map.of("content", "Twice a week at my local gym.")));
+
+        assertThat(get(base, learner).body().get("draft").get("headline").asString()).isEqualTo("Climb a V3, like on");
+    }
+
+    @Test
+    void whenTheSafetyCheckCannotRunThePrefaceSaysSoAndSendsNothing() {
+        String learner = login("check-down-preface@test.dev");
+        String id = post("/textbooks", learner, Map.of("topic", "Bouldering")).body().get("textbook").get("id").asString();
+        safetyCheckOnFakeB();
+        fakes.set(Provider.FAKE_B, FailureMode.SERVER_ERROR);
+
+        SseResp open = sse("/textbooks/" + id + "/mission/messages", learner, null);
+        assertThat(open.named("error").getFirst().data().get("message").asString()).contains("safety check");
+        assertThat(open.named("token")).as("nothing unchecked was sent").isEmpty();
+        assertThat(get("/textbooks/" + id + "/mission", learner).body().get("messages").size()).isZero();
+    }
+
+    @Test
+    void whenTheSafetyCheckCannotRunALessonSaysSoAndNothingIsSaved() {
+        String learner = login("check-down-lesson@test.dev");
+        String id = activeTextbook(learner);
+        safetyCheckOnFakeB();
+        fakes.set(Provider.FAKE_B, FailureMode.SERVER_ERROR);
+
+        String job = post("/textbooks/" + id + "/lessons/next", learner, null).body().get("jobId").asString();
+        SseResp events = sseGet("/jobs/" + job + "/events", learner);
+        assertThat(events.named("error").getFirst().data().get("message").asString()).contains("safety check");
+        assertThat(get("/textbooks/" + id + "/lessons/1", learner).status()).isEqualTo(404);
+    }
+
+    @Test
+    void lessonProgressShowsNoTextTheModelWroteBeforeItIsChecked() {
+        String learner = login("progress@test.dev");
+        String id = activeTextbook(learner);
+        String job = post("/textbooks/" + id + "/lessons/next", learner, null).body().get("jobId").asString();
+        SseResp events = sseGet("/jobs/" + job + "/events", learner);
+        assertThat(events.named("progress")).isNotEmpty()
+                .allSatisfy(e -> assertThat(e.data().toString()).doesNotContain("small step"));
+    }
+
+    @Test
+    void evidenceThatFailsTheCheckIsNotWritten() {
+        String learner = login("evidence-blocked@test.dev");
+        Book b = lessonBook(learner);
+        fakes.setCanned(Calls.RECORD_UPDATE, json(Map.of("writeRecord", true, "slug", "small-steps", "title", "Small steps",
+                "body", "Knows why small steps work. " + BLOCK, "evidence", "Explained it.", "glossary", List.of())));
+
+        Resp met = post("/lessons/" + b.lessonId() + "/blocks/" + b.blockId() + "/attempts", learner,
+                Map.of("answer", "I'd practise one small step because it gives quick feedback."));
+        assertThat(met.body().get("evidencePending").asBoolean()).isTrue();
+
+        awaitBlockedRun(Task.RECORD_UPDATE);
+        assertThat(get("/textbooks/" + b.id() + "/contents", learner).body().get("back").get("learned").size()).isZero();
+    }
+
     // ------------------------------------------------------------------ helpers
+
+    /** Evidence is written in the background; wait for its run to be held back. */
+    private void awaitBlockedRun(Task task) {
+        java.time.Instant deadline = java.time.Instant.now().plusSeconds(10);
+        while (java.time.Instant.now().isBefore(deadline)) {
+            if (!blockedRuns(task).isEmpty()) return;
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+        throw new AssertionError("No BLOCKED " + task + " run within 10s");
+    }
 
     private List<Map<String, Object>> blockedRuns(Task task) {
         return jdbc.sql("SELECT status, safety_flags::text AS safety_flags FROM model_runs WHERE task = :t AND status = 'BLOCKED'")

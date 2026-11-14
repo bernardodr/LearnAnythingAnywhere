@@ -1,10 +1,7 @@
 package com.laa.lesson;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -15,16 +12,20 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import com.laa.job.Jobs;
+import com.laa.lesson.LessonChecks.Attempt;
+import com.laa.lesson.LessonChecks.Pass;
+import com.laa.lesson.LessonChecks.Refuse;
+import com.laa.lesson.LessonChecks.Rewrite;
+import com.laa.lesson.LessonChecks.Verdict;
 import com.laa.lesson.LessonRepository.Lesson;
+import com.laa.llm.Calls;
 import com.laa.llm.GenerationProfile;
 import com.laa.llm.LlmGateway;
 import com.laa.llm.LlmResult;
 import com.laa.llm.LlmUnavailableException;
 import com.laa.llm.PromptContext;
 import com.laa.llm.StructuredOutputException;
-import com.laa.llm.Task;
 import com.laa.llm.runs.Origin;
-import com.laa.safety.Moderation;
 import com.laa.textbook.Textbook;
 import com.laa.web.ApiException;
 import com.laa.workspace.Resources.Resource;
@@ -33,12 +34,10 @@ import com.laa.workspace.TeachingContext;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Writes the next lesson (BRIEF section 6.4): load the workspace, LESSON_PLAN picks one skill in the learner's
- * zone of proximal development, LESSON_WRITE writes it, the links policy is applied, and {@link LessonRules} and
- * the safety check ({@link LessonSafety}, BRIEF section 8) check it. If either finds problems, the writer gets them
- * back and rewrites once. On that last attempt, quizzes that still break the rules are dropped if the lesson stands
- * without them, and blocks that still don't pass the safety check become a placeholder note. Only a lesson that
- * passes is stored.
+ * Writes the next lesson (BRIEF section 6.4): load the workspace, LESSON_PLAN picks one skill in the learner's zone of
+ * proximal development, LESSON_WRITE writes it, and {@link LessonChecks} judges it. If the checks ask for a rewrite,
+ * the writer gets the problems back and rewrites once, and the checks judge that as the final attempt. Only what the
+ * checks pass can be saved.
  */
 @Service
 public class LessonWriter {
@@ -52,15 +51,14 @@ public class LessonWriter {
     private final LlmGateway gateway;
     private final TeachingContext teaching;
     private final LessonRepository lessons;
-    private final Moderation moderation;
+    private final LessonChecks checks;
     private final JsonMapper json;
-    private final Random random = new Random();
 
-    LessonWriter(LlmGateway gateway, TeachingContext teaching, LessonRepository lessons, Moderation moderation, JsonMapper json) {
+    LessonWriter(LlmGateway gateway, TeachingContext teaching, LessonRepository lessons, LessonChecks checks, JsonMapper json) {
         this.gateway = gateway;
         this.teaching = teaching;
         this.lessons = lessons;
-        this.moderation = moderation;
+        this.checks = checks;
         this.json = json;
     }
 
@@ -70,7 +68,6 @@ public class LessonWriter {
         List<Lesson> earlier = lessons.list(tb.id());
         int seq = earlier.size() + 1;
         Set<String> resourceIds = ctx.resources().stream().map(Resource::id).collect(Collectors.toSet());
-        Set<String> allowedLinks = ctx.resources().stream().map(Resource::url).filter(Objects::nonNull).collect(Collectors.toSet());
         Map<String, String> vars = TeachingContext.with(ctx.variables(), Map.of(
                 "seq", String.valueOf(seq),
                 "earlier_lessons", earlierLessons(earlier),
@@ -78,58 +75,40 @@ public class LessonWriter {
 
         try {
             progress.stage("plan", "Choosing what to teach next");
-            LessonPlan plan = gateway.structured(Task.LESSON_PLAN,
-                    prompt(vars, "Plan lesson " + seq + ".", userId, tb.id()), LessonPlan.class, profile);
+            LessonPlan plan = gateway.structured(Calls.LESSON_PLAN, prompt(vars, "Plan lesson " + seq + ".", userId, tb.id()), profile);
 
-            progress.stage("write", "Writing lesson " + seq + ": " + plan.title().strip());
+            // Fixed wording only: progress reaches the learner before the lesson is checked (BRIEF section 8).
+            progress.stage("write", "Writing lesson " + seq);
             String brief = "Write lesson " + seq + " from this plan:\n" + json.writeValueAsString(plan);
-            LlmResult<LessonDraft> draft = gateway.structuredResult(Task.LESSON_WRITE,
-                    prompt(vars, brief, userId, tb.id()), LessonDraft.class, profile);
+            LlmResult<LessonDraft> draft = gateway.structuredResult(Calls.LESSON_WRITE, prompt(vars, brief, userId, tb.id()), profile);
 
             progress.stage("check", "Checking the quizzes, sources and reader settings");
-            LessonDraft lesson = LessonSafety.links(draft.value(), profile, allowedLinks);
-            LessonRules.Result result = LessonRules.apply(lesson, seq, resourceIds, random, false);
-            // The safety check runs once the rules pass; a lesson rewritten for the rules is checked after the rewrite.
-            Moderation.Result safety = result.ok() ? LessonSafety.check(moderation, lesson, profile, userId, tb.id()) : null;
-            if (!result.ok() || !safety.passed()) {
-                List<String> problems = new ArrayList<>(result.problems().stream().map(LessonRules.Problem::message).toList());
-                if (safety != null && !safety.passed()) {
-                    moderation.markBlocked(draft.runId(), safety.flags());
-                    problems.addAll(LessonSafety.problems(safety));
-                }
+            LessonChecks.About about = new LessonChecks.About(seq, resourceIds, userId, tb.id(), draft.runId());
+            Verdict verdict = checks.check(draft.value(), Attempt.FIRST, about);
+            if (verdict instanceof Rewrite rewrite) {
+                List<String> problems = rewrite.problems().stream().map(LessonChecks.Problem::message).toList();
                 log.info("Lesson {} for textbook {} failed its checks, rewriting: {}", seq, tb.id(), problems);
                 progress.stage("rewrite", "Tidying up a few things");
                 String fix = brief + "\n\nYour previous version had these problems:\n- " + String.join("\n- ", problems)
-                        + "\n\nYour previous version, to correct:\n" + json.writeValueAsString(lesson)
+                        + "\n\nYour previous version, to correct:\n" + json.writeValueAsString(rewrite.checked())
                         + "\n\nReturn the whole corrected lesson.";
-                draft = gateway.structuredResult(Task.LESSON_WRITE, prompt(vars, fix, userId, tb.id()), LessonDraft.class, profile);
-                lesson = LessonSafety.links(draft.value(), profile, allowedLinks);
-                result = LessonRules.apply(lesson, seq, resourceIds, random, true);
-                if (!result.ok()) {
-                    log.warn("Lesson {} for textbook {} failed its checks twice: {}", seq, tb.id(),
-                            result.problems().stream().map(LessonRules.Problem::message).toList());
-                    throw new ApiException(HttpStatus.BAD_GATEWAY,
-                            "The lesson didn’t pass its checks, so it wasn’t saved. Please try again.");
-                }
-                safety = LessonSafety.check(moderation, lesson, profile, userId, tb.id());
-                if (!safety.passed()) {
-                    moderation.markBlocked(draft.runId(), safety.flags());
-                    List<String> placeholders = new ArrayList<>();
-                    lesson = LessonSafety.withPlaceholders(lesson, safety, placeholders);
-                    result = LessonSafety.unrecoverable(safety) ? null : LessonRules.apply(lesson, seq, resourceIds, random, true);
-                    if (result == null || !result.ok()) {
-                        log.warn("Lesson {} for textbook {} didn't pass the safety check twice: {}", seq, tb.id(), safety.flags());
-                        throw new ApiException(HttpStatus.UNPROCESSABLE_CONTENT,
-                                "This lesson didn’t fit your reader settings, so it wasn’t saved. Please try again.");
-                    }
-                    log.info("Lesson {} for textbook {}: {}", seq, tb.id(), placeholders);
-                }
+                draft = gateway.structuredResult(Calls.LESSON_WRITE, prompt(vars, fix, userId, tb.id()), profile);
+                verdict = checks.check(draft.value(), Attempt.FINAL, about.withRun(draft.runId()));
             }
-            if (!result.removed().isEmpty()) log.info("Lesson {} for textbook {}: {}", seq, tb.id(), result.removed());
+            LessonChecks.CheckedLesson lesson = switch (verdict) {
+                case Pass pass -> pass.lesson();
+                case Refuse refuse -> {
+                    log.warn("Lesson {} for textbook {} wasn't saved: {}", seq, tb.id(),
+                            refuse.problems().stream().map(LessonChecks.Problem::message).toList());
+                    throw refuse.error();
+                }
+                case Rewrite r -> throw new IllegalStateException("A final check never asks for another rewrite");
+            };
+            if (!lesson.changes().isEmpty()) log.info("Lesson {} for textbook {}: {}", seq, tb.id(), lesson.changes());
 
             progress.stage("save", "Binding the pages");
             String missionLink = tb.missionHeadline() == null ? tb.title() : tb.missionHeadline();
-            Lesson saved = lessons.insert(tb.id(), seq, lesson, missionLink, result, plan, draft.runId());
+            Lesson saved = lessons.insert(tb.id(), seq, lesson, missionLink, plan, draft.runId());
             return new Written(saved.seq(), saved.id().toString(), saved.title());
         } catch (LlmUnavailableException e) {
             throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE,

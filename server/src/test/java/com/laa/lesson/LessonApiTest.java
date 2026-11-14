@@ -8,8 +8,8 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 import com.laa.IntegrationTest;
+import com.laa.llm.Calls;
 import com.laa.llm.Provider;
-import com.laa.llm.Task;
 import com.laa.llm.provider.fake.FailureMode;
 
 import tools.jackson.databind.JsonNode;
@@ -111,7 +111,7 @@ class LessonApiTest extends IntegrationTest {
     void aQuizThatKeepsBreakingTheRulesIsDroppedAfterOneRewrite() {
         String learner = login("rewrite@test.dev");
         String id = activeTextbook(learner, "Bouldering");
-        fakes.setCanned(Task.LESSON_WRITE, cannedLesson(true, true));
+        fakes.setCanned(Calls.LESSON_WRITE, cannedLesson(true, true));
 
         SseResp job = writeNext(learner, id);
         assertThat(job.named("progress")).extracting(e -> e.data().get("stage").asString()).contains("rewrite");
@@ -125,7 +125,7 @@ class LessonApiTest extends IntegrationTest {
     void aLessonThatFailsItsChecksTwiceIsNotSaved() {
         String learner = login("broken@test.dev");
         String id = activeTextbook(learner, "Bouldering");
-        fakes.setCanned(Task.LESSON_WRITE, cannedLesson(false, false)); // no practice block at all
+        fakes.setCanned(Calls.LESSON_WRITE, cannedLesson(false, false)); // no practice block at all
 
         SseResp job = writeNext(learner, id);
         assertThat(job.named("done")).isEmpty();

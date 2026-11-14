@@ -16,9 +16,9 @@ import com.laa.security.SecretRedactor;
 
 /**
  * Streams one chat turn as server-sent events: the work runs on the given executor and sends named JSON events;
- * the emitter completes when it returns. A provider outage becomes an {@code error} event with
- * {@code unavailableMessage}; anything else an {@code error} event with a generic message. A client that goes
- * away stops the work (the next send throws).
+ * the emitter completes when it returns. An {@link ApiException} becomes an {@code error} event with its own message
+ * (they're written to be shown, e.g. the safety check's); a provider outage one with {@code unavailableMessage};
+ * anything else one with a generic message. A client that goes away stops the work (the next send throws).
  */
 public final class Sse {
 
@@ -45,6 +45,9 @@ public final class Sse {
             try {
                 work.accept(sender);
                 emitter.complete();
+            } catch (ApiException e) {
+                log.warn("{} stopped: {}", what, SecretRedactor.redact(e.getMessage()));
+                fail(emitter, e.getMessage());
             } catch (LlmUnavailableException e) {
                 log.warn("{} failed: {}", what, SecretRedactor.redact(e.getMessage()));
                 fail(emitter, unavailableMessage);

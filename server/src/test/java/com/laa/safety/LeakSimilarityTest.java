@@ -1,16 +1,13 @@
-package com.laa.tutor;
+package com.laa.safety;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
-import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
-import com.laa.llm.GenerationProfile;
-import com.laa.llm.GenerationProfile.LinksPolicy;
 
-/** The text-similarity half of the leak guard, and the reveal-answer rule (BRIEF section 6.5). */
+/** The text-similarity half of the leak guard (BRIEF section 6.5). */
 class LeakSimilarityTest {
 
     private static final List<String> SECRETS = List.of(
@@ -41,13 +38,5 @@ class LeakSimilarityTest {
         assertThat(LeakSimilarity.leaks("Good start. Where is the rest of your body while your arms hang straight?",
                 SECRETS, PARTIAL_ANSWER)).isEmpty();
         assertThat(LeakSimilarity.leaks("What changes when you move closer?", SECRETS, "")).isEmpty();
-    }
-
-    @Test
-    void answersAreRevealedOnlyWhenTheProfileAllowsIt() {
-        assertThat(Practice.mayRevealAnswer(GenerationProfile.ADULT_DEFAULT, 99)).isFalse();
-        var afterThree = new GenerationProfile(12, true, Set.of(), LinksPolicy.OFF, 3, null);
-        assertThat(Practice.mayRevealAnswer(afterThree, 2)).isFalse();
-        assertThat(Practice.mayRevealAnswer(afterThree, 3)).isTrue();
     }
 }

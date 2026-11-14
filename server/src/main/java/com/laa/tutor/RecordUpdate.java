@@ -1,6 +1,9 @@
 package com.laa.tutor;
 
 import java.util.List;
+import java.util.function.UnaryOperator;
+
+import com.laa.safety.ShownText;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -22,7 +25,17 @@ public record RecordUpdate(
         @NotNull @Size(max = 800) String body,
         /** How the learner showed it, in one sentence. */
         @NotNull @Size(max = 300) String evidence,
-        @NotNull @Size(max = 5) List<@NotNull @Valid Term> glossary) {
+        @NotNull @Size(max = 5) List<@NotNull @Valid Term> glossary) implements ShownText<RecordUpdate> {
+
+    /** Shown at the back of the book (What you've learned, the glossary). The slug is only a file name. */
+    @Override
+    public RecordUpdate mapShown(UnaryOperator<String> f) {
+        return new RecordUpdate(writeRecord, slug, f.apply(title), f.apply(body), f.apply(evidence),
+                glossary == null ? null : glossary.stream()
+                        .map(t -> new Term(f.apply(t.term()), f.apply(t.definition()), t.avoid().stream().map(f).toList()))
+                        .toList());
+    }
+
 
     public record Term(
             @NotBlank @Size(max = 60) String term,

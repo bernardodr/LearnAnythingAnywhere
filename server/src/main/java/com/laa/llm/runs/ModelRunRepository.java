@@ -31,9 +31,9 @@ public class ModelRunRepository {
         return jdbc.sql("""
                 INSERT INTO model_runs (task, provider, model, prompt_version, route_id, origin, attempt,
                                         tokens_in, tokens_out, cost_estimate, latency_ms, status, error_kind,
-                                        error_message, user_id, textbook_id)
+                                        error_message, user_id, textbook_id, call)
                 VALUES (:task, :provider, :model, :promptVersion, :routeId, :origin, :attempt,
-                        :tokensIn, :tokensOut, :cost, :latency, :status, :errorKind, :errorMessage, :userId, :textbookId)
+                        :tokensIn, :tokensOut, :cost, :latency, :status, :errorKind, :errorMessage, :userId, :textbookId, :call)
                 RETURNING id""")
                 .param("task", r.task().name())
                 .param("provider", r.provider().name())
@@ -51,6 +51,7 @@ public class ModelRunRepository {
                 .param("errorMessage", message)
                 .param("userId", r.userId())
                 .param("textbookId", r.textbookId())
+                .param("call", r.call())
                 .query(UUID.class)
                 .single();
     }
@@ -67,7 +68,7 @@ public class ModelRunRepository {
         return jdbc.sql("""
                 SELECT id, task, provider, model, prompt_version, route_id, origin, attempt, tokens_in, tokens_out,
                        cost_estimate, latency_ms, status, error_kind, error_message, safety_flags::text AS safety_flags,
-                       user_id, textbook_id, created_at
+                       user_id, textbook_id, created_at, call
                 FROM model_runs
                 WHERE (CAST(:task AS text) IS NULL OR task = :task)
                   AND (CAST(:provider AS text) IS NULL OR provider = :provider)
@@ -95,7 +96,8 @@ public class ModelRunRepository {
                         json.readValue(rs.getString("safety_flags"), STRINGS),
                         rs.getObject("user_id", UUID.class),
                         rs.getObject("textbook_id", UUID.class),
-                        rs.getObject("created_at", java.time.OffsetDateTime.class)))
+                        rs.getObject("created_at", java.time.OffsetDateTime.class),
+                        rs.getString("call")))
                 .list();
     }
 

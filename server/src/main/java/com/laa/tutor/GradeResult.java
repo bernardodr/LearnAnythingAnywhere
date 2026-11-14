@@ -1,6 +1,9 @@
 package com.laa.tutor;
 
 import java.util.List;
+import java.util.function.UnaryOperator;
+
+import com.laa.safety.ShownText;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -11,7 +14,14 @@ public record GradeResult(
         @NotNull List<String> coveredPoints,
         @NotNull List<String> missingPoints,
         @NotNull CoachingMove coachingMove,
-        @NotBlank String message) {
+        @NotBlank String message) implements ShownText<GradeResult> {
+
+    /** Only the coaching message is the model's words; covered points are shown from the rubric, checked with the lesson. */
+    @Override
+    public GradeResult mapShown(UnaryOperator<String> f) {
+        return new GradeResult(verdict, coveredPoints, missingPoints, coachingMove, f.apply(message));
+    }
+
 
     public enum Verdict { MET, PARTIAL, NOT_YET }
 

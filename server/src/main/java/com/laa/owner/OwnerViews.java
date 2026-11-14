@@ -50,7 +50,11 @@ final class OwnerViews {
 
     record RouteSpec(Provider provider, ModelTier modelTier, String modelId, Map<String, Object> params, String promptVersion) {}
 
-    record CompareRequest(Task task, CompareInput input, RouteSpec a, RouteSpec b) {}
+    /** {@code call}: a registered call's id ({@code GRADE}, {@code SAFETY_CHECK.content}, …), from {@code GET /owner/calls}. */
+    record CompareRequest(String call, CompareInput input, RouteSpec a, RouteSpec b) {}
+
+    /** A registered call, for the owner console: what Compare can run, and what the run log names. */
+    record CallView(String id, Task task, String label, boolean structured) {}
 
     /**
      * Compare's automatic checks (BRIEF section 5.4). {@code quizRules}: problems found by the lesson quiz rules
@@ -78,5 +82,5 @@ final class OwnerViews {
             UUID runId,
             CompareChecks checks) {}
 
-    record CompareResponse(Task task, String mode, CompareSide a, CompareSide b) {}
+    record CompareResponse(Task task, String call, String mode, CompareSide a, CompareSide b) {}
 }

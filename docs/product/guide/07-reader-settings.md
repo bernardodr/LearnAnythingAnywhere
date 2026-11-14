@@ -10,11 +10,11 @@ To open them, tap **Settings** at the top of your shelf.
 
 | Setting | What it does |
 |---|---|
-| **Child-safe mode** | Leaves out everything in the list below, and shows the tutor's replies only once they've been checked (see [How LAA keeps things safe](#how-laa-keeps-things-safe)). |
+| **Child-safe mode** | Leaves out everything in the list below (see [How LAA keeps things safe](#how-laa-keeps-things-safe)). |
 | **Age** | Sets the reading level, from *Early reader (ages 5–6)* up to *Adult*. Tap **−** and **+** to change it; the reading level shows underneath. |
 | **Leave out of lessons** | Switch on anything you'd rather your lessons didn't include: *Violence and weapons*, *Mature themes*, *Drugs and alcohol*, *Gambling*, *Scary content*. |
 | **Also leave out** | Anything else, in your own words (for example *spiders*). Type it and tap **Add**; tap **×** on it to remove it. |
-| **Links in lessons and replies** | **Off**: no links at all. **Allowlist**: only links to sources you've added yourself. **Open**: links are allowed. |
+| **Links in lessons and replies** | **Off**: no links at all, anywhere you read. **Allowlist**: only links to sources you've added yourself, in any of your textbooks. **Open**: links are allowed. |
 | **Reveal answer after 3 tries** | Once you've used every hint and tried three times, you can see *A strong answer*. Off means your tutor never shows it, however many tries. |
 
 Tap **Save settings** when you're done. New lessons and replies follow your settings straight away.
@@ -24,6 +24,7 @@ Tap **Save settings** when you're done. New lessons and replies follow your sett
 **Good to know:**
 
 - New accounts start with links set to **Allowlist**, and answers are never shown.
+- **Changing your settings** applies from that moment on: new lessons, replies and notes follow them, and what was already written stays as it was. The exception is links: they follow your new setting straight away, everywhere, including in lessons and conversations written before.
 - If you choose a topic that touches on something your settings leave out, LAA says so kindly and suggests something else, rather than writing the textbook.
 - With links **Off**, your sources at the back of the book show without their web addresses, and you can't add new ones.
 - Adults can set an age from 13 up. Settings for children under 13 are made by a parent (below).
@@ -65,8 +66,10 @@ LAA checks what it writes, and what's typed into it, against the reader's settin
 
 - **Topics** are checked before a textbook is created. Some are declined for everyone, such as instructions for causing serious harm. Others are declined only when the reader's settings leave them out.
 - **Lessons** are checked part by part before they're saved. A part that doesn't fit is rewritten once. If it still doesn't fit, it's replaced with a note saying *"This part was left out because it didn't fit your reader settings."* If a lesson can't be made to fit, it isn't saved, and you can try writing it again.
-- **The tutor's replies and notes** are checked before they're kept. With child-safe mode on, or for readers under 13, a reply appears only once it's been checked, all at once rather than word by word. For everyone else it appears as it's written, and is swapped for the checked version if anything had to change. If a tutor's note doesn't fit, you get the next prepared hint instead.
+- **The tutor's replies and notes** are checked before you see any of them, for every reader. A reply appears in full once it's been written and checked; meanwhile you'll see *Your tutor is writing…* If a reply doesn't fit, you see the note *"This part was left out…"* instead. If a tutor's note doesn't fit, you get the next prepared hint instead.
+- **Your mission card, and what you've learned** (the notes at the back of the book and the glossary) are checked too. A note that doesn't fit isn't written.
+- **While a lesson is being written**, the progress line shows only *Writing lesson 2* and the like, never words from the lesson itself, which hasn't been checked yet.
 - **What you type** (interview answers, practice answers and questions for your tutor) is checked too. If a message isn't about learning, or doesn't fit the reader's settings, you'll see *"Let's keep this about learning, in a way that fits your reader settings. Try putting it another way."* Nothing is saved, so just rephrase it.
-- **Links** follow your links setting on every page, even if something slips into the writing.
+- **Links** follow your links setting everywhere you read: lessons and their titles, the tutor's notes, hints, your conversations, your mission, the back of the book and your shelf. That includes text written before you changed the setting, and anything that slips into the writing. With links **Off**, that includes web addresses you typed yourself.
 
 If the safety check itself can't run for a moment, LAA doesn't take the risk: nothing is saved or shown, and you'll see *"We couldn't run the safety check just now, so nothing was saved or sent. Please try again."*

@@ -4,9 +4,9 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.laa.llm.Calls;
 import com.laa.llm.ChatMessage;
 import com.laa.llm.Provider;
-import com.laa.llm.Task;
 import com.laa.llm.provider.ErrorKind;
 import com.laa.llm.provider.ProviderCallException;
 import com.laa.llm.provider.ProviderClient;
@@ -43,10 +43,8 @@ public final class FakeProviderClient implements ProviderClient {
         if (request.outputSchema() != null) {
             boolean invalid = behaviour.consumeInvalidOnce(provider)
                     || behaviour.mode(provider) == FailureMode.INVALID_OUTPUT;
-            // A pinned reply answers only the calls that expect its shape (one task can have several, e.g. SAFETY_CHECK).
-            String canned = behaviour.canned(request.task());
-            String scripted = canned != null && FakeScripts.sameShape(canned, request.outputSchema()) ? canned
-                    : FakeScripts.structured(request, tag());
+            String canned = behaviour.canned(request.call());
+            String scripted = canned != null ? canned : FakeScripts.structured(request, tag());
             text = invalid ? "{\"unexpected\": \"this does not match the schema\"}"
                     : scripted != null ? scripted
                     : FakeJson.fromSchema(request.outputSchema(), provider.name());
@@ -88,9 +86,9 @@ public final class FakeProviderClient implements ProviderClient {
     }
 
     private String cannedText(ProviderRequest request) {
-        String canned = behaviour.cannedText(request.task());
+        String canned = behaviour.cannedText(request.call());
         if (canned != null) return canned;
-        if (request.task() == Task.MISSION_INTERVIEW) return FakeScripts.interviewTurn(request, tag());
+        if (request.call().equals(Calls.INTERVIEW_TURN)) return FakeScripts.interviewTurn(request, tag());
         return "[" + provider + "] This is a deterministic " + request.task() + " reply from the fake provider.";
     }
 

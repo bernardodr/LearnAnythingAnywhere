@@ -6,6 +6,56 @@ What's new in each release of Learn Anything Anywhere, newest first. Each featur
 
 ---
 
+## 0.6.4: Fewer left-out notes in lessons
+*14 November 2026*
+
+### Improved
+
+- When part of a new lesson doesn't fit your reader settings, it's now always rewritten first, even if the lesson needed other fixes at the same time. So you'll see the note *"This part was left out because it didn't fit your reader settings"* less often. [How LAA keeps things safe →](guide/07-reader-settings.md#how-laa-keeps-things-safe)
+
+---
+
+## 0.6.3: Compare every check
+*14 November 2026*
+
+For the people who run LAA: *Compare before switching* can now try every request LAA makes, including each of the safety checks, and the run log says which check each request was.
+
+### Improved
+
+- **Compare any call.** Choose from every request LAA makes (lesson writing, grading, tutor replies, the topic gate, the content check, the leak check and more), each with a sample request to start from. [Compare →](guide/08-the-owner-console.md#compare-before-switching)
+- **Clear about what switching moves.** When several calls share a job, as the three safety checks do, the panel says that switching moves them all.
+- **The run log names each safety check**, so a topic-gate request and a content check no longer both read *Safety checks*. [Run log →](guide/08-the-owner-console.md#run-log)
+
+---
+
+## 0.6.2: Links follow your settings everywhere
+*14 November 2026*
+
+Your links setting now applies to everything you read in LAA, not just lessons as they're written.
+
+### Improved
+
+- **Everywhere you read.** Lesson titles, the tutor's notes and hints, a revealed strong answer, your conversations with the tutor and in the preface, your mission, your shelf and the back of the book all follow your links setting. [Your settings →](guide/07-reader-settings.md#your-settings)
+- **Straight away.** Change your links setting and it applies at once, including to what was written before. Other changes to your settings apply to what's written from then on. [Good to know →](guide/07-reader-settings.md#your-settings)
+- **One allowlist.** With links set to *Allowlist*, a link to any source you've added, in any of your textbooks, is allowed wherever you read.
+
+---
+
+## 0.6.1: Checked before you see it
+*14 November 2026*
+
+LAA now checks everything the tutor writes before you see any of it, whoever you are, and a few places that slipped through the safety checks are closed.
+
+### Improved
+
+- **Replies appear once they're checked.** The tutor's replies, in the preface and in the lesson chat, now appear in full once they've been written and checked against your reader settings, for every reader, not just children. You'll see *Your tutor is writing…* while you wait. [How LAA keeps things safe →](guide/07-reader-settings.md#how-laa-keeps-things-safe)
+- **Links follow your settings in more places:** the tutor's notes on your practice answers, and your mission card.
+- **What you've learned is checked too.** Notes at the back of the book and new glossary entries are checked against your reader settings before they're written.
+- **Lesson progress** shows only *Writing lesson n* until the lesson has been checked.
+- **When the safety check can't run**, you now always see the same clear message, *"We couldn't run the safety check just now, so nothing was saved or sent"*, whether you were in the preface, chatting with your tutor or waiting for a lesson.
+
+---
+
 ## 0.6: Reader settings and safety
 *14 November 2026*
 

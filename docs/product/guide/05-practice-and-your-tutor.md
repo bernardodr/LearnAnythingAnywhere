@@ -55,7 +55,7 @@ Answering the same question correctly again won't add a second note.
 Every lesson has a **Stuck or curious?** box near the end, where you can ask your tutor anything about the lesson.
 
 - Tap one of the example questions, or type your own in **Your question** and tap **Ask your tutor**.
-- The reply appears word by word. Your conversation is kept with the lesson, so it's still there when you come back.
+- The reply appears in full once it's been written and checked (you'll see *Your tutor is writing…* meanwhile). Your conversation is kept with the lesson, so it's still there when you come back.
 
 **What your tutor is good for:**
 
