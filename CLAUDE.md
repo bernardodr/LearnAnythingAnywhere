@@ -4,7 +4,8 @@ A prototype that turns a learner's *why* into a personal textbook, using the `/t
 
 ## Workflow
 
-- **One milestone at a time** (BRIEF §11). At the end of each one: run the server tests, then the app typecheck and lint, update `docs/PROGRESS.md`, summarise, then stop until the user says to go on.
+- **One milestone at a time** (BRIEF §11). At the end of each one: run the server tests, then the app typecheck and lint, update `docs/PROGRESS.md` and the product docs, summarise, then stop until the user says to go on.
+- **Product docs** (`docs/product/`) explain LAA to its users, not its builders. Every feature a learner, parent or owner can see goes in the user guide (what it is, why it helps, how to use it) and in a new entry at the top of `release-notes.md`, in the same change as the feature. Plain words only: describe what people see and do, never how it works inside (no APIs, models, tables or code).
 - **Dependencies:** before adding one the brief doesn't name, ask. Record approved ones under *Decisions* in `docs/PROGRESS.md`.
 - **Ambiguity:** when the brief is unclear or contradicts itself, ask.
 - **Versions and model IDs:** look them up (Maven Central, npm, provider docs) at the moment you need them.
@@ -16,17 +17,20 @@ A prototype that turns a learner's *why* into a personal textbook, using the `/t
 ```
 app/      Expo (React Native + web), Expo Router; screens in app/src/app/, tokens in app/src/theme.ts
   src/lib/        api.ts (fetch + ApiError), session.tsx (token: SecureStore / localStorage), sse.ts (streamed POST), types.ts
-  src/components/ ui.tsx (Page, Button, Field, Note, Ornament, goBack), Cover, MissionCard, LessonBlocks, Markdown
+  src/components/ ui.tsx (Page, Button, Field, Note, Ornament, goBack), Cover, MissionCard, LessonBlocks, Markdown,
+                  Tutor (practice + tutor's note + hints, tutor chat)
 server/   Spring Boot 4 + Spring AI 2, Java 21, Maven wrapper; package com.laa
   llm/      gateway (DefaultLlmGateway), routing/ (ModelRouter, capability checks), provider/ (adapters + fake/),
             prompt/, structured/ (schema validation), runs/ (model_runs)
   textbook/ library API + repository             mission/ preface interview (SSE), MissionDraft, MISSION.md
   lesson/   LessonWriter (plan → write → LessonRules → retry), contents + lesson API     job/ Jobs (SSE progress)
   safety/   TopicGate (fails closed)             workspace/ /teach files + versions, Resources, TeachingContext
+  tutor/    Practice (grade → leak guard → hint fallback; hints; evidence), TutorChat, LeakSimilarity
   chat/     chat_messages
   auth/     dev login + JWT + SecurityConfig     owner/  owner API + compare     dev/  /dev smoke endpoints
-  security/ SecretRedactor + log converters      web/    ApiException, problem responses
-docs/     BRIEF.md (spec), PROGRESS.md, reference/ (skills/ is a git-ignored clone of mattpocock/skills)
+  security/ SecretRedactor + log converters      web/    ApiException, problem responses, Sse (chat streaming)
+docs/     BRIEF.md (spec), PROGRESS.md, product/ (user guide + release notes, for users),
+          research/, reference/ (skills/ is a git-ignored clone of mattpocock/skills)
 scripts/  m1-switch-default.sh (curl demo of the gateway)
 dev.sh    one-command dev start
 ```
@@ -55,12 +59,13 @@ dev.sh    one-command dev start
 - **Ownership:** load a learner's textbook with `TextbookRepository.requireForUser`. Another user's id is a 404, never a 403.
 - **Lessons:** the model writes `LessonDraft` (one compact block shape). `LessonRules` is the only path to stored lesson JSON: it enforces the quiz rules and citations and moves rubrics and hints into the server-only `rubrics` column. Never send `rubrics` or `plan` to the app. Teaching prompts get their workspace variables from `TeachingContext`.
 - **Long-running work** (lesson writing): run it through `Jobs.start` and return the job id; the app follows `GET /jobs/{id}/events`. Save only once the work has passed its checks.
+- **The tutor never hands over the answer.** Learner-facing text from a model that has seen a rubric (the grader) goes through `Practice`'s leak guard; the chat tutor gets no rubrics or hints at all. Show covered rubric points in full and missing ones only as a count: showing a missing point's text is a leak.
 - **Model IDs, tiers, capabilities and prices** live in `application.yml` under `laa.llm.providers` and are synced into `providers` on every start. Change them there, never in code.
 - **Secrets:** any text that might hold provider output or errors goes through `SecretRedactor.redact` before it's logged, stored or returned. Logback's `%m` and `%wEx` are redacted too (`logback-spring.xml`).
 - **Jackson 3** (`tools.jackson.*`): a missing JSON field can't fill a primitive, so optional request booleans must be `Boolean`.
 - **Tests** extend `IntegrationTest`, which gives a shared context, Testcontainers `postgres:18` and routing re-seeded before each test. They use the `FAKE` and `FAKE_B` providers. Make a fake fail with `FakeBehaviour` or `PUT /dev/fake/{provider}/failure`, and pin a reply with `fakes.setCanned(task, json)` or `setCannedText(task, text)`. `FakeScripts` holds the scripted offline preface. Read a streamed endpoint with `sse(...)`. The real adapters get canary keys pointed at a dead port, so tests never need real keys or the network.
 - **Postgres port:** this machine runs Postgres.app on 5432, so the local `.env` sets `POSTGRES_PORT=5433` and `DATABASE_URL` to match. `docker-compose.yml` reads `POSTGRES_PORT`.
 - **App:** before touching an Expo API, read `app/AGENTS.md`. Expo changes between SDKs, so check the versioned docs.
-- **App data:** server state lives in TanStack Query. A streamed turn updates the cache with `setQueryData`, never a copied `useState` (lint rejects setState in effects). Links use typed routes (`{ pathname: '/textbooks/[id]', params }`). Screens wait for `useSession().ready`, then `<Redirect href="/" />` when signed out. To return to a screen that's already open (the contents page), use `router.dismissTo`, not `replace`, which stacks a second copy. Subscriptions (SSE) live in a `useEffect` with state set only in callbacks, and abort in the cleanup.
+- **App data:** server state lives in TanStack Query. A streamed turn updates the cache with `setQueryData`, never a copied `useState` (lint rejects setState in effects). Links use typed routes (`{ pathname: '/textbooks/[id]', params }`). Screens wait for `useSession().ready`, then `<Redirect href="/" />` when signed out. To return to a screen that's already open (the contents page), use `router.dismissTo`, not `replace`, which stacks a second copy; a screen returned to this way keeps its old data, so refetch in `useFocusEffect`. Components that seed `useState` from query data get a `key` from that data, so fresh data remounts them. Subscriptions (SSE) live in a `useEffect` with state set only in callbacks, and abort in the cleanup.
 - **UI:** use the design tokens in `app/src/theme.ts` (BRIEF §9). Contrast must be at least 4.5:1, touch targets at least 44px, every input needs a label, and icon-only buttons need an `accessibilityLabel`. Use typographic apostrophes (’) in JSX text, because lint rejects plain `'`.
 - **Expo Go on a phone:** set `EXPO_PUBLIC_API_URL` in `.env` to the laptop's LAN IP, because `localhost` on the phone means the phone. Native apps skip CORS. `CORS_ALLOWED_ORIGINS` only matters for the web app (default `http://localhost:8081`).

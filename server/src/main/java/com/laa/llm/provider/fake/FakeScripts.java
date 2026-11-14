@@ -51,7 +51,47 @@ final class FakeScripts {
         if (request.task() == Task.LESSON_WRITE && props.equals(LESSON_DRAFT)) {
             return lesson(request, tag);
         }
+        if (request.task() == Task.GRADE && props.equals(GRADE_RESULT)) {
+            return grade(request, tag);
+        }
+        if (request.task() == Task.SAFETY_CHECK && props.equals(LEAK_VERDICT)) {
+            return json(Map.of("leaks", false, "reason", ""));
+        }
+        if (request.task() == Task.RECORD_UPDATE && props.equals(RECORD_UPDATE)) {
+            return json(Map.of(
+                    "writeRecord", true,
+                    "slug", "explains-why-small-steps-work",
+                    "title", tag + "Explains why small steps work",
+                    "body", tag + "Can name a concrete small step and explain the quick feedback it gives. Next lessons can build on repeating it.",
+                    "evidence", tag + "Named a step and said why it helps.",
+                    "glossary", List.of(Map.of("term", "Small step",
+                            "definition", tag + "One concrete action you can repeat and check quickly.", "avoid", List.of("baby step")))));
+        }
         return null;
+    }
+
+    private static final Set<String> GRADE_RESULT = Set.of("verdict", "coveredPoints", "missingPoints", "coachingMove", "message");
+    private static final Set<String> LEAK_VERDICT = Set.of("leaks", "reason");
+    private static final Set<String> RECORD_UPDATE = Set.of("writeRecord", "slug", "title", "body", "evidence", "glossary");
+
+    /**
+     * Grades by a simple rule so the demo can show both outcomes: an answer that explains why (contains "because")
+     * covers every rubric point; otherwise only the first, with a question that doesn't give the rest away.
+     * Rubric point ids are read from the "- p1: …" lines of the grading prompt.
+     */
+    private static String grade(ProviderRequest request, String tag) {
+        List<String> ids = new ArrayList<>();
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(?m)^- (p\\d+): ").matcher(request.system() == null ? "" : request.system());
+        while (m.find()) ids.add(m.group(1));
+        String answer = request.messages().isEmpty() ? "" : request.messages().getLast().content();
+        boolean explainsWhy = answer.toLowerCase(java.util.Locale.ROOT).contains("because");
+        if (ids.isEmpty() || explainsWhy) {
+            return json(Map.of("verdict", "MET", "coveredPoints", ids, "missingPoints", List.of(), "coachingMove", "CONFIRM",
+                    "message", tag + "That’s it: you named your step and explained why it works. Try it at your next session."));
+        }
+        return json(Map.of("verdict", "PARTIAL", "coveredPoints", List.of(ids.getFirst()), "missingPoints", ids.subList(1, ids.size()),
+                "coachingMove", "ASK",
+                "message", tag + "Good start: you picked a clear step. What happens straight after you try it once?"));
     }
 
     private static final Set<String> LESSON_PLAN = Set.of("title", "skill", "win", "whyNow", "knowledge", "practice", "warmupFromLesson");

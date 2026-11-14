@@ -84,6 +84,36 @@ export type Block =
   | { id: string; type: 'ask_tutor'; examples: string[] }
   | { id: string; type: 'diagram'; source: string };
 
+// ---- Tutor (server: com.laa.tutor) ----
+
+export type Verdict = 'MET' | 'PARTIAL' | 'NOT_YET';
+
+/** The tutor's note on one attempt (BRIEF screen 6). `covered` are points the learner made; `missing` is only a count. */
+export type TutorNote = {
+  attemptNo: number;
+  verdict: Verdict;
+  covered: string[];
+  missing: number;
+  coachingMove: 'CONFIRM' | 'ASK' | 'HINT';
+  message: string;
+  hintNo?: number | null;
+  evidencePending?: boolean;
+};
+
+export type HintView = { hintNo: number; total: number; text: string | null; answer: string | null; exhausted: boolean };
+
+/** A practice block's saved progress, so the lesson page can restore it. */
+export type PracticeState = {
+  hintsShown: string[];
+  hintCount: number;
+  answer: string | null;
+  met: boolean;
+  evidence: string | null;
+  attempts: number;
+  lastAnswer?: string;
+  note?: TutorNote;
+};
+
 export type Lesson = {
   id: string;
   seq: number;
@@ -95,6 +125,7 @@ export type Lesson = {
   blocks: Block[];
   referenceSheet: { title: string; md: string } | null;
   sources: Source[];
+  practice: Record<string, PracticeState>;
   readAt: string | null;
   prev: number | null;
   next: number | null;

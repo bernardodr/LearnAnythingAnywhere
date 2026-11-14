@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Redirect, router, useLocalSearchParams } from 'expo-router';
+import { Redirect, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -26,6 +26,14 @@ export default function ContentsPage() {
     queryFn: () => apiGet<Contents>(`/textbooks/${id}/contents`, token),
     enabled: !!token && !!id,
   });
+  // Coming back from a lesson reuses this screen, so refresh on focus: learning records and glossary terms are
+  // written in the background after a practice answer is met, and a finished lesson changes "read next".
+  const { refetch } = contents;
+  useFocusEffect(
+    useCallback(() => {
+      if (token && id) void refetch();
+    }, [token, id, refetch]),
+  );
   const [startedJob, setStartedJob] = useState<string | null>(null);
   const [progress, setProgress] = useState<string | null>(null);
   const [writeError, setWriteError] = useState<string | null>(null);

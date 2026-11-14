@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Markdown } from '@/components/Markdown';
-import { Button, Field, Kicker } from '@/components/ui';
-import type { Block, Source } from '@/lib/types';
+import { Kicker } from '@/components/ui';
+import { type LessonContext, Practice, TutorChat } from '@/components/Tutor';
+import type { Block, PracticeState, Source } from '@/lib/types';
 import { colors, fonts, minTouch, type } from '@/theme';
 
 const RIGHT = '#2F6B3A';
@@ -11,7 +12,7 @@ const RIGHT_FILL = '#E5F1E6';
 const WRONG_FILL = '#F8E5E1';
 
 /** One block of a lesson (BRIEF section 7), in the textbook style of the example /teach lessons. */
-export function LessonBlock({ block, sources, heading }: { block: Block; sources: Source[]; heading?: string }) {
+export function LessonBlock({ block, sources, heading, ctx, practice }: { block: Block; sources: Source[]; heading?: string; ctx: LessonContext; practice?: PracticeState }) {
   switch (block.type) {
     case 'heading':
       return (
@@ -57,7 +58,7 @@ export function LessonBlock({ block, sources, heading }: { block: Block; sources
         </View>
       );
     case 'free_response':
-      return <Practice block={block} />;
+      return <Practice blockId={block.id} prompt={block.prompt} initial={practice} ctx={ctx} />;
     case 'primary_source': {
       const source = sources.find((s) => s.id === block.resource);
       if (!source) return null;
@@ -70,18 +71,7 @@ export function LessonBlock({ block, sources, heading }: { block: Block; sources
       );
     }
     case 'ask_tutor':
-      return (
-        <View style={styles.box}>
-          <Kicker style={styles.boxLabel}>Stuck or curious?</Kicker>
-          <Text style={styles.small}>Ask your tutor anything about this lesson. For example:</Text>
-          {block.examples.map((e, i) => (
-            <Text key={i} style={styles.example}>
-              “{e}”
-            </Text>
-          ))}
-          <Text style={styles.soon}>Tutor chat arrives in the next milestone.</Text>
-        </View>
-      );
+      return <TutorChat examples={block.examples} ctx={ctx} />;
     case 'diagram':
       return (
         <View style={styles.box}>
@@ -132,24 +122,6 @@ function Quiz({ block, heading }: { block: Extract<Block, { type: 'quiz' }>; hea
           </View>
         ) : null}
       </View>
-    </View>
-  );
-}
-
-function Practice({ block }: { block: Extract<Block, { type: 'free_response' }> }) {
-  const [answer, setAnswer] = useState('');
-  return (
-    <View style={styles.gap}>
-      <Text style={styles.h2} accessibilityRole="header">
-        Practice
-      </Text>
-      <Markdown md={block.prompt} />
-      <Field label="Your answer" value={answer} onChangeText={setAnswer} multiline maxLength={4000} />
-      <Button label="Send to your tutor" onPress={() => {}} disabled />
-      <Text style={styles.soon}>
-        Your tutor arrives in the next milestone, with up to {block.hintCount} hints. It won’t hand you the answer, but it
-        will help you find it.
-      </Text>
     </View>
   );
 }

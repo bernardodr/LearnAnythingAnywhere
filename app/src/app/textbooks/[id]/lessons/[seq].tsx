@@ -8,7 +8,7 @@ import { Markdown } from '@/components/Markdown';
 import { Button, Kicker, Note, Ornament, Page } from '@/components/ui';
 import { ApiError, apiGet, apiPost } from '@/lib/api';
 import { useSession } from '@/lib/session';
-import type { Block, Lesson } from '@/lib/types';
+import type { Block, Lesson, PracticeState } from '@/lib/types';
 import { colors, fonts, type } from '@/theme';
 
 /**
@@ -72,7 +72,9 @@ export default function LessonPage() {
           </View>
 
           {l.blocks.map((block, i) => (
-            <LessonBlock key={block.id} block={block} sources={l.sources} heading={quizHeading(l.blocks, i)} />
+            <LessonBlock key={blockKey(block.id, l.practice?.[block.id])} block={block} sources={l.sources}
+              heading={quizHeading(l.blocks, i)} ctx={{ textbookId: id, lessonId: l.id, seq: l.seq, token }}
+              practice={l.practice?.[block.id]} />
           ))}
 
           {l.sources.length === 0 ? (
@@ -122,6 +124,14 @@ export default function LessonPage() {
       ) : null}
     </Page>
   );
+}
+
+/**
+ * A practice block starts from the server's record of it. Revisiting a lesson first shows the cached copy, then
+ * the fresh one; keying by the saved progress remounts the block when that progress changed, so it's restored.
+ */
+function blockKey(id: string, p?: PracticeState): string {
+  return p ? `${id}:${p.attempts}:${p.hintsShown.length}:${p.answer ? 1 : 0}:${p.evidence ?? ''}` : id;
 }
 
 /** "Warm-up" before the first of a run of warm-ups, "Check yourself" before the first of a run of checks. */

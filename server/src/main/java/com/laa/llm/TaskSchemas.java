@@ -9,6 +9,7 @@ import com.laa.lesson.LessonPlan;
 import com.laa.mission.MissionDraft;
 import com.laa.safety.TopicVerdict;
 import com.laa.tutor.GradeResult;
+import com.laa.tutor.RecordUpdate;
 
 /**
  * The structured output type each task produces, where one exists yet, and the prompt variant that produces it.
@@ -26,6 +27,7 @@ public final class TaskSchemas {
         TYPES.put(Task.LESSON_PLAN, new Entry(LessonPlan.class, null));
         TYPES.put(Task.LESSON_WRITE, new Entry(LessonDraft.class, null));
         TYPES.put(Task.GRADE, new Entry(GradeResult.class, null));
+        TYPES.put(Task.RECORD_UPDATE, new Entry(RecordUpdate.class, null));
         TYPES.put(Task.SAFETY_CHECK, new Entry(TopicVerdict.class, "topic"));       // content moderation joins in M6
     }
 

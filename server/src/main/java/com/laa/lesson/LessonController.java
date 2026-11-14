@@ -24,6 +24,7 @@ import com.laa.llm.GenerationProfile;
 import com.laa.mission.MissionDraft;
 import com.laa.textbook.Textbook;
 import com.laa.textbook.TextbookRepository;
+import com.laa.tutor.Practice;
 import com.laa.web.ApiException;
 import com.laa.workspace.Resources;
 import com.laa.workspace.Resources.Resource;
@@ -63,9 +64,10 @@ class LessonController {
     record ContentsView(String id, String title, Textbook.Status status, String missionHeadline, String missionWhy,
                         List<LessonSummary> lessons, NextLesson next, BackOfBook back) {}
 
+    /** {@code practice}: per free-response block id, the learner's progress (revealed hints, latest note, met). */
     record LessonView(String id, int seq, String kicker, String title, String subtitle, String win, String missionLink,
                       List<Map<String, Object>> blocks, ReferenceSheet referenceSheet, List<Resource> sources,
-                      Instant readAt, Integer prev, Integer next, int total) {}
+                      Map<String, Map<String, Object>> practice, Instant readAt, Integer prev, Integer next, int total) {}
 
     record SourceRequest(@NotBlank @Size(max = 160) String title, @NotBlank @Size(max = 500) String url,
                          @Size(max = 300) String note) {}
@@ -75,13 +77,16 @@ class LessonController {
     private final LessonWriter writer;
     private final WorkspaceFiles workspace;
     private final Jobs jobs;
+    private final Practice practice;
 
-    LessonController(TextbookRepository textbooks, LessonRepository lessons, LessonWriter writer, WorkspaceFiles workspace, Jobs jobs) {
+    LessonController(TextbookRepository textbooks, LessonRepository lessons, LessonWriter writer, WorkspaceFiles workspace,
+                     Jobs jobs, Practice practice) {
         this.textbooks = textbooks;
         this.lessons = lessons;
         this.writer = writer;
         this.workspace = workspace;
         this.jobs = jobs;
+        this.practice = practice;
     }
 
     @PostMapping("/textbooks/{id}/lessons/next")
@@ -132,11 +137,14 @@ class LessonController {
 
     @GetMapping("/textbooks/{id}/lessons/{seq}")
     LessonView lesson(@PathVariable UUID id, @PathVariable int seq, @AuthenticationPrincipal Jwt jwt) {
-        Textbook tb = textbooks.requireForUser(id, CurrentUser.id(jwt));
+        UUID userId = CurrentUser.id(jwt);
+        Textbook tb = textbooks.requireForUser(id, userId);
         Lesson l = lessons.find(tb.id(), seq).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "No such lesson"));
         int total = lessons.list(tb.id()).size();
+        Map<String, Map<String, Object>> progress = new java.util.LinkedHashMap<>();
+        for (String blockId : l.marking().keySet()) progress.put(blockId, practice.state(l, blockId, userId));
         return new LessonView(l.id().toString(), l.seq(), "Lesson " + l.seq() + " · " + tb.title(), l.title(), l.subtitle(),
-                l.win(), l.missionLink(), l.blocks(), l.referenceSheet(), sources(tb.id()), l.readAt(),
+                l.win(), l.missionLink(), l.blocks(), l.referenceSheet(), sources(tb.id()), progress, l.readAt(),
                 l.seq() > 1 ? l.seq() - 1 : null, l.seq() < total ? l.seq() + 1 : null, total);
     }
 

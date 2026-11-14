@@ -8,8 +8,76 @@
 | M1 LLM gateway, plus dev login and JWT | ✅ Done (2026-11-02) |
 | M2 Library and mission | ✅ Done (2026-11-09) |
 | M3 Lessons | ✅ Done (2026-11-09) |
-| M4 Tutor | Next, waiting for the go-ahead |
-| M5–M6 | Not started |
+| M4 Tutor | ✅ Done (2026-11-14) |
+| M5 Owner console | Next, waiting for the go-ahead |
+| M6 Safety and settings | Not started |
+
+## M4: Tutor (done 2026-11-14)
+
+**Done**
+- **Migration `V6__practice.sql`:**
+  - `attempts`: every graded answer, with the tutor's note as shown plus leak-guard and run metadata.
+  - `practice_progress`: per learner and block, the hints revealed, whether the answer was revealed, when it was met, and the evidence written.
+- **Grading** (`tutor/Practice`, BRIEF §6.5):
+  - `GRADE` refers to rubric points by id (p1, p2, …), and the server recomputes the verdict from the covered ids (MET / PARTIAL / NOT_YET), so the two can't disagree.
+  - The note shows covered points in full (the learner wrote them) and only the **number** still missing, never their text.
+  - The coaching move is forced to CONFIRM on MET.
+- **Leak guard:** every non-MET coaching message is checked against the missing points and the answer outline.
+  - **Two checks:** `LeakSimilarity` runs first (any 5-word run, or at least 60% of the hidden key words, not counting what the learner already wrote), then the `SAFETY_CHECK` "leak" classifier.
+  - **On a leak:** the grade is regenerated once with the reason; if it still leaks, the learner gets the next pre-written hint instead.
+  - **Fails closed:** if the classifier can't run, the hint is used.
+  - Each step is recorded in the attempt's feedback (`leakGuard`); it's never sent to the app.
+- **Hint ladder:**
+  - `POST …/hint` serves the hints one at a time; a hint used by the leak guard counts as revealed.
+  - The answer outline is revealed only if the learner's profile sets `reveal_after_attempts` and that many attempts were made. Everyone has `ADULT_DEFAULT` until M6, so it's never revealed yet.
+- **Evidence:**
+  - The first time a block is met, `RECORD_UPDATE` runs in the background.
+  - It may write `learning-records/000N-slug.md` (`LearningRecords`, /teach format with an Evidence section) and add or revise glossary terms the learner used correctly (`Glossary`, /teach format).
+  - Meeting the block again writes nothing new.
+- **Tutor chat** (`tutor/TutorChat`): `POST /textbooks/{id}/tutor/messages {content, lessonSeq}` streams a reply, and `GET …?lessonSeq=n` returns the thread, kept per lesson.
+  - **What it sees:** the lesson as the learner does (no quiz answers, rubrics or hints) plus the workspace, so it has no hidden answer to leak.
+  - **How it answers:** the prompt says to explain knowledge freely and coach practice without solving it.
+- **Shared SSE helper:** `web/Sse` now serves both the interview and the tutor chat.
+- **Lesson API:** `GET …/lessons/{seq}` includes `practice` state per block (hints shown, latest note, met, evidence), so the page restores on return.
+- **Prompts:** `grade.v1.md`, `tutor.v1.md`, `record_update.v1.md` and `safety_check.leak.v1.md`. Records and the glossary follow /teach's rules ("covering material is not evidence", "add a term only when the user understands it").
+- **Fake provider:** grades an answer containing "because" as met (otherwise only the first point), passes the leak classifier, and writes a record plus a glossary term.
+- **App:**
+  - **Practice block (screen 6):**
+    - Answer, "Send to your tutor", and the tutor's note: a verdict chip, covered points, "One more point to find", the italic coaching message.
+    - "Hint n of 3", "Revise answer", and "Added to What you've learned".
+    - "Your tutor won't hand you the answer, but it will help you find it."
+  - **"Stuck or curious?"** is a live tutor chat: example questions you can tap, a thread, streamed replies.
+
+**Verified**
+- `./mvnw test`: **80 tests, 0 failures** (65 earlier, 15 new).
+  - `TutorApiTest` (7):
+    - The demo steps 3–4 flow: a partial note with nothing leaked, the hint ladder, met, the learning record and glossary, no duplicate evidence, state restored, metered runs.
+    - The leak guard by similarity, by classifier, and failing closed.
+    - A grader outage saves no attempt.
+    - Validation and privacy.
+    - Tutor chat, with the thread kept and nothing saved on a failure.
+  - `LeakSimilarityTest` (5) and `EvidenceFormatsTest` (3).
+- `npm run typecheck` and `npx expo lint` are clean.
+- **Browser:** headless Chrome ran the full tutor journey three times in a row, on a fresh test database where all 6 migrations applied from scratch:
+  - a partial answer (the hidden point never on the page), a hint, a revised answer that's met;
+  - a tutor chat reply;
+  - the learning record and glossary at the back of the book;
+  - leaving and coming back with the note and hint restored.
+  
+  No console errors.
+- **Bugs found and fixed by the browser run:**
+  1. The contents page didn't refresh after returning from a lesson, so background evidence never appeared; it now refetches on focus.
+  2. The first tutor-chat reply could be wiped by a slower history load; the history now loads with the lesson, and a late load is cancelled.
+  3. Revisiting a lesson showed stale practice state; the block now remounts when the server's progress changes.
+- **Not yet verified:**
+  - **Real Claude:** the tutor against a real provider. The Anthropic key in `.env` now returns **401 invalid x-api-key**, although it worked on 2026-11-09 and the file hasn't changed, so it was likely revoked or rotated. The real-provider check of the leak guard and coaching tone is still to do.
+  - **Phone:** Expo Go on a phone.
+
+**Left / known gaps (M4)**
+- **Moderation:** learner chat input and tutor replies aren't moderated yet (M6).
+- **Answer reveal:** never happens until profiles exist (M6), so it's untested end to end.
+- **Leak guard tuning:** the similarity check is deliberately simple (a light stemmer, a fixed stop-word list) and may need tuning once real coaching messages are seen.
+- **Tutor chat history:** the chat sends the last 20 messages of the lesson thread, with no summarising of longer threads.
 
 ## M3: Lessons (done 2026-11-09)
 
@@ -296,4 +364,9 @@
 | 2026-11-09 | Learners can add sources (`POST /textbooks/{id}/resources`), in /teach format | BRIEF §6.3: without a research tool, `RESOURCES.md` holds only what the learner adds. This is the only way citations and primary sources can appear. |
 | 2026-11-09 | A small in-house Markdown renderer, not a package | Lessons use a small subset (the prompt sets it), so no dependency is needed. |
 | 2026-11-09 | **Live routing (user's choice):** the default provider is **Anthropic**, and every task the app uses runs on **Claude Haiku 5.5**. `MISSION_INTERVIEW`, `LESSON_PLAN` and `LESSON_WRITE` moved from LARGE to the SMALL tier; `RESEARCH` (unused) stays LARGE. | Lower cost and faster lessons, and Haiku passed the checks in the live run. This is owner configuration in the local database (`providers`, `model_routes`), set through the owner API, not code. A fresh database still seeds from `Task.java` and `application.yml`. |
+| 2026-11-14 | The grader returns rubric point **ids**, the server recomputes the verdict, and the learner sees covered points in full but only the **count** of missing ones | BRIEF screen 6 shows rubric points "covered / not yet". Showing the missing points' text would hand over the answer. |
+| 2026-11-14 | Leak guard: similarity first, then the classifier, failing closed. One regeneration, then the next pre-written hint. | BRIEF §6.5, with the safety layer built to spec (§0.7). Pre-written hints are designed not to give the answer away, so they're the safe fallback. |
+| 2026-11-14 | The tutor **chat** never sees rubrics or hints; only the grader does, and the leak guard watches the grader | Streaming chat can't be checked before it's shown without losing the streaming. Not giving it the hidden answer prevents leaks by construction. |
+| 2026-11-14 | Evidence (`RECORD_UPDATE`) runs in the background, once per met block | The tutor's note shouldn't wait several seconds for record-keeping. The contents page refreshes when it comes back into view. |
+| 2026-11-14 | **Product documentation** in `docs/product/` (user guide plus release notes), updated with every new feature (user request) | So the product can be understood, and each release read, without technical knowledge. |
 | 2026-11-09 | Researched "Sign in with ChatGPT" (user request): see `docs/research/sign-in-with-chatgpt.md` | It exists, but only for selected partners via a waitlist, so it's not available to LAA now. Dev sign-in stays, and a real auth provider is out of scope for the prototype (BRIEF §2). |

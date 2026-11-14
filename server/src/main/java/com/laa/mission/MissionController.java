@@ -1,17 +1,12 @@
 package com.laa.mission;
 
-import java.io.IOException;
-import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -24,11 +19,10 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import com.laa.auth.CurrentUser;
 import com.laa.llm.GenerationProfile;
-import com.laa.llm.LlmUnavailableException;
-import com.laa.security.SecretRedactor;
 import com.laa.textbook.Textbook;
 import com.laa.textbook.TextbookRepository;
 import com.laa.web.ApiException;
+import com.laa.web.Sse;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -49,9 +43,6 @@ import jakarta.validation.constraints.NotNull;
 @RequestMapping("/textbooks/{id}/mission")
 class MissionController {
 
-    private static final Logger log = LoggerFactory.getLogger(MissionController.class);
-    private static final long SSE_TIMEOUT_MS = Duration.ofMinutes(5).toMillis();
-
     record TurnRequest(String content) {}
 
     record MessageView(String id, String role, String content) {}
@@ -62,13 +53,6 @@ class MissionController {
     record ConfirmRequest(@NotNull @Valid MissionDraft draft) {}
 
     record ConfirmResponse(String path, int version, String content) {}
-
-    /** The client went away mid-stream; stop generating. */
-    private static final class ClientGone extends RuntimeException {
-        ClientGone(Throwable cause) {
-            super(cause);
-        }
-    }
 
     private final TextbookRepository textbooks;
     private final MissionInterview interview;
@@ -100,47 +84,30 @@ class MissionController {
         String answer = request == null ? null : request.content();
         interview.checkTurn(tb, answer);
 
-        SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
-        executor.execute(() -> {
-            try {
-                // Profiles are stored per learner from M6; until then everyone gets the adult defaults.
-                interview.turn(tb, userId, answer, GenerationProfile.ADULT_DEFAULT, new MissionInterview.Events() {
+        // Profiles are stored per learner from M6; until then everyone gets the adult defaults.
+        return Sse.stream(executor, "Mission turn for textbook " + id,
+                "The interviewer couldn’t reply just now. Your answer wasn’t lost: send it again.",
+                sse -> interview.turn(tb, userId, answer, GenerationProfile.ADULT_DEFAULT, new MissionInterview.Events() {
                     @Override
                     public void token(String text) {
-                        send(emitter, "token", Map.of("text", text));
+                        sse.send("token", Map.of("text", text));
                     }
 
                     @Override
                     public void draft(MissionDraft draft) {
-                        send(emitter, "draft", draft);
+                        sse.send("draft", draft);
                     }
 
                     @Override
                     public void draftFailed(String message) {
-                        send(emitter, "draft_failed", Map.of("message", message));
+                        sse.send("draft_failed", Map.of("message", message));
                     }
 
                     @Override
                     public void done(UUID messageId, boolean interviewComplete) {
-                        send(emitter, "done", Map.of("messageId", messageId.toString(), "interviewComplete", interviewComplete));
+                        sse.send("done", Map.of("messageId", messageId.toString(), "interviewComplete", interviewComplete));
                     }
-                });
-                emitter.complete();
-            } catch (ClientGone gone) {
-                emitter.complete();
-            } catch (LlmUnavailableException e) {
-                log.warn("Mission turn failed for textbook {}: {}", id, SecretRedactor.redact(e.getMessage()));
-                fail(emitter, "The interviewer couldn’t reply just now. Your answer wasn’t lost: send it again.");
-            } catch (RuntimeException e) {
-                if (causedByClientGone(e)) {
-                    emitter.complete();
-                    return;
-                }
-                log.error("Mission turn failed for textbook {}: {}", id, SecretRedactor.redact(String.valueOf(e.getMessage())), e);
-                fail(emitter, "Something went wrong. Your answer wasn’t lost: send it again.");
-            }
-        });
-        return emitter;
+                }));
     }
 
     /** Regenerates the draft from the transcript (after a {@code draft_failed}, or to try again). */
@@ -161,29 +128,5 @@ class MissionController {
         Textbook tb = textbooks.requireForUser(id, CurrentUser.id(jwt));
         var file = interview.confirm(tb, request.draft());
         return new ConfirmResponse(file.path(), file.version(), file.content());
-    }
-
-    private static void send(SseEmitter emitter, String event, Object data) {
-        try {
-            emitter.send(SseEmitter.event().name(event).data(data, MediaType.APPLICATION_JSON));
-        } catch (IOException | IllegalStateException e) {
-            throw new ClientGone(e);
-        }
-    }
-
-    private static void fail(SseEmitter emitter, String message) {
-        try {
-            send(emitter, "error", Map.of("message", message));
-            emitter.complete();
-        } catch (ClientGone ignored) {
-            emitter.complete();
-        }
-    }
-
-    private static boolean causedByClientGone(Throwable e) {
-        for (Throwable t = e; t != null; t = t.getCause()) {
-            if (t instanceof ClientGone) return true;
-        }
-        return false;
     }
 }
