@@ -31,17 +31,22 @@ Tap **Save settings** when you're done. New lessons and replies follow your sett
 
 ## For parents
 
-Sign in and choose **Parent** under *I'm signing in as* (see [Getting started](01-getting-started.md#signing-in)). In **Settings**, below your own settings, you'll find **Your children**.
+Create your account as a **Parent** (see [Getting started](01-getting-started.md#creating-your-account)). In **Settings**, below your own settings, you'll find **Your children**.
 
 ### Adding a child
 
 1. Tap **Add a child**.
 2. Type their **name** and the **email** they'll sign in with.
-3. Set their **age** with **−** and **+**. The reading level shows next to it.
-4. Leave **Child-safe mode** on (it starts on), or switch it off for an older child.
-5. Tap **Add child**.
+3. Choose **their password**: at least 15 characters. Three or four random words are easy for a child to type. See [Choosing a password](01-getting-started.md#choosing-a-password).
+4. Set their **age** with **−** and **+**. The reading level shows next to it.
+5. Leave **Child-safe mode** on (it starts on), or switch it off for an older child.
+6. Tap **Add child**.
 
-Your child signs in with that email, as a **Learner**, and gets their own shelf. Their settings are yours to manage: they can see them, but not change them.
+Making your child's account is how you give it permission to be your child's: their account lives under yours, with settings you choose. Your child signs in with that email and password and gets their own shelf. Their settings are yours to manage: they can see them, but not change them. They can change their own password in **Settings**, and you can always reset it.
+
+### Resetting a child's password
+
+Under **Your children**, tap **Change** next to your child's name. Below their settings, type a **New password** for them (and your **Parent PIN**, once you've set one), then tap **Change password**. Your child is signed out everywhere and signs in again with the new password.
 
 ### Changing a child's settings
 
@@ -54,7 +59,9 @@ Set a PIN so only you can change your children's settings, even on a shared tabl
 1. Under **Parent PIN lock**, type a **PIN** of 4 to 8 digits.
 2. Tap **Set PIN**.
 
-From then on, changing a child's settings asks for your **Parent PIN** before you can save. To change the PIN, type your **Current PIN** and a **New PIN**, then tap **Change PIN**.
+From then on, changing a child's settings or password asks for your **Parent PIN** before you can save. To change the PIN, type your **Current PIN** and a **New PIN**, then tap **Change PIN**.
+
+After 5 wrong PINs, the PIN pauses for 15 minutes, even for the right one, so a PIN can't be guessed by trying them all.
 
 ## What your child sees
 

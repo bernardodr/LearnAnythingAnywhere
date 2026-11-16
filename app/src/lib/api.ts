@@ -1,12 +1,13 @@
 // On a phone in Expo Go, localhost is the phone itself: set EXPO_PUBLIC_API_URL to the laptop's LAN IP.
 export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8080';
 
-/** An error response from the server. `message` is safe to show the learner. */
+/** An error response from the server. `message` is safe to show the learner; `code` is set when the app should act on it. */
 export class ApiError extends Error {
   constructor(
     readonly status: number,
     message: string,
     readonly errors: string[] = [],
+    readonly code: string | null = null,
   ) {
     super(message);
   }
@@ -45,8 +46,9 @@ export async function parse<T>(res: Response): Promise<T> {
   const data = text ? safeJson(text) : null;
   if (res.status === 401 && onUnauthorized) onUnauthorized();
   if (!res.ok) {
-    const problem = (data ?? {}) as { detail?: string; title?: string; errors?: string[] };
-    throw new ApiError(res.status, problem.detail ?? problem.title ?? `Request failed (${res.status})`, problem.errors ?? []);
+    const problem = (data ?? {}) as { detail?: string; title?: string; errors?: string[]; code?: string };
+    throw new ApiError(res.status, problem.detail ?? problem.title ?? `Request failed (${res.status})`, problem.errors ?? [],
+      problem.code ?? null);
   }
   return data as T;
 }

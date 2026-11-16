@@ -86,9 +86,9 @@ public class ProfileRepository {
                 .toList();
     }
 
-    public UUID createChildUser(UUID parentId, String email, String displayName) {
-        return jdbc.sql("INSERT INTO users (email, display_name, role, parent_user_id) VALUES (:e, :n, 'LEARNER', :p) RETURNING id")
-                .param("e", email.toLowerCase()).param("n", displayName).param("p", parentId)
+    public UUID createChildUser(UUID parentId, String email, String displayName, String passwordHash) {
+        return jdbc.sql("INSERT INTO users (email, display_name, role, parent_user_id, password_hash) VALUES (:e, :n, 'LEARNER', :p, :h) RETURNING id")
+                .param("e", email.toLowerCase()).param("n", displayName).param("p", parentId).param("h", passwordHash)
                 .query(UUID.class).single();
     }
 

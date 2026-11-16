@@ -35,7 +35,8 @@ server/   Spring Boot 4 + Spring AI 2, Java 21, Maven wrapper; package com.laa
   profile/  reader settings (Profiles; the brief's "generation profile"), children, parent PIN
   tutor/    Practice (grade → leak guard → hint fallback; hints; evidence), TutorChat
   chat/     chat_messages
-  auth/     dev login + JWT + SecurityConfig     owner/  owner API + compare     dev/  /dev smoke endpoints
+  auth/     Accounts (sign-up, sign-in, passwords), Passwords (Argon2id + rules), Throttle, dev sign-in, JWT, SecurityConfig
+  owner/    owner API + compare     dev/  /dev smoke endpoints
   security/ SecretRedactor + log converters      web/    ApiException, problem responses, Sse (chat streaming)
 docs/     BRIEF.md (spec), PROGRESS.md, product/ (user guide + release notes, for users),
           research/, reference/ (skills/ is a git-ignored clone of mattpocock/skills)
@@ -55,7 +56,7 @@ GLOSSARY.md  domain words (safety layer, reader settings, shown text, held back,
 | App typecheck / lint | `cd app && npm run typecheck && npx expo lint` |
 | Add an app package | `cd app && npx expo install <pkg>` (resolves SDK-compatible versions) |
 | Gateway demo (server running) | `./scripts/m1-switch-default.sh [FROM] [TO]` |
-| Owner token by hand | `curl -s -X POST localhost:8080/auth/dev-login -H 'Content-Type: application/json' -d '{"email":"owner@laa.dev"}' \| jq -r .token` |
+| Owner token by hand (dev sign-in on, as `./dev.sh` sets) | `curl -s -X POST localhost:8080/auth/dev-login -H 'Content-Type: application/json' -d '{"email":"owner@laa.dev"}' \| jq -r .token` |
 
 ## Conventions and gotchas
 
@@ -82,7 +83,13 @@ GLOSSARY.md  domain words (safety layer, reader settings, shown text, held back,
 - **Model IDs, tiers, capabilities and prices** live in `application.yml` under `laa.llm.providers` and are synced into `providers` on every start. Change them there, never in code.
 - **Secrets:** any text that might hold provider output or errors goes through `SecretRedactor.redact` before it's logged, stored or returned. Logback's `%m` and `%wEx` are redacted too (`logback-spring.xml`).
 - **Jackson 3** (`tools.jackson.*`): a missing JSON field can't fill a primitive, so optional request booleans must be `Boolean`.
-- **Tests** extend `IntegrationTest`, which gives a shared context, Testcontainers `postgres:18` and routing re-seeded before each test. They use the `FAKE` and `FAKE_B` providers. Make a fake fail with `FakeBehaviour` or `PUT /dev/fake/{provider}/failure`, and pin a reply to exactly one call with `fakes.setCanned(Calls.X, json)` or `setCannedText(Calls.X, text)`. Text containing `FakeBehaviour.BLOCK_MARKER` fails the fake safety check. `safetyCheckOnFakeB()` keeps the safety check up while FAKE fails, and `family(age, childSafe)` makes a parent and child. Test the safety layer through its interface (`SafetyLayerTest`); `ModerationApiTest` covers each flow end to end. `FakeScripts` holds the scripted offline preface. Read a streamed endpoint with `sse(...)`. The real adapters get canary keys pointed at a dead port, so tests never need real keys or the network.
+- **Sign-in:** email and password through `Accounts`, the only place that issues a token.
+  - **`Passwords`** stores Argon2id (OWASP settings, tagged `{argon2}`, weaker hashes redone at sign-in) and owns the rules (15–128 characters after NFKC, `auth/common-passwords.txt`, not the email, not one repeated character). Never put a password field through bean validation: a rejected value can end up in the error message.
+  - **`Throttle`** pauses an email after 5 failures in 15 minutes, a network address after 20, and a parent's PIN after 5. Check it before checking the secret.
+  - **Tokens carry `pv`, the password version.** A password change or reset bumps it and calls `JwtService.forget`, which ends every older sign-in.
+  - **OWNER** only for `LAA_OWNER_EMAILS`. Signing up with one needs `LAA_OWNER_SETUP_CODE`, and an OWNER taken off the list is a learner at their next sign-in.
+  - **Dev sign-in** (`/auth/dev-login`, email only) is off unless `LAA_DEV_LOGIN=true` (`./dev.sh` and the test profile turn it on).
+- **Tests** extend `IntegrationTest`, which gives a shared context, Testcontainers `postgres:18`, routing re-seeded and the `Throttle` cleared before each test. `login(email)` uses dev sign-in; `PASSWORD` passes the password rules. They use the `FAKE` and `FAKE_B` providers. Make a fake fail with `FakeBehaviour` or `PUT /dev/fake/{provider}/failure`, and pin a reply to exactly one call with `fakes.setCanned(Calls.X, json)` or `setCannedText(Calls.X, text)`. Text containing `FakeBehaviour.BLOCK_MARKER` fails the fake safety check. `safetyCheckOnFakeB()` keeps the safety check up while FAKE fails, and `family(age, childSafe)` makes a parent and child. Test the safety layer through its interface (`SafetyLayerTest`); `ModerationApiTest` covers each flow end to end. `FakeScripts` holds the scripted offline preface. Read a streamed endpoint with `sse(...)`. The real adapters get canary keys pointed at a dead port, so tests never need real keys or the network.
 - **Postgres port:** this machine runs Postgres.app on 5432, so the local `.env` sets `POSTGRES_PORT=5433` and `DATABASE_URL` to match. `docker-compose.yml` reads `POSTGRES_PORT`.
 - **App:** before touching an Expo API, read `app/AGENTS.md`. Expo changes between SDKs, so check the versioned docs.
 - **App data:** server state lives in TanStack Query. A streamed turn updates the cache with `setQueryData`, never a copied `useState` (lint rejects setState in effects). Links use typed routes (`{ pathname: '/textbooks/[id]', params }`). Screens wait for `useSession().ready`, then `<Redirect href="/" />` when signed out. To return to a screen that's already open (the contents page), use `router.dismissTo`, not `replace`, which stacks a second copy; a screen returned to this way keeps its old data, so refetch in `useFocusEffect`. Components that seed `useState` from query data get a `key` from that data, so fresh data remounts them. Subscriptions (SSE) live in a `useEffect` with state set only in callbacks, and abort in the cleanup.

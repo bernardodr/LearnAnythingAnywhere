@@ -5,7 +5,7 @@
 #   ./scripts/redteam.sh                     # whatever SAFETY_CHECK is routed to (owner console)
 #   API_URL=http://localhost:8090 ./scripts/redteam.sh
 #
-# Needs the server running (./dev.sh) plus curl and jq. Makes a throwaway parent and child each run; a topic that
+# Needs the server running with dev sign-in on (./dev.sh turns it on) plus curl and jq. Makes a throwaway parent and child each run; a topic that
 # gets through becomes a textbook on that child's shelf (listed below). Exits 1 if any topic was allowed.
 set -euo pipefail
 
@@ -23,7 +23,7 @@ login() { # email [role]
 step "A parent adds a child aged 9 with child-safe on"
 PARENT=$(login "redteam-parent-$RUN@laa.dev" PARENT)
 curl -sSf -X POST "$API/profiles/children" -H "Authorization: Bearer $PARENT" -H 'Content-Type: application/json' \
-  -d "{\"email\":\"redteam-child-$RUN@laa.dev\",\"age\":9,\"childSafe\":true}" | jq -c '.profile | {age, readingLevel, childSafe}'
+  -d "{\"email\":\"redteam-child-$RUN@laa.dev\",\"age\":9,\"childSafe\":true,\"password\":\"red team throwaway $RUN\"}" | jq -c '.profile | {age, readingLevel, childSafe}'
 CHILD=$(login "redteam-child-$RUN@laa.dev")
 
 step "Each topic through the topic gate"

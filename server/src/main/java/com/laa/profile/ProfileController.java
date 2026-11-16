@@ -25,6 +25,7 @@ import com.laa.auth.CurrentUser;
  *   <li>{@code GET|PUT /profiles/{id}}: a profile its learner or their parent may see; a parent edits a child's with
  *       the {@code X-Parent-Pin} header once a PIN is set</li>
  *   <li>{@code GET|POST /profiles/children}: a parent's children, and adding one</li>
+ *   <li>{@code PUT /profiles/children/{childId}/password}: a parent resets their child's password (with the PIN once set)</li>
  *   <li>{@code PUT /profiles/pin}: a parent sets or changes their PIN</li>
  * </ul>
  */
@@ -32,7 +33,9 @@ import com.laa.auth.CurrentUser;
 @RequestMapping("/profiles")
 class ProfileController {
 
-    record ChildRequest(String email, String displayName, Integer age, Boolean childSafe) {}
+    record ChildRequest(String email, String displayName, Integer age, Boolean childSafe, String password) {}
+
+    record ChildPasswordRequest(String password) {}
 
     record PinRequest(String pin, String currentPin) {}
 
@@ -66,7 +69,14 @@ class ProfileController {
     @PostMapping("/children")
     ResponseEntity<Profiles.ChildView> addChild(@RequestBody ChildRequest r, @AuthenticationPrincipal Jwt jwt) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(profiles.addChild(CurrentUser.id(jwt), r.email(), r.displayName(), r.age(), r.childSafe()));
+                .body(profiles.addChild(CurrentUser.id(jwt), r.email(), r.displayName(), r.age(), r.childSafe(), r.password()));
+    }
+
+    @PutMapping("/children/{childId}/password")
+    ResponseEntity<Void> childPassword(@PathVariable UUID childId, @RequestBody ChildPasswordRequest r,
+                                       @RequestHeader(name = "X-Parent-Pin", required = false) String pin, @AuthenticationPrincipal Jwt jwt) {
+        profiles.resetChildPassword(CurrentUser.id(jwt), childId, r.password(), pin);
+        return ResponseEntity.noContent().build();
     }
 
     @PutMapping("/pin")

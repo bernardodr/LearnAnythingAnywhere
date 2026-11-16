@@ -6,6 +6,31 @@ What's new in each release of Learn Anything Anywhere, newest first. Each featur
 
 ---
 
+## 0.7: Passwords
+*16 November 2026*
+
+LAA now has proper accounts: you sign in with your email and a password, and nobody can open your shelf just by typing your email.
+
+### New
+
+- **Create an account** with your email and a password, as a learner or a parent. [Creating your account →](guide/01-getting-started.md#creating-your-account)
+- **Sign in with your password.** A wrong email or password gets the same message, and after 5 wrong tries signing in pauses for 15 minutes, so passwords can't be guessed. [Signing in →](guide/01-getting-started.md#signing-in)
+- **Long, simple passwords.** At least 15 characters, with no rules about symbols or numbers: three or four random words work well. Common passwords are turned down, with a reason. **Show** lets you check what you typed. [Choosing a password →](guide/01-getting-started.md#choosing-a-password)
+- **Change your password** in **Settings**. Changing it signs you out everywhere else. [Your password →](guide/01-getting-started.md#your-password)
+- **Children's passwords.** A parent chooses their child's password when adding them, and can reset it later (with the parent PIN, once it's set). [Adding a child →](guide/07-reader-settings.md#adding-a-child)
+- **Owner accounts** need an owner setup code when they're made. [Making an owner account →](guide/08-the-owner-console.md#making-an-owner-account)
+
+### Improved
+
+- **The parent PIN** pauses for 15 minutes after 5 wrong tries. [The parent PIN lock →](guide/07-reader-settings.md#the-parent-pin-lock)
+
+### Good to know
+
+- **Accounts from before 0.7** have no password. On a test setup they can still sign in without one, then set a password under **Settings → Your password**.
+- **There's no reset email yet.** A parent can reset their child's password, but an adult who forgets theirs can't get back in for now.
+
+---
+
 ## 0.6.4: Fewer left-out notes in lessons
 *14 November 2026*
 

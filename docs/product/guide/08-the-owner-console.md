@@ -15,6 +15,12 @@ The console works in a **web browser** (on a phone it shows a note asking you to
 
 Only owner accounts can open it.
 
+### Making an owner account
+
+Owner email addresses are set when LAA is set up. To make the account, choose **New here? Create an account** with your owner email. LAA then asks for an **Owner setup code**: a secret the person who set up LAA's server chose. It stops anyone else from making an account with your email first. Without that code set on the server, owner emails can't make an account at all.
+
+If an email is taken off the owner list, that account becomes an ordinary learner account the next time it signs in.
+
 ## AI services
 
 Each service has a card:

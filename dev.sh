@@ -6,6 +6,7 @@ cd "$(dirname "$0")"
 
 [ -f .env ] || { echo "Missing .env — copy .env.example to .env first." >&2; exit 1; }
 set -a; source .env; set +a   # exported so the server and Expo (EXPO_PUBLIC_*) both see them
+export LAA_DEV_LOGIN="${LAA_DEV_LOGIN:-true}"   # email-only sign-in for local development (the server's default is off)
 
 port_in_use() { lsof -ti "tcp:$1" -sTCP:LISTEN >/dev/null 2>&1; }
 

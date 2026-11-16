@@ -29,6 +29,7 @@
 	<properties>
 		<java.version>21</java.version>
 		<spring-ai.version>2.0.2</spring-ai.version>
+		<bouncycastle.version>1.87</bouncycastle.version>
 		<json-schema-validator.version>3.0.8</json-schema-validator.version>
 		<archunit.version>1.5.1</archunit.version>
 	</properties>
@@ -67,6 +68,12 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+		</dependency>
+		<dependency>
+			<!-- Argon2id for passwords (Spring Security's Argon2PasswordEncoder runs on it); approved 2026-11-16 -->
+			<groupId>org.bouncycastle</groupId>
+			<artifactId>bcprov-jdk18on</artifactId>
+			<version>${bouncycastle.version}</version>
 		</dependency>
 
 		<!-- LLM providers: plain model modules (no starters), so the gateway builds clients itself

@@ -19,6 +19,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.client.RestClient;
 
+import com.laa.auth.Throttle;
 import com.laa.llm.provider.fake.FakeBehaviour;
 import com.laa.llm.routing.RoutingSeeder;
 
@@ -35,6 +36,8 @@ import tools.jackson.databind.json.JsonMapper;
 public abstract class IntegrationTest {
 
     protected static final String OWNER_EMAIL = "owner@test.dev";
+    /** Passes the password rules; for accounts a test signs into with a password. */
+    protected static final String PASSWORD = "copper kettle north meadow";
     protected static final JsonMapper JSON = JsonMapper.builder().build();
 
     @LocalServerPort
@@ -45,6 +48,8 @@ public abstract class IntegrationTest {
     protected RoutingSeeder seeder;
     @Autowired
     protected FakeBehaviour fakes;
+    @Autowired
+    protected Throttle throttle;
 
     protected RestClient http;
 
@@ -61,6 +66,7 @@ public abstract class IntegrationTest {
         jdbc.sql("DELETE FROM providers").update();
         seeder.seed();
         fakes.reset();
+        throttle.reset(); // every test comes from the same address
         http = RestClient.builder().baseUrl("http://localhost:" + port).build();
     }
 
@@ -109,7 +115,7 @@ public abstract class IntegrationTest {
         String parent = p.body().get("token").asString();
         String childEmail = "child-" + suffix + "@test.dev";
         Resp c = post("/profiles/children", parent, Map.of("email", childEmail, "displayName", "Sam", "age", childAge,
-                "childSafe", childSafe));
+                "childSafe", childSafe, "password", PASSWORD));
         assertThat(c.status()).as(c.raw()).isEqualTo(201);
         return new Family(parent, login(childEmail), c.body().get("profile").get("id").asString());
     }

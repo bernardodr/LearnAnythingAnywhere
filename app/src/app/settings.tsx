@@ -4,16 +4,20 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { readingLevel, SettingsForm, SettingsSummary, WEB_SWITCH } from '@/components/Settings';
-import { Button, Field, goBack, Kicker, Note, Ornament, Page } from '@/components/ui';
+import { Button, Field, goBack, Kicker, Note, Ornament, Page, PasswordField, passwordLength } from '@/components/ui';
 import { ApiError, apiGet, apiPost, apiPut } from '@/lib/api';
 import { useSession } from '@/lib/session';
-import type { Child, ParentState, Profile, ProfileSettings } from '@/lib/types';
+import type { Child, ParentState, Profile, ProfileSettings, SignInResponse } from '@/lib/types';
 import { colors, fonts, minTouch, type } from '@/theme';
 
 /**
  * Screen 7: reader settings. A learner's own settings (a child sees theirs, managed by their parent); for a parent,
- * their children with each child's settings, adding a child, and the parent PIN that locks them.
+ * their children with each child's settings and password, adding a child, and the parent PIN that locks them; and
+ * everyone's own password.
  */
+
+/** The server's rule; it says so if a password breaks it. */
+const MIN_PASSWORD = 15;
 export default function SettingsScreen() {
   const { ready, user, token } = useSession();
   const queryClient = useQueryClient();
@@ -88,6 +92,12 @@ export default function SettingsScreen() {
           ) : null}
         </View>
       ) : null}
+
+      <Ornament />
+      <Text style={styles.h2} accessibilityRole="header">
+        Your password
+      </Text>
+      <YourPassword />
     </Page>
   );
 }
@@ -119,6 +129,87 @@ function ChildCard({ child, token, pinSet, onSaved }: { child: Child; token: str
             onSaved();
           }} />
       ) : null}
+      {open ? <ChildPassword child={child} name={name} token={token} pinSet={pinSet} /> : null}
+    </View>
+  );
+}
+
+/** A parent sets a new password for their child; the child's other sign-ins end. */
+function ChildPassword({ child, name, token, pinSet }: { child: Child; name: string; token: string | null; pinSet: boolean }) {
+  const [password, setPassword] = useState('');
+  const [pin, setPin] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
+
+  async function save() {
+    setBusy(true);
+    setStatus(null);
+    try {
+      await apiPut(`/profiles/children/${child.userId}/password`, { password }, token, pinSet ? { 'X-Parent-Pin': pin } : undefined);
+      setStatus({ ok: true, text: `Password changed. ${name} will need to sign in again with the new one.` });
+      setPassword('');
+      setPin('');
+    } catch (e) {
+      setStatus({ ok: false, text: e instanceof ApiError ? e.message : 'The password couldn’t be changed. Please try again.' });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <View style={styles.subsection}>
+      <PasswordField label={`New password for ${name}`} isNew value={password} onChangeText={(t) => { setPassword(t); setStatus(null); }}
+        hint={`At least ${MIN_PASSWORD} characters. Three or four random words work well.`} />
+      {pinSet ? (
+        <Field label="Parent PIN" value={pin} onChangeText={(t) => setPin(t.replace(/\D/g, ''))} secureTextEntry inputMode="numeric"
+          keyboardType="number-pad" maxLength={8} hint="Changing a child’s password needs your PIN." />
+      ) : null}
+      {status ? <Note tone={status.ok ? 'note' : 'error'}>{status.text}</Note> : null}
+      <Button label="Change password" variant="secondary" onPress={() => void save()} busy={busy}
+        disabled={passwordLength(password) < MIN_PASSWORD || (pinSet && pin.length < 4)} style={styles.pinButton} />
+    </View>
+  );
+}
+
+/** Your own password: change it (with the current one), or set one if the account has none yet. */
+function YourPassword() {
+  const { token, user, renew } = useSession();
+  const hasPassword = user?.hasPassword ?? false;
+  const [current, setCurrent] = useState('');
+  const [next, setNext] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
+
+  async function save() {
+    setBusy(true);
+    setStatus(null);
+    try {
+      const res = await apiPut<SignInResponse>('/auth/password', { currentPassword: hasPassword ? current : null, newPassword: next }, token);
+      await renew(res);
+      setStatus({ ok: true, text: 'Password saved. You’re still signed in here; anywhere else you were signed in will ask you to sign in again.' });
+      setCurrent('');
+      setNext('');
+    } catch (e) {
+      setStatus({ ok: false, text: e instanceof ApiError ? e.message : 'The password couldn’t be saved. Please try again.' });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <View style={styles.card}>
+      <Text style={styles.small}>
+        {hasPassword
+          ? 'Change the password you sign in with. Changing it signs you out everywhere else.'
+          : 'Your account doesn’t have a password yet. Set one so you can sign in with your email and password.'}
+      </Text>
+      <View style={{ height: 12 }} />
+      {hasPassword ? <PasswordField label="Current password" value={current} onChangeText={setCurrent} /> : null}
+      <PasswordField label={hasPassword ? 'New password' : 'Password'} isNew value={next} onChangeText={setNext}
+        hint={`At least ${MIN_PASSWORD} characters (${passwordLength(next)} so far). Three or four random words work well, and spaces are fine.`} />
+      {status ? <Note tone={status.ok ? 'note' : 'error'}>{status.text}</Note> : null}
+      <Button label={hasPassword ? 'Change password' : 'Set password'} variant="secondary" onPress={() => void save()} busy={busy}
+        disabled={passwordLength(next) < MIN_PASSWORD || (hasPassword && current.length === 0)} style={styles.pinButton} />
     </View>
   );
 }
@@ -126,6 +217,7 @@ function ChildCard({ child, token, pinSet, onSaved }: { child: Child; token: str
 function AddChild({ token, onAdded }: { token: string | null; onAdded: () => void }) {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [age, setAge] = useState(8);
   const [childSafe, setChildSafe] = useState(true);
@@ -138,9 +230,10 @@ function AddChild({ token, onAdded }: { token: string | null; onAdded: () => voi
     setBusy(true);
     setError(null);
     try {
-      await apiPost('/profiles/children', { email: email.trim(), displayName: name.trim() || null, age, childSafe }, token);
+      await apiPost('/profiles/children', { email: email.trim(), displayName: name.trim() || null, age, childSafe, password }, token);
       setOpen(false);
       setEmail('');
+      setPassword('');
       setName('');
       onAdded();
     } catch (e) {
@@ -153,11 +246,16 @@ function AddChild({ token, onAdded }: { token: string | null; onAdded: () => voi
   return (
     <View style={styles.card}>
       <Text style={styles.cardTitle}>Add a child</Text>
-      <Text style={styles.small}>They sign in with this email and see only their own shelf.</Text>
+      <Text style={styles.small}>
+        You’re making your child’s account: they sign in with this email and the password you choose, and see only their own
+        shelf.
+      </Text>
       <View style={{ height: 12 }} />
       <Field label="Their name" value={name} onChangeText={setName} maxLength={80} />
       <Field label="Their sign-in email" value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false}
         inputMode="email" keyboardType="email-address" maxLength={254} />
+      <PasswordField label="Their password" isNew value={password} onChangeText={setPassword}
+        hint={`At least ${MIN_PASSWORD} characters (${passwordLength(password)} so far). Three or four random words are easy for a child to type.`} />
       <Text style={styles.label}>Age</Text>
       <View style={styles.ageRow}>
         <Button label="−" variant="secondary" accessibilityLabel="New child’s age: younger" disabled={age <= 5} onPress={() => setAge(age - 1)} />
@@ -173,7 +271,8 @@ function AddChild({ token, onAdded }: { token: string | null; onAdded: () => voi
       </View>
       {error ? <Note tone="error">{error}</Note> : null}
       <View style={styles.actions}>
-        <Button label="Add child" onPress={() => void add()} busy={busy} disabled={!email.includes('@')} />
+        <Button label="Add child" onPress={() => void add()} busy={busy}
+          disabled={!email.includes('@') || passwordLength(password) < MIN_PASSWORD} />
         <Button label="Cancel" variant="quiet" onPress={() => setOpen(false)} />
       </View>
     </View>
@@ -243,4 +342,5 @@ const styles = StyleSheet.create({
   toggleLabel: { fontFamily: fonts.sans, fontSize: 16, color: colors.ink },
   actions: { flexDirection: 'row', gap: 12, alignItems: 'center' },
   pinButton: { alignSelf: 'flex-start' },
+  subsection: { borderTopWidth: 1, borderTopColor: colors.rule, marginTop: 16, paddingTop: 16 },
 });

@@ -108,6 +108,56 @@ class ProfilesApiTest extends IntegrationTest {
     }
 
     @Test
+    void aChildSignsInWithThePasswordTheirParentChose() {
+        String parent = parent();
+        Resp weak = post("/profiles/children", parent, Map.of("email", "kid-weak@test.dev", "age", 9, "password", "short"));
+        assertThat(weak.status()).isEqualTo(400);
+        assertThat(weak.body().get("detail").asString()).contains("at least 15 characters");
+        assertThat(get("/profiles/children", parent).body().get("children").size()).as("no child made").isZero();
+
+        String email = "kid-" + java.util.UUID.randomUUID().toString().substring(0, 8) + "@test.dev";
+        ok(post("/profiles/children", parent, Map.of("email", email, "age", 9, "password", PASSWORD)));
+        Resp in = post("/auth/sign-in", null, Map.of("email", email, "password", PASSWORD));
+        assertThat(in.status()).as(in.raw()).isEqualTo(200);
+        assertThat(get("/profiles/me", in.body().get("token").asString()).body().get("managedByParent").asBoolean()).isTrue();
+    }
+
+    @Test
+    void aParentResetsTheirChildsPasswordWithThePinAndTheChildsSignInsEnd() {
+        String parent = parent();
+        String email = "kid-" + java.util.UUID.randomUUID().toString().substring(0, 8) + "@test.dev";
+        String childId = post("/profiles/children", parent, Map.of("email", email, "age", 10, "password", PASSWORD)).body().get("userId").asString();
+        String child = post("/auth/sign-in", null, Map.of("email", email, "password", PASSWORD)).body().get("token").asString();
+        ok(put("/profiles/pin", parent, Map.of("pin", "2468")));
+
+        String path = "/profiles/children/" + childId + "/password";
+        Map<String, Object> reset = Map.of("password", "violet harbour lantern");
+        assertThat(put(path, parent, reset).status()).as("needs the PIN").isEqualTo(403);
+        assertThat(call(HttpMethod.PUT, path, parent, reset, Map.of("X-Parent-Pin", "2468")).status()).isEqualTo(204);
+
+        assertThat(get("/auth/me", child).status()).as("the child's old sign-in has ended").isEqualTo(401);
+        assertThat(post("/auth/sign-in", null, Map.of("email", email, "password", PASSWORD)).status()).isEqualTo(401);
+        assertThat(post("/auth/sign-in", null, Map.of("email", email, "password", "violet harbour lantern")).status()).isEqualTo(200);
+
+        // Only their own parent can.
+        assertThat(call(HttpMethod.PUT, path, parent(), reset, Map.of("X-Parent-Pin", "2468")).status()).isEqualTo(404);
+    }
+
+    @Test
+    void fiveWrongPinsPauseThePinEvenForTheRightOne() {
+        Family f = family(8, true);
+        ok(put("/profiles/pin", f.parent(), Map.of("pin", "2468")));
+        Map<String, Object> change = settings(8, true, List.of(), List.of(), "OFF", null);
+        String path = "/profiles/" + f.childProfileId();
+        for (int i = 0; i < 5; i++) {
+            assertThat(call(HttpMethod.PUT, path, f.parent(), change, Map.of("X-Parent-Pin", "100" + i)).status()).isEqualTo(403);
+        }
+        Resp paused = call(HttpMethod.PUT, path, f.parent(), change, Map.of("X-Parent-Pin", "2468"));
+        assertThat(paused.status()).isEqualTo(429);
+        assertThat(paused.body().get("detail").asString()).contains("Too many tries");
+    }
+
+    @Test
     void readerSettingsShapeWhatTheTopicGateAllows() {
         String adult = login("settings-gate@test.dev");
         String id = get("/profiles/me", adult).body().get("id").asString();
@@ -116,6 +166,11 @@ class ProfilesApiTest extends IntegrationTest {
         Resp declined = post("/textbooks", adult, Map.of("topic", "Blackjack basics"));
         assertThat(declined.body().get("verdict").asString()).isEqualTo("DECLINE");
         assertThat(declined.body().get("message").asString()).contains("gambling", "reader settings");
+    }
+
+    private String parent() {
+        String email = "parent-" + java.util.UUID.randomUUID().toString().substring(0, 8) + "@test.dev";
+        return post("/auth/sign-up", null, Map.of("email", email, "password", PASSWORD, "role", "PARENT")).body().get("token").asString();
     }
 
     private static Map<String, Object> settings(Integer age, boolean childSafe, List<String> categories, List<String> extras,

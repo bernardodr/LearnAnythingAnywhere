@@ -12,6 +12,19 @@ _Avoid_: job type, route (a route is the owner's choice for a task)
 One kind of request LAA makes for a task: which prompt it sends and what it expects back. A task can have several, as the safety checks do (topic gate, content check, leak check), and they always share the task's route.
 _Avoid_: variant (only the prompt part of it), request type
 
+## Accounts
+
+**Account**:
+How a person signs in to LAA: their email, a password, and whether they're a learner, a parent or an owner. A parent makes their child's account, which then sits under the parent's.
+_Avoid_: login, profile (that's reader settings)
+
+**Dev sign-in**:
+Signing in with an email alone, with no password, for building and testing LAA. It's off unless someone running LAA turns it on.
+_Avoid_: dev login (the address it answers on), guest sign-in
+
+**Owner setup code**:
+The secret, chosen by whoever sets up LAA's server, that making an owner account needs.
+
 ## Safety
 
 **Safety layer**:

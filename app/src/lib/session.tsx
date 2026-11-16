@@ -3,18 +3,31 @@ import { createContext, type ReactNode, useCallback, useContext, useEffect, useM
 import { Platform } from 'react-native';
 
 import { apiPost, setUnauthorizedHandler } from '@/lib/api';
-import type { DevLoginResponse, Role, User } from '@/lib/types';
+import type { Role, SignInResponse, User } from '@/lib/types';
 
 const KEY = 'laa.session';
 
 type Stored = { token: string; user: User; expiresAt: number };
+
+export type SignUp = {
+  email: string;
+  password: string;
+  displayName: string | null;
+  role: Exclude<Role, 'OWNER'>;
+  ownerSetupCode: string | null;
+};
 
 type Session = {
   /** False until the stored session has been read; render nothing session-dependent before then. */
   ready: boolean;
   token: string | null;
   user: User | null;
-  signIn: (email: string, role: Exclude<Role, 'OWNER'>) => Promise<User>;
+  signIn: (email: string, password: string) => Promise<User>;
+  signUp: (details: SignUp) => Promise<User>;
+  /** Email only, when the server has dev sign-in on (local development). */
+  devSignIn: (email: string, role: Exclude<Role, 'OWNER'>) => Promise<User>;
+  /** A new sign-in from the server (after a password change) replaces this one. */
+  renew: (res: SignInResponse) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -64,17 +77,42 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     return () => setUnauthorizedHandler(null);
   }, [signOut]);
 
-  const signIn = useCallback(async (email: string, role: Exclude<Role, 'OWNER'>) => {
-    const res = await apiPost<DevLoginResponse>('/auth/dev-login', { email, role });
+  const renew = useCallback(async (res: SignInResponse) => {
     const next: Stored = { token: res.token, user: res.user, expiresAt: Date.now() + res.expiresIn * 1000 };
     await storage.set(JSON.stringify(next));
     setStored(next);
-    return res.user;
   }, []);
 
+  const signIn = useCallback(
+    async (email: string, password: string) => {
+      const res = await apiPost<SignInResponse>('/auth/sign-in', { email, password });
+      await renew(res);
+      return res.user;
+    },
+    [renew],
+  );
+
+  const signUp = useCallback(
+    async (details: SignUp) => {
+      const res = await apiPost<SignInResponse>('/auth/sign-up', details);
+      await renew(res);
+      return res.user;
+    },
+    [renew],
+  );
+
+  const devSignIn = useCallback(
+    async (email: string, role: Exclude<Role, 'OWNER'>) => {
+      const res = await apiPost<SignInResponse>('/auth/dev-login', { email, role });
+      await renew(res);
+      return res.user;
+    },
+    [renew],
+  );
+
   const value = useMemo<Session>(
-    () => ({ ready, token: stored?.token ?? null, user: stored?.user ?? null, signIn, signOut }),
-    [ready, stored, signIn, signOut],
+    () => ({ ready, token: stored?.token ?? null, user: stored?.user ?? null, signIn, signUp, devSignIn, renew, signOut }),
+    [ready, stored, signIn, signUp, devSignIn, renew, signOut],
   );
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }

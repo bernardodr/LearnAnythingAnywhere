@@ -28,6 +28,6 @@ Nothing half-finished is ever saved: an answer is kept together with the reply t
 
 ## Coming in future releases
 
-- **Proper accounts**, with passwords, in place of signing in with your email alone.
+- **A reset email** for a forgotten password, and signing in with Google or Apple.
 
 See the [release notes](../release-notes.md) for what each release added.

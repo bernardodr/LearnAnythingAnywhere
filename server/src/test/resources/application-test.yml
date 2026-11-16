@@ -3,7 +3,9 @@
 laa:
   auth:
     jwt-secret: test-only-jwt-secret-0123456789abcdef-0123456789
-    owner-emails: owner@test.dev
+    owner-emails: owner@test.dev, founder@test.dev
+    owner-setup-code: test-owner-setup-code
+    dev-login-enabled: true
   llm:
     default-provider: FAKE
     call-timeout: 5s

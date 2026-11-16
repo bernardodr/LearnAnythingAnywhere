@@ -15,6 +15,49 @@
 | Refactor: one reader view for everything shown | ✅ Done (2026-11-14) |
 | Refactor: one call descriptor per task and variant | ✅ Done (2026-11-14) |
 | Refactor: the lesson checks as one module | ✅ Done (2026-11-14) |
+| Email and password sign-in (user request; beyond the brief) | ✅ Done (2026-11-16) |
+
+## Email and password sign-in (done 2026-11-16)
+
+The user asked for email and password sign-in following best practice, after weighing Google and Apple sign-in (deferred: native Google needs development builds, Apple on the web needs a paid developer account and a domain, and Apple refuses most under-13 child accounts). BRIEF §2 had put a real auth provider out of scope; this is a deliberate change. Every choice below was agreed in a design round (Q1–Q7).
+
+**Done**
+- **`auth/Accounts`**, the only place a token is issued: sign-up, sign-in, dev sign-in, a password change (your own, which returns a fresh token) and a reset (a parent's, for a child).
+- **`auth/Passwords`:**
+  - **Storing:** Argon2id with 19 MiB, 2 iterations, parallelism 1, a 16-byte random salt and a 32-byte hash (OWASP), tagged `{argon2}` through `DelegatingPasswordEncoder`. Hashes made with weaker settings are redone at the next sign-in.
+  - **Rules** (NIST SP 800-63B-4, password as the only factor): 15–128 characters, counted as code points after NFKC, which is also applied before hashing, so full-width input matches. No composition rules. Refused: `auth/common-passwords.txt` (the NCSC top 100k, kept to 15+ characters, plus LAA's own name), the account's email, and one character repeated.
+  - **Unknown emails:** a sign-in for one is compared against a decoy hash, so it takes as long as a wrong password and gets the same 401 message.
+- **`auth/Throttle`** (in memory, Caffeine): 5 failures per email and 20 per network address within 15 minutes, then a 15-minute pause (429), checked before the secret. The parent PIN gets the same treatment (5 failures), which fixes the review's "unlimited PIN guesses".
+- **Sign-ins end on a password change:** tokens carry `pv`, the user's `password_version` (V9). A validator on the decoder checks it, caching versions for a minute, and the cache is forgotten on a change.
+- **Owners:**
+  - `LAA_OWNER_EMAILS` sign up only with `LAA_OWNER_SETUP_CODE`, compared in constant time and limited per address. The error carries `code: owner-setup-code`, so the app shows the field.
+  - An OWNER whose email is off the list becomes a LEARNER at their next sign-in. That fixes the review's "owner never revoked", except for tokens already issued.
+- **Dev sign-in** is off unless `LAA_DEV_LOGIN=true`. `./dev.sh` and the test profile turn it on, and `GET /auth/options` tells the title page.
+- **Children:** a parent creates the child's account with a password (`POST /profiles/children` now needs one) and can reset it (`PUT /profiles/children/{id}/password`, with the PIN once set), which ends the child's sign-ins.
+- **`ApiException`** can carry a `code` for the app to act on.
+- **App:**
+  - **Title page:** sign in, create an account (name, email, password with a live count, Learner or Parent), the owner setup code when asked for, and *Developer sign-in* when it's on.
+  - **`PasswordField`** has a Show / Hide switch and the right autocomplete hints.
+  - **Settings:** *Your password* (change it, or set one when the account has none), a child's password in their card, and the password in *Add a child*.
+- **Docs:** the guide (getting started, parents, owner accounts), release notes 0.7, the glossary, CLAUDE.md, `.env.example`, and `scripts/redteam.sh` (the child now needs a password).
+
+**Verified**
+- `./mvnw test`: **158 tests, 0 failures**.
+  - **`PasswordSignInTest` (17):** sign-up and sign-in; salted Argon2id; the same answer for a wrong password and an unknown email; each rule; NFKC; the email and address pauses; a success clearing the count; a change ending other sign-ins; setting a first password; upgrading a weak hash; the owner setup code; an owner taken off the list.
+  - **`ProfilesApiTest` (+3):** a child signs in with the password their parent chose; a reset with the PIN ends the child's sign-ins; 5 wrong PINs pause the PIN.
+- `npm run typecheck` and `npx expo lint`: clean.
+- **Browser** (exported web app against a server on :8090), with no console errors:
+  - sign-up, with the live count and *Show*;
+  - a wrong password, then signing in;
+  - changing the password and signing in with the new one;
+  - a parent adding a child with a password and resetting it;
+  - the child's old password refused and the new one working.
+
+**Not done (agreed)**
+- A forgotten-password email: there's no email service.
+- Google and Apple sign-in.
+- Email verification. Sign-up says when an email is taken, which can't be avoided without sending email.
+- Throttle counts are in memory, per server. Behind a proxy, the address is the proxy's.
 
 ## Refactor: the lesson checks as one module (done 2026-11-14)
 
@@ -649,4 +692,12 @@ From the architecture review (card 1, "Deepen learner-facing generation"): M6 ha
 | 2026-11-14 | **Compare runs any registered call;** "Use A/B" still switches the whole task | Routes are per task, so the safety checks always move together. The panel says so. |
 | 2026-11-14 | **`LessonChecks` owns the whole judgement of a lesson draft** and answers Pass, Rewrite or Refuse. Safety is checked on every attempt, even when the rules already demand a rewrite. | The branches are testable without a job. One rewrite can fix both kinds of problem; it costs one extra safety-check call, and only when the rules fail. |
 | 2026-11-14 | **Only a `CheckedLesson` can be saved.** `LessonWriter` stays the architecture rule's one exception rather than moving lesson writing behind the safety layer. | The type gives the guarantee. A generic "write, review, rewrite once" in the safety layer would widen its interface and pull lesson rules into it. |
+| 2026-11-16 | **Email and password sign-in**, replacing email-only sign-in as the default (user request; BRIEF §2 had a real auth provider out of scope). Google and Apple sign-in are deferred. | The user wanted real accounts now. Google on phones needs development builds (no Xcode or Android tools here), and Apple on the web needs a paid developer account and an HTTPS domain. |
+| 2026-11-16 | Passwords are **Argon2id** (19 MiB, t=2, p=1, 16-byte salt) through Spring Security's `Argon2PasswordEncoder`, adding **BouncyCastle `bcprov-jdk18on` 1.87** (user approved) | OWASP's first choice. bcrypt needed no new dependency, but OWASP lists it for legacy systems and it truncates at 72 bytes. |
+| 2026-11-16 | Password rules follow **NIST SP 800-63B-4**: 15–128 characters, no composition rules, NFKC, a blocklist built from the **NCSC top-100k list via SecLists (MIT)**, kept to 15+ characters (user approved) | 15 is NIST's minimum when the password is the only factor. Shorter list entries already fail the length rule. |
+| 2026-11-16 | **Guessing limits:** 5 failures per email and 20 per network address per 15 minutes, then a 15-minute pause; the parent PIN gets 5. Kept in memory. | NIST requires rate limiting. A lockout can be triggered by someone else, which is accepted for the prototype. |
+| 2026-11-16 | **A password change ends every older sign-in** through a password version in the token, checked against the database with a one-minute cache | Stateless tokens otherwise last 12 hours whatever happens. |
+| 2026-11-16 | **Parents create their children's accounts, with a password,** and can reset it with the PIN | Under-13s shouldn't sign themselves up. Creating the account is the parent's permission. A family code to link an existing account is a possible later step. |
+| 2026-11-16 | **Owner emails need a setup code to sign up** (`LAA_OWNER_SETUP_CODE`); an OWNER taken off the list is demoted at sign-in. Existing accounts are only promoted through dev sign-in. | Without email verification, whoever signed up first with the owner's email would get the console. |
+| 2026-11-16 | **Dev sign-in is off by default** (`LAA_DEV_LOGIN`); `./dev.sh` and the tests turn it on | The security review rated "dev login on by default" high if exposed. |
 | 2026-11-09 | Researched "Sign in with ChatGPT" (user request): see `docs/research/sign-in-with-chatgpt.md` | It exists, but only for selected partners via a waitlist, so it's not available to LAA now. Dev sign-in stays, and a real auth provider is out of scope for the prototype (BRIEF §2). |

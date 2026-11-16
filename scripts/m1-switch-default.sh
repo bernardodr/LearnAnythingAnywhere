@@ -4,7 +4,7 @@
 #   ./scripts/m1-switch-default.sh                 # FAKE -> FAKE_B (works with no API keys)
 #   ./scripts/m1-switch-default.sh ANTHROPIC GOOGLE # between real providers (keys must be in .env)
 #
-# Needs the server running (./dev.sh) plus curl and jq. Leaves the default set to the second provider.
+# Needs the server running with dev sign-in on (./dev.sh turns it on) plus curl and jq. Leaves the default set to the second provider.
 set -euo pipefail
 
 FROM=${1:-FAKE}

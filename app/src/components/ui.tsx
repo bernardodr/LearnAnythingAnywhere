@@ -188,6 +188,54 @@ export function Field({ label, hint, ...input }: TextInputProps & { label: strin
   );
 }
 
+/**
+ * A labelled password input with a Show / Hide switch. Pasting works, so password managers do too. `isNew` marks a
+ * password being chosen (sign-up, a change), so browsers and phones offer to suggest and save one.
+ */
+export function PasswordField({
+  label,
+  hint,
+  isNew,
+  ...input
+}: Omit<TextInputProps, 'secureTextEntry'> & { label: string; hint?: string; isNew?: boolean }) {
+  const [shown, setShown] = useState(false);
+  return (
+    <View style={styles.field}>
+      <Text style={styles.label} nativeID={`label-${label}`}>
+        {label}
+      </Text>
+      <View style={styles.passwordRow}>
+        <TextInput
+          accessibilityLabel={label}
+          accessibilityHint={hint}
+          aria-labelledby={`label-${label}`}
+          placeholderTextColor={colors.muted}
+          style={[styles.input, styles.passwordInput]}
+          secureTextEntry={!shown}
+          autoCapitalize="none"
+          autoCorrect={false}
+          autoComplete={isNew ? 'new-password' : 'current-password'}
+          textContentType={isNew ? 'newPassword' : 'password'}
+          {...input}
+        />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${shown ? 'Hide' : 'Show'} ${label.toLowerCase()}`}
+          onPress={() => setShown(!shown)}
+          style={({ pressed }) => [styles.reveal, pressed && styles.pressed]}>
+          <Text style={styles.revealText}>{shown ? 'Hide' : 'Show'}</Text>
+        </Pressable>
+      </View>
+      {hint ? <Text style={styles.hint}>{hint}</Text> : null}
+    </View>
+  );
+}
+
+/** A password's length as the server counts it: in characters, not UTF-16 units. */
+export function passwordLength(password: string) {
+  return [...password].length;
+}
+
 /** A quiet boxed message: errors, notes from the topic gate. */
 export function Note({ children, tone = 'note' }: { children: ReactNode; tone?: 'note' | 'error' }) {
   return (
@@ -254,6 +302,10 @@ const styles = StyleSheet.create({
     color: colors.ink,
   },
   inputMulti: { minHeight: 96, textAlignVertical: 'top' },
+  passwordRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  passwordInput: { flex: 1 },
+  reveal: { minHeight: minTouch, minWidth: minTouch + 12, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 8 },
+  revealText: { fontFamily: fonts.sansSemiBold, fontSize: 14, color: colors.accent },
   hint: { fontFamily: fonts.sans, fontSize: 13, color: colors.muted, marginTop: 6 },
   note: { backgroundColor: colors.noteFill, borderRadius: 4, padding: 16, marginVertical: 12 },
   noteError: { borderLeftWidth: 3, borderLeftColor: colors.accent },

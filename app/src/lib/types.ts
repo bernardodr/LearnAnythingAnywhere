@@ -2,9 +2,13 @@
 
 export type Role = 'LEARNER' | 'PARENT' | 'OWNER';
 
-export type User = { id: string; email: string; displayName: string | null; role: Role };
+/** `hasPassword` is false for accounts made before passwords, until they set one. */
+export type User = { id: string; email: string; displayName: string | null; role: Role; hasPassword: boolean };
 
-export type DevLoginResponse = { token: string; tokenType: string; expiresIn: number; user: User };
+export type SignInResponse = { token: string; tokenType: string; expiresIn: number; user: User };
+
+/** What the title page offers. */
+export type AuthOptions = { devLogin: boolean; passwordMinLength: number; passwordMaxLength: number };
 
 export type TextbookStatus = 'INTERVIEW' | 'ACTIVE' | 'ARCHIVED';
 

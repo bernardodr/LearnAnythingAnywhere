@@ -26,8 +26,9 @@ laa:
   auth:
     jwt-secret: ${JWT_SECRET:}            # HS256; at least 32 bytes (openssl rand -hex 32)
     token-ttl: 12h
-    owner-emails: ${LAA_OWNER_EMAILS:owner@laa.dev}   # dev-login gives these emails the OWNER role
-    dev-login-enabled: true
+    owner-emails: ${LAA_OWNER_EMAILS:owner@laa.dev}   # the only emails that may be OWNER
+    owner-setup-code: ${LAA_OWNER_SETUP_CODE:}       # signing up with an owner email needs it; unset = they can't sign up
+    dev-login-enabled: ${LAA_DEV_LOGIN:false}        # email-only sign-in, for local development; ./dev.sh turns it on
 
   dev:
     endpoints-enabled: true                # /dev/** (OWNER only): gateway ping, fake-provider failure switch

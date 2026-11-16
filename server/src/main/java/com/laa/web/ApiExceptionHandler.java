@@ -22,7 +22,9 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(ApiException.class)
     ProblemDetail api(ApiException e) {
-        return problem(e.status(), e.getMessage(), e.errors());
+        ProblemDetail pd = problem(e.status(), e.getMessage(), e.errors());
+        if (e.code() != null) pd.setProperty("code", e.code());
+        return pd;
     }
 
     @ExceptionHandler(LlmUnavailableException.class)
