@@ -6,8 +6,11 @@ laa:
     owner-emails: owner@test.dev, founder@test.dev
     owner-setup-code: test-owner-setup-code
     dev-login-enabled: true
+  dev:
+    endpoints-enabled: true
   llm:
     default-provider: FAKE
+    practice-providers: true
     call-timeout: 5s
     first-token-timeout: 1500ms
     providers:

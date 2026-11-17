@@ -21,6 +21,7 @@ import org.springframework.web.client.RestClient;
 
 import com.laa.auth.Throttle;
 import com.laa.llm.provider.fake.FakeBehaviour;
+import com.laa.mail.Mailer;
 import com.laa.llm.routing.RoutingSeeder;
 
 import tools.jackson.databind.JsonNode;
@@ -50,6 +51,8 @@ public abstract class IntegrationTest {
     protected FakeBehaviour fakes;
     @Autowired
     protected Throttle throttle;
+    @Autowired
+    protected Mailer mailer;
 
     protected RestClient http;
 
@@ -67,6 +70,7 @@ public abstract class IntegrationTest {
         seeder.seed();
         fakes.reset();
         throttle.reset(); // every test comes from the same address
+        mailer.clearOutbox();
         http = RestClient.builder().baseUrl("http://localhost:" + port).build();
     }
 
@@ -107,20 +111,33 @@ public abstract class IntegrationTest {
         return r.body().get("token").asString();
     }
 
-    /** Signs in as a parent (a new email each time) and adds a child; returns both tokens and the child's profile id. */
-    protected Family family(int childAge, boolean childSafe) {
-        String suffix = java.util.UUID.randomUUID().toString().substring(0, 8);
-        Resp p = post("/auth/dev-login", null, Map.of("email", "parent-" + suffix + "@test.dev", "role", "PARENT"));
-        assertThat(p.status()).as(p.raw()).isEqualTo(200);
-        String parent = p.body().get("token").asString();
-        String childEmail = "child-" + suffix + "@test.dev";
-        Resp c = post("/profiles/children", parent, Map.of("email", childEmail, "displayName", "Sam", "age", childAge,
-                "childSafe", childSafe, "password", PASSWORD));
-        assertThat(c.status()).as(c.raw()).isEqualTo(201);
-        return new Family(parent, login(childEmail), c.body().get("profile").get("id").asString());
+    /**
+     * A fresh account set up for a child: a parent's account (a new email each time) whose reader settings are the
+     * child's, as a parent sets them. Returns its token and profile id.
+     */
+    protected ChildReader childReader(int age, boolean childSafe) {
+        String token = login("family-" + java.util.UUID.randomUUID().toString().substring(0, 8) + "@test.dev");
+        String profileId = get("/profiles/me", token).body().get("id").asString();
+        Map<String, Object> settings = new java.util.HashMap<>();
+        settings.put("age", age);
+        settings.put("childSafe", childSafe);
+        settings.put("linksPolicy", "OFF");
+        Resp r = put("/profiles/" + profileId, token, settings);
+        assertThat(r.status()).as(r.raw()).isEqualTo(200);
+        return new ChildReader(token, profileId);
     }
 
-    protected record Family(String parent, String child, String childProfileId) {}
+    protected record ChildReader(String token, String profileId) {}
+
+    /** The token in the newest emailed link to {@code email} whose path is {@code path} (e.g. "/verify-email"). */
+    protected String emailedToken(String email, String path) {
+        var sent = mailer.outbox().stream().filter(m -> m.to().equals(email)).toList();
+        assertThat(sent).as("emails to " + email).isNotEmpty();
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile(java.util.regex.Pattern.quote(path) + "\\?token=([A-Za-z0-9_-]+)")
+                .matcher(sent.getLast().body());
+        assertThat(m.find()).as(sent.getLast().body()).isTrue();
+        return m.group(1);
+    }
 
     /**
      * Routes SAFETY_CHECK to FAKE_B, so a test can make FAKE fail (an interviewer, grader or tutor outage) while the

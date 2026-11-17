@@ -30,9 +30,6 @@ class OwnerApiTest extends IntegrationTest {
         assertThat(learner.body().get("user").get("role").asString()).isEqualTo("LEARNER");
         assertThat(learner.body().get("user").get("email").asString()).isEqualTo("ana@test.dev");
 
-        Resp parent = post("/auth/dev-login", null, Map.of("email", "parent@test.dev", "role", "PARENT"));
-        assertThat(parent.body().get("user").get("role").asString()).isEqualTo("PARENT");
-
         assertThat(post("/auth/dev-login", null, Map.of("email", "sneaky@test.dev", "role", "OWNER")).status()).isEqualTo(403);
         assertThat(post("/auth/dev-login", null, Map.of("email", "not-an-email")).status()).isEqualTo(400);
 

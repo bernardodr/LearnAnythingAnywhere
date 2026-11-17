@@ -101,22 +101,19 @@ public class Moderation {
 
         Map<String, String> vars = new HashMap<>();
         vars.put("kind", kind == Kind.INPUT ? "messages a learner typed" : "text written for the learner");
-        StringBuilder list = new StringBuilder();
-        for (Item i : present) {
-            // Items are data: closing tags inside them are neutralised so one item can't end early or forge another.
-            String text = i.text().strip().replace("</item>", "</ item>").replace("<item", "< item");
-            list.append("<item id=\"").append(i.id()).append("\">\n").append(text).append("\n</item>\n\n");
-        }
-        PromptContext ctx = new PromptContext(vars, List.of(), list.toString().strip(), userId, textbookId, origin);
+        PromptContext ctx = new PromptContext(vars, List.of(), itemsBlock(present), userId, textbookId, origin);
         try {
             ModerationVerdict v = gateway.structured(Calls.CONTENT_CHECK, ctx, profile);
-            Map<String, ModerationVerdict.Item> byId = new HashMap<>();
-            for (ModerationVerdict.Item item : v.items()) byId.put(item.id(), item);
-            for (Item i : present) {
-                ModerationVerdict.Item verdict = byId.get(i.id());
+            // Every verdict for an item counts, and a BLOCK beats a PASS, so a repeated id can't overrule a block.
+            Map<String, List<ModerationVerdict.Item>> byId = new HashMap<>();
+            for (ModerationVerdict.Item item : v.items()) byId.computeIfAbsent(item.id(), k -> new java.util.ArrayList<>()).add(item);
+            for (int n = 0; n < present.size(); n++) {
+                Item i = present.get(n);
+                List<ModerationVerdict.Item> verdicts = byId.getOrDefault(promptId(n), List.of());
                 // An item the classifier didn't answer for is unchecked, so it doesn't pass.
-                if (verdict == null) flags.putIfAbsent(i.id(), "not checked");
-                else if (verdict.verdict() == ModerationVerdict.Verdict.BLOCK) {
+                if (verdicts.isEmpty()) flags.putIfAbsent(i.id(), "not checked");
+                for (ModerationVerdict.Item verdict : verdicts) {
+                    if (verdict.verdict() != ModerationVerdict.Verdict.BLOCK) continue;
                     String why = verdict.reason().isBlank() ? String.join(", ", verdict.categories()) : verdict.reason();
                     flags.putIfAbsent(i.id(), why.isBlank() ? "flagged" : why);
                 }
@@ -126,6 +123,24 @@ public class Moderation {
             throw new Unavailable();
         }
         return new Result(flags);
+    }
+
+    /**
+     * The items as the classifier sees them. Items are data: each is numbered by position (so an id can't carry
+     * markup), and {@code &}, {@code <} and {@code >} in its text are escaped, so no spelling of a tag, in any case,
+     * can end an item early or forge another.
+     */
+    static String itemsBlock(List<Item> present) {
+        StringBuilder list = new StringBuilder();
+        for (int n = 0; n < present.size(); n++) {
+            String text = present.get(n).text().strip().replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+            list.append("<item id=\"").append(promptId(n)).append("\">\n").append(text).append("\n</item>\n\n");
+        }
+        return list.toString().strip();
+    }
+
+    private static String promptId(int position) {
+        return String.valueOf(position + 1);
     }
 
     /** One piece of text, e.g. a reply or a learner's message. */

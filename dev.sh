@@ -6,7 +6,13 @@ cd "$(dirname "$0")"
 
 [ -f .env ] || { echo "Missing .env — copy .env.example to .env first." >&2; exit 1; }
 set -a; source .env; set +a   # exported so the server and Expo (EXPO_PUBLIC_*) both see them
-export LAA_DEV_LOGIN="${LAA_DEV_LOGIN:-true}"   # email-only sign-in for local development (the server's default is off)
+# Local development settings; the server's own defaults are the production ones (all off).
+export LAA_DEV_LOGIN="${LAA_DEV_LOGIN:-true}"                   # email-only sign-in
+export LAA_DEV_ENDPOINTS="${LAA_DEV_ENDPOINTS:-true}"           # /dev tools (owner only)
+export LAA_PRACTICE_PROVIDERS="${LAA_PRACTICE_PROVIDERS:-true}" # practice mode (FAKE, FAKE_B)
+export LAA_DEFAULT_PROVIDER="${LAA_DEFAULT_PROVIDER:-FAKE}"     # only used by a new database
+export SPRING_MAIL_HOST="${SPRING_MAIL_HOST:-localhost}"        # Mailpit (docker compose); read emails at :8025
+export SPRING_MAIL_PORT="${SPRING_MAIL_PORT:-${MAILPIT_SMTP_PORT:-1025}}"
 
 port_in_use() { lsof -ti "tcp:$1" -sTCP:LISTEN >/dev/null 2>&1; }
 
@@ -17,8 +23,9 @@ if port_in_use 8080; then
   exit 1
 fi
 
-echo "▸ Starting PostgreSQL…"
-docker compose up -d --wait postgres
+echo "▸ Starting PostgreSQL and Mailpit…"
+docker compose up -d --wait postgres mailpit
+echo "▸ Emails LAA sends: http://localhost:${MAILPIT_WEB_PORT:-8025}"
 
 [ -d app/node_modules ] || (cd app && npm install)
 

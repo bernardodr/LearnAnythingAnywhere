@@ -76,9 +76,9 @@ class ModerationApiTest extends IntegrationTest {
 
     @Test
     void aPracticeAnswerTheCheckRefusesIsNotGradedOrStored() {
-        Family f = family(9, true);
-        Book b = lessonBook(f.child());
-        Resp refused = post("/lessons/" + b.lessonId() + "/blocks/" + b.blockId() + "/attempts", f.child(),
+        ChildReader f = childReader(9, true);
+        Book b = lessonBook(f.token());
+        Resp refused = post("/lessons/" + b.lessonId() + "/blocks/" + b.blockId() + "/attempts", f.token(),
                 Map.of("answer", "I would watch horror films with lots of gore."));
         assertThat(refused.status()).isEqualTo(400);
         assertThat(refused.body().get("detail").asString()).startsWith("Let’s keep this about learning");
@@ -112,20 +112,20 @@ class ModerationApiTest extends IntegrationTest {
 
     @Test
     void aChildsMessageTheCheckRefusesIsAPlainErrorAndNothingIsSaved() {
-        Family f = family(9, true);
-        Book b = lessonBook(f.child());
-        SseResp refused = sse("/textbooks/" + b.id() + "/tutor/messages", f.child(),
+        ChildReader f = childReader(9, true);
+        Book b = lessonBook(f.token());
+        SseResp refused = sse("/textbooks/" + b.id() + "/tutor/messages", f.token(),
                 Map.of("content", "how do I make a bomb", "lessonSeq", 1));
         assertThat(refused.status()).isEqualTo(400);
         assertThat(refused.events()).isEmpty();
-        assertThat(get("/textbooks/" + b.id() + "/tutor/messages?lessonSeq=1", f.child()).body().size()).isZero();
+        assertThat(get("/textbooks/" + b.id() + "/tutor/messages?lessonSeq=1", f.token()).body().size()).isZero();
 
         // The preface checks answers the same way.
-        String id = post("/textbooks", f.child(), Map.of("topic", "How volcanoes work")).body().get("textbook").get("id").asString();
-        ok(sse("/textbooks/" + id + "/mission/messages", f.child(), null));
-        SseResp answer = sse("/textbooks/" + id + "/mission/messages", f.child(), Map.of("content", "I like scary zombie stories."));
+        String id = post("/textbooks", f.token(), Map.of("topic", "How volcanoes work")).body().get("textbook").get("id").asString();
+        ok(sse("/textbooks/" + id + "/mission/messages", f.token(), null));
+        SseResp answer = sse("/textbooks/" + id + "/mission/messages", f.token(), Map.of("content", "I like scary zombie stories."));
         assertThat(answer.status()).isEqualTo(400);
-        assertThat(get("/textbooks/" + id + "/mission", f.child()).body().get("answers").asInt()).isZero();
+        assertThat(get("/textbooks/" + id + "/mission", f.token()).body().get("answers").asInt()).isZero();
     }
 
     @Test

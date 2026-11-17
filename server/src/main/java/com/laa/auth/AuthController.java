@@ -1,5 +1,7 @@
 package com.laa.auth;
 
+import java.util.Map;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -24,6 +26,9 @@ import jakarta.validation.constraints.Size;
  *   <li>{@code POST /auth/sign-up}, {@code POST /auth/sign-in}: email and password, token out</li>
  *   <li>{@code POST /auth/dev-login}: email only, when dev sign-in is on</li>
  *   <li>{@code PUT /auth/password}: the signed-in user's new password; a fresh token out</li>
+ *   <li>{@code POST /auth/verify-email}: a verification link's token; {@code POST /auth/verify-email/resend}: a new link</li>
+ *   <li>{@code POST /auth/password-reset}: email in, a reset link sent if it has an account (202 either way);
+ *       {@code POST /auth/password-reset/confirm}: the link's token and a new password, token out</li>
  *   <li>{@code GET /auth/me}</li>
  * </ul>
  * Passwords are never put through bean validation, so a rejected value can't end up in an error message.
@@ -35,13 +40,19 @@ class AuthController {
     record Options(boolean devLogin, int passwordMinLength, int passwordMaxLength) {}
 
     record SignUpRequest(@NotBlank @Email @Size(max = 254) String email, String password, @Size(max = 80) String displayName,
-                         Role role, String ownerSetupCode) {}
+                         String ownerSetupCode) {}
 
     record SignInRequest(@NotBlank @Size(max = 254) String email, String password) {}
 
     record DevLoginRequest(@NotBlank @Email @Size(max = 254) String email, @Size(max = 80) String displayName, Role role) {}
 
-    record PasswordRequest(String currentPassword, String newPassword) {}
+    record PasswordRequest(String currentPassword, String newPassword, String pin) {}
+
+    record TokenRequest(@Size(max = 200) String token) {}
+
+    record ResetRequest(@NotBlank @Size(max = 254) String email) {}
+
+    record ResetConfirm(@Size(max = 200) String token, String newPassword) {}
 
     private final Accounts accounts;
     private final AuthProperties props;
@@ -59,7 +70,7 @@ class AuthController {
     @PostMapping("/sign-up")
     @ResponseStatus(HttpStatus.CREATED)
     Accounts.SignedIn signUp(@Valid @RequestBody SignUpRequest r, HttpServletRequest http) {
-        return accounts.signUp(r.email(), r.password(), r.displayName(), r.role(), r.ownerSetupCode(), http.getRemoteAddr());
+        return accounts.signUp(r.email(), r.password(), r.displayName(), r.ownerSetupCode(), http.getRemoteAddr());
     }
 
     @PostMapping("/sign-in")
@@ -74,7 +85,30 @@ class AuthController {
 
     @PutMapping("/password")
     Accounts.SignedIn password(@RequestBody PasswordRequest r, @AuthenticationPrincipal Jwt jwt, HttpServletRequest http) {
-        return accounts.changePassword(CurrentUser.id(jwt), r.currentPassword(), r.newPassword(), http.getRemoteAddr());
+        return accounts.changePassword(CurrentUser.id(jwt), r.currentPassword(), r.newPassword(), r.pin(), http.getRemoteAddr());
+    }
+
+    @PostMapping("/verify-email")
+    Map<String, Object> verifyEmail(@Valid @RequestBody TokenRequest r) {
+        accounts.verifyEmail(r.token());
+        return Map.of("verified", true);
+    }
+
+    @PostMapping("/verify-email/resend")
+    Map<String, Object> resend(@AuthenticationPrincipal Jwt jwt) {
+        return Map.of("sent", accounts.resendVerification(CurrentUser.id(jwt)));
+    }
+
+    @PostMapping("/password-reset")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    Map<String, Object> passwordReset(@Valid @RequestBody ResetRequest r, HttpServletRequest http) {
+        accounts.requestPasswordReset(r.email(), http.getRemoteAddr());
+        return Map.of("message", "If that email has an account, we’ve sent it a link to choose a new password. It works for 30 minutes.");
+    }
+
+    @PostMapping("/password-reset/confirm")
+    Accounts.SignedIn passwordResetConfirm(@Valid @RequestBody ResetConfirm r) {
+        return accounts.resetPassword(r.token(), r.newPassword());
     }
 
     @GetMapping("/me")

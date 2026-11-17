@@ -16,6 +16,266 @@
 | Refactor: one call descriptor per task and variant | ✅ Done (2026-11-14) |
 | Refactor: the lesson checks as one module | ✅ Done (2026-11-14) |
 | Email and password sign-in (user request; beyond the brief) | ✅ Done (2026-11-16) |
+| Production fixes: review bugs, production defaults, spending caps, email (user request) | ✅ Done (2026-11-16) |
+| One account per family: adults only, the parent PIN locks the account (user request) | ✅ Done (2026-11-16) |
+| Arrange your shelf: drag books with light physics (user request) | ✅ Done (2026-11-16) |
+| A shelf of spines: a compact view with the same physics (user request) | ✅ Done (2026-11-16) |
+| A firmer shelf: a solid board, snappy physics, no bounce (user feedback) | ✅ Done (2026-11-16) |
+| Production: GitHub Actions pipeline, Hetzner server, web, App Store, Google Play (user request) | 🚧 Phase 1 in progress (steps 1–2 done): `docs/PRODUCTION-PLAN.md` (2026-11-17). Tasks are GitHub issues on the *LAA production* board; the process is `docs/WORKFLOW.md` |
+
+## Production 1.2: a health check that says "down" (done 2026-11-17)
+
+Phase 1, step 2 of `docs/PRODUCTION-PLAN.md` (GitHub issue #12). Server only. Also the workflow document and the task board.
+
+**Done**
+- **`GET /health`** already existed and checked the database, but an outage reached the generic error handler as a 500. Now it answers **503 `{"status":"DOWN","database":"DOWN"}`** and logs one warning. Still public, and it says nothing more than up or down. The plan wrongly said there was no health check; it's corrected.
+- **`docs/WORKFLOW.md`:** the path from a task to the stores, in Mermaid diagrams (the whole path, what protects `main`, a deploy), with who does what, the day-to-day commands, the phone release steps and what to do when something goes wrong. Planned parts are marked with their phase. `CLAUDE.md` points to it and states the pull-request rule.
+- **The board:** GitHub project *LAA production* (https://github.com/users/bernardodr/projects/1), linked to the repo, with all 51 issues on it.
+
+**Verified**
+- `HealthControllerTest`: a database that can't be reached gives 503 (it failed to compile before: there was no status to read). `ServerApplicationTests` still gets 200 with the database up.
+- By hand: a packaged server on port 8091 answered 200, then 503 at once after `docker compose stop postgres`, then 200 again after the database was started.
+
+## Production 1.1: real client addresses behind the proxy (done 2026-11-17)
+
+The first milestone of `docs/PRODUCTION-PLAN.md` (Phase 1, step 1; GitHub issue #11). Server only; no new dependency.
+
+**Done**
+- **Repo setup for the plan:**
+  - `main` is protected by the GitHub ruleset *Protect main*: pull requests only, no force pushes or deletion, nobody bypasses, 0 approvals (the user reviews by merging).
+  - `.claude/hooks/protect-main.sh` (in `.claude/settings.json`) blocks Claude from pushing to `main`, merging or approving a pull request, and changing the branch rules. 28 cases were tried by hand, and it blocked a real dry-run push.
+  - The plan is GitHub issues #1–#51: one per phase, each step a sub-issue; label `you` for the user's own steps.
+- **Behind a proxy, the client's address is used:**
+  - `server.forward-headers-strategy: native` makes Tomcat's `RemoteIpValve` set `getRemoteAddr()` from `X-Forwarded-For`. It does so only on connections from an internal proxy (private and loopback addresses by default; `SERVER_TOMCAT_REMOTEIP_INTERNALPROXIES` narrows them).
+  - So the sign-in throttle, the sign-up limit and the reset-request limit count each person again, not the proxy's one address. No controller changed.
+- **Docs:** `CLAUDE.md` (the network address rule) and the `Throttle` comment. Nothing for the product docs: people won't see a difference until LAA runs behind the proxy.
+
+**Verified**
+- `ForwardedAddressTest`: the sixth sign-up from one forwarded client is refused while another client behind the same proxy carries on, and addresses a client puts ahead of the proxy's entry don't count. It failed before the change.
+- `UntrustedProxyTest` (loopback taken off the internal list): a forwarded address on a connection from anyone else is ignored.
+- Server suite 187 passed; app typecheck and lint clean.
+
+## A firmer shelf (done 2026-11-16)
+
+User feedback on the spines: "I want the bookshelf to be solid and the books less bouncy, the physics should feel snappy." App only; no server change and no new dependency. It replaces the bounce, wobble, swing and board dip described in the two sections below.
+
+**Done**
+- **Why it was bouncy:** Reanimated 4's `withSpring` defaults `mass` to 4, and the springs gave only `stiffness` and `damping`. So every spring was about half as damped as written (the drop's bounce had a damping ratio near 0.15).
+- **New springs in `Shelf`, each with `mass: 1`:**
+  - `GLIDE` (books making room): damping ratio 0.94.
+  - `LIFT` (pick up, hover, a chosen spine rising): 0.92.
+  - `SETTLE` (landing, and anything coming back upright): stiffness 900, ratio 0.7, with `overshootClamping`, so it arrives fast and stops dead at its place.
+  - `BOUNCE`, `WOBBLE` and `SWAY_BACK` are gone.
+- **A drop:**
+  - Covers and spines both land with `SETTLE`.
+  - The knock is a quick tap that goes straight back: 1.5° for covers; for spines, three books each side, 2.5° divided by distance, 30 ms apart.
+- **The lean while dragging** is up to 6° (was 10°) and comes back upright with `SETTLE`.
+- **The board is solid:** no dip, no animation. A 14 px plank (was 8) with a lit top edge, a front face and a shadow on the wall. The bookend is in the same wood. The colours are new `colors.shelf` tokens.
+- **Two things that looked like a bounce:**
+  - The saved order coming back from the server re-ran the glide reaction and restarted the landing with the looser spring. It now glides only when the place changes.
+  - On the web, hover ends and restarts when the mouse button comes up, so a dropped spine landed and then rose 8 px under the pointer. A 250 ms `landing` window after a drop skips that restart. The next real hover pulls it out as before.
+- **Docs:**
+  - the guide (*Arranging your shelf*);
+  - release notes 0.10 and 0.11, edited in place since neither has shipped;
+  - CLAUDE.md (the `mass` gotcha).
+
+**Verified**
+- `npm run typecheck` and `npx expo lint`: clean.
+- **A frame-by-frame trace of a spine drop** (`drop-trace`, exported web app). The dropped spine:
+  - starts 31 px above its place and rests by 131 ms;
+  - never goes past its place (0.00 px) and never changes direction.
+  - Its lean is upright by 131 ms.
+  - The spine beside it is knocked 2.5° and back by 182 ms, without passing upright.
+  - The boards' positions didn't change in any frame.
+  - Hover still pulls the spine out 8 px once the pointer leaves and comes back.
+- **The covers and spines walk-throughs** both pass with no console errors.
+- **Not checked:** a real phone.
+
+## A shelf of spines (done 2026-11-16)
+
+The user asked for a compact ("minimised") view of the shelf, with the books spine out, standing on the shelf, and the same physics. App only; no server change and no new dependency.
+
+**Done**
+- **`Shelf` shows covers or spines through one layout model.** `place(id, order, layout)` and `target(...)` (worklets) cover both, so drag, glide, saving the order, the arrange buttons and reduced motion work the same in each view.
+  - **Spines:**
+    - Books flow left to right from a bookend and wrap onto more shelves.
+    - Each spine's thickness (44–58 px, so at least the 44 px touch target) and height (150–190 px) come from a hash of its id, so they're stable.
+    - **The spine itself:** the cloth colour, a lit and a shaded edge, two bands, and the title set down the spine. The type fits the length: 15 down to 13 px on one line, or two lines. The volume numeral sits at the foot.
+    - A book still in its preface has a red ribbon bookmark.
+  - **Spine physics:**
+    - A held spine swings from its top (`transformOrigin` at the top) and lifts 14 px.
+    - A drop bounces it back onto the board (a lighter-damped spring).
+    - It sends a ripple of knocks along the row: up to four books either side lean away, 4° divided by their distance, each 45 ms later than the last. The knocks pivot at the books' feet.
+    - The board still dips, and hovering lifts a spine 8 px.
+  - **Arrange on spines:** the spines are too narrow for buttons under each, so a tap chooses a book (it rises, with an outline) and *‹ Earlier* / *Later ›* move it. Screen readers keep *Move earlier/later* on every book.
+  - **Switching view:** the books glide from one layout to the other.
+- **The Covers / Spines switch** is a radio group in the shelf's bar. The choice is kept per device by `lib/prefs.ts` (localStorage on the web, SecureStore on phones) and read through TanStack Query.
+- `Cover` now exports `volumeNumeral`, `bookLabel` and `MOVE_ACTIONS` for the spines to share.
+- **Docs:** the guide (*Covers or spines*, and the arranging text) and release notes 0.11.
+
+**Verified**
+- `npm run typecheck` and `npx expo lint`: clean. No server code changed (the suite was 184 passing before this).
+- **Browser** (a test account with 12 books, one in its preface; no console errors):
+  - switching to spines: 12 books on 2 shelves, and the ribbon on the book in progress;
+  - dragging a spine along the row: lifted and swinging mid-drag, with the ripple and dip on the drop, and the order saved;
+  - a reload keeping spines and the order;
+  - Arrange choosing a spine and moving it later;
+  - back to covers;
+  - a click on a spine opening the book.
+  - The covers walk-through passes again.
+  - The screenshots showed long titles cut short ("Chess Openi…"), which the type fitting fixed.
+- **Not checked:** a real phone.
+
+## Arrange your shelf (done 2026-11-16)
+
+The user asked for books on the shelf to be draggable into a new order, with light physics, "be creative". No new dependencies: `react-native-gesture-handler` 3.3 and Reanimated 4.7 were already installed (Expo's template), and this is the first code to use them.
+
+**Done**
+- **Server:**
+  - V13 `textbooks.shelf_position`.
+  - `GET /textbooks` lists arranged books first, then the rest by volume, so new books go at the end.
+  - `PUT /textbooks/order {ids}` (204). Other people's ids are ignored, and a repeated id is a 400. Arranging isn't PIN-locked.
+- **`components/Shelf`:** books are absolutely placed in shelf slots, with one shared value holding the order.
+  - **Dragging:**
+    - A drag starts at once with a mouse; on a phone, after a 220 ms press.
+    - The held book lifts (rising, scaling up 6%, with a deeper shadow).
+    - It leans with the pointer's speed (up to 10°), swinging back upright on a damped spring when the hand stops.
+    - The others glide to their new slots.
+  - **A drop:**
+    - The book settles with a little overshoot and wobble.
+    - The books either side are knocked (a 2.5° lean away and back).
+    - That shelf's board dips 2.5 px.
+  - **Touch feedback:** a touch presses the book in slightly. On the web, hovering pulls a book out 5 px.
+  - **Reduced motion:** books still glide, without the lean, knock or dip.
+  - **Not dragging:** *Arrange* shows ‹ › buttons (44 px) under each book. Each cover has *Move earlier / later* accessibility actions.
+  - **Saving:** the new order shows at once (`setQueryData`) and is saved. If saving fails, the shelf reloads with a note.
+  - **Clicks:** a drag that ends on the web doesn't open the book (a 300 ms guard).
+- `GestureHandlerRootView` at the app root. `Cover` takes `onMove`, `footer` and `dimOnPress`.
+- **Docs:** the guide (*Arranging your shelf*), release notes 0.10 and CLAUDE.md (gesture notes).
+
+**Verified**
+- `./mvnw test`: **184 tests, 0 failures**, including **`ShelfOrderTest` (3)**: the order is kept and new books go at the end; other people's books are untouched; a repeated id is refused.
+- `npm run typecheck` and `npx expo lint`: clean.
+- **Browser** (exported web app, a test account with 5 books on two shelves; no console errors):
+  - dragging the first book onto the fourth's place, with the mid-drag view showing it lifted and the others moved aside;
+  - the drop saving the order without opening a book;
+  - a reload keeping the order;
+  - *Arrange*'s arrow moving a book;
+  - a plain click opening a book.
+  - A trace of the book's angle tuned the swing: up to 10°, back upright within about a second.
+- **Not checked:** a real phone (no device or development build here), so the press-and-hold timing and the page scrolling alongside a drag are untested on touch.
+
+## One account per family (done 2026-11-16)
+
+The user asked for accounts to be for parents (adults) only, with children using the parent's account, locked and limited by a PIN. That replaces M6's child accounts (BRIEF §8: "child profiles can only be created under a PARENT account"). Decisions (asked first):
+- one shared shelf and settings per account;
+- the PIN locks the settings and the password, and a forgotten PIN is replaced with the password;
+- a PIN is suggested, not forced, for child settings;
+- no age check at sign-up, only a note that accounts are for adults;
+- existing child accounts deleted.
+
+I also told the user that this reduces children's-privacy obligations without removing them. COPPA can still apply to a child-directed service whose children type into it on a parent's account, and the UK Children's Code applies to services children are likely to use. Legal review is still needed.
+
+**Done**
+- **V12:**
+  - Child accounts are deleted with their attempts, practice, textbooks (lessons, files, chat), email links and profiles; run log rows keep, without the user.
+  - PARENT becomes LEARNER, the role check allows only `LEARNER` and `OWNER`, and `users.parent_user_id` is dropped.
+- **`auth/PinLock`** (the parent PIN, moved from `Profiles`): `check`, which is throttled, plus `set` (needs the current PIN), `remove` (with the PIN) and `resetWithPassword` (throttled like a sign-in).
+- **Profiles:**
+  - Your own profile only; anyone else's is a 404.
+  - Any age from 5, for any account.
+  - A change needs `X-Parent-Pin` once the PIN is set.
+  - `ProfileView` has `pinSet`, in place of `managedByParent` and `canEdit`.
+  - Gone: the `/profiles/children` endpoints, `addChild`, children's password resets and `requireParent`.
+- **Endpoints:** `PUT /profiles/pin`, `DELETE /profiles/pin`, `POST /profiles/pin/reset`. `PUT /auth/password` takes `pin`.
+- **Sign-up has no role.** `Allowance` and email verification no longer look at a parent.
+- **App:**
+  - The title page has no Learner/Parent choice; sign-up says accounts are for adults.
+  - **Settings:**
+    - one form, ages 5 to Adult, which suggests a PIN for child settings;
+    - a *Parent PIN* card: set, change, turn off, and *Forgotten the PIN?* with the account password;
+    - *Your password* asks for the PIN when one is set.
+- **`scripts/redteam.sh`:** sets up one account for a child of 9.
+- **Docs:** the guide (getting started; page 7 is now "Reader settings and the parent PIN", with *Letting a child use your account*), release notes 0.9, the glossary (Account, Parent PIN) and CLAUDE.md.
+
+**Verified**
+- `./mvnw test`: **181 tests, 0 failures**.
+  - **`ProfilesApiTest`** is rewritten (8): adult defaults and child settings on one account; another's settings 404; the PIN locking the settings; the PIN locking the password; a forgotten PIN reset with the password; turning the lock off; 5 wrong PINs pausing it; the topic gate.
+  - **The helper `childReader(age, childSafe)`** replaces `family(...)` in the safety tests.
+- `npm run typecheck` and `npx expo lint`: clean.
+- **Local database:** V12 ran on it. The 2 child accounts are gone, the 3 parents are now LEARNER, and `parent_user_id` is dropped.
+- **Browser** (no console errors):
+  - sign-up with no role choice, and the adults note;
+  - child-safe on suggesting a PIN;
+  - setting the PIN;
+  - saving the settings needing the PIN, with a wrong PIN refused;
+  - the password needing the PIN;
+  - a forgotten PIN reset with the password;
+  - the lock turning off.
+  - The email walk-through passes again.
+
+## Production fixes (done 2026-11-16)
+
+The user asked for the urgent items from the production-readiness review to be fixed at once. Decisions (asked first): SMTP through Spring Boot's mail starter with Mailpit locally, email verification before any AI use, a sign-up limit rather than a CAPTCHA, and caps of $1 per learner and $25 in total per day.
+
+**Done**
+- **The profile race:** `ProfileRepository.forUserOrCreate` locks the user's row (`SELECT … FOR UPDATE`), checks again, then creates, so parallel first requests share one profile. V10 deletes orphaned profiles that nothing points at.
+- **The content check is harder to trick:**
+  - `Moderation.itemsBlock` numbers items by position, so an id can't carry markup.
+  - It escapes `&`, `<` and `>` in the text, so no spelling of a tag in any case can end an item or forge one.
+  - Every verdict for an item counts, and a BLOCK beats a PASS. Verdicts for unknown ids are ignored, and an unanswered item is "not checked".
+- **Request size:** `web/RequestSizeLimit` caps bodies at 256 KB. A declared length over the cap gets 413 before anything reads it; a streamed body stops at the cap, and `ApiExceptionHandler` turns that into a 413 too.
+- **Production defaults (all off):**
+  - `/dev` endpoints: `LAA_DEV_ENDPOINTS`.
+  - The practice providers: `LAA_PRACTICE_PROVIDERS`. Without it, FAKE and FAKE_B have no client and say why.
+  - Dev sign-in: `LAA_DEV_LOGIN`.
+  - `LAA_DEFAULT_PROVIDER` has no default. A new database with none set, or with one that can't be used, refuses to start (`RoutingSeeder.firstDefault`) instead of falling back to FAKE.
+  - `./dev.sh` turns the local switches on, and the test profile sets its own.
+- **`llm/Allowance`**, checked by the gateway before every call (`structuredResult`, `stream`, `runOnce`):
+  - a learner's own requests (origin APP) need a verified email (403 `email-unverified`; a child counts through their parent);
+  - their spend since midnight UTC must be under `LAA_LEARNER_DAILY_USD` (429 `learner-daily-limit`);
+  - all spend must be under `LAA_TOTAL_DAILY_USD` (503 `total-daily-limit`), the owner's Compare included.
+  - Spend is the run log's cost estimate, with a new `model_runs (user_id, created_at)` index.
+- **Email** (`spring-boot-starter-mail`; `mail/Mailer`):
+  - **Sending:** SMTP in the background when `SPRING_MAIL_HOST` is set. Otherwise an in-memory outbox, with a startup warning. Bodies and addresses are never logged.
+  - **`auth/EmailLinks`:** 256-bit tokens, stored only as SHA-256 (V11 `email_tokens`). One use; a new link cancels older ones. Verification links last 24 hours, reset links 30 minutes.
+  - **`Accounts` flows:**
+    - Sign-up sends a verification link; resending needs signing in.
+    - A reset request answers 202 the same way for any email.
+    - A reset checks the password rules before using the link up, ends older sign-ins, signs in, and marks the email verified.
+    - V11 marks existing accounts as verified, and dev sign-in accounts count as verified.
+- **`Throttle` additions:** 5 sign-ups per address, 3 emails to one address, and 10 reset requests per address, each per 15 minutes.
+- **Mailpit** (`axllent/mailpit:v1.33`) is in `docker-compose.yml`, and `./dev.sh` starts it and points SMTP at it. Read the emails at http://localhost:8025.
+- **App:**
+  - *Forgotten your password?* on the title page, plus `/forgot-password` and `/reset-password?token=`;
+  - `/verify-email?token=`, which runs once and is never refetched;
+  - `ConfirmEmail` on the shelf, rechecked on focus, with *Send the link again*;
+  - `User.emailVerified`.
+- **Docs:**
+  - the guide (confirming your email, a forgotten password, the daily allowance, the owner's daily limits, practice mode only on test setups);
+  - release notes 0.8;
+  - the glossary, CLAUDE.md and `.env.example`.
+
+**Verified**
+- `./mvnw test`: **181 tests, 0 failures**.
+  - **`EmailLinksTest` (9):** a link verifies once; expiry; a new link replacing the old; a child verified through their parent; a reset (rules first, older sign-ins end, once only); the same answer for an unknown email; 3 emails per address; 10 reset requests per address; 5 sign-ups per address.
+  - **`AllowanceTest` (4):** an unverified account blocked until it verifies, with nothing reaching a model; the learner cap; yesterday's spend and Compare not counting toward a learner; the total cap pausing the owner too.
+  - **`ProfileRaceTest`:** 10 rounds of 8 parallel first requests, one profile each.
+  - **`ModerationItemsTest` (2), `ModerationVerdictsTest` (2), `RequestSizeLimitTest` (3), `FirstDefaultTest` (3).**
+- `npm run typecheck` and `npx expo lint`: clean.
+- **A server started with only `.env`** (production defaults): `/auth/options` says dev sign-in is off, `/auth/dev-login` is 404, the practice providers aren't configured, an unverified account gets 403 `email-unverified`, and the missing email setup is warned about at startup.
+- **Browser, with real SMTP into Mailpit** (no console errors):
+  - sign-up, and the *Confirm your email* note;
+  - a textbook blocked until confirmed;
+  - the emailed link confirming once, then the note gone;
+  - *Forgotten your password?*, with the same answer for any email;
+  - the emailed reset link setting a new password and signing in;
+  - the old password refused.
+  - The earlier password walk-through passes again.
+
+**Not done**
+- **The Anthropic key in `.env` is still rejected (401), and the OpenAI entry is a placeholder.** Only the user can replace them.
+- **No CAPTCHA**, by decision. Universal links (opening email links in the phone app) wait for real app builds and a domain.
 
 ## Email and password sign-in (done 2026-11-16)
 
@@ -692,6 +952,16 @@ From the architecture review (card 1, "Deepen learner-facing generation"): M6 ha
 | 2026-11-14 | **Compare runs any registered call;** "Use A/B" still switches the whole task | Routes are per task, so the safety checks always move together. The panel says so. |
 | 2026-11-14 | **`LessonChecks` owns the whole judgement of a lesson draft** and answers Pass, Rewrite or Refuse. Safety is checked on every attempt, even when the rules already demand a rewrite. | The branches are testable without a job. One rewrite can fix both kinds of problem; it costs one extra safety-check call, and only when the rules fail. |
 | 2026-11-14 | **Only a `CheckedLesson` can be saved.** `LessonWriter` stays the architecture rule's one exception rather than moving lesson writing behind the safety layer. | The type gives the guarantee. A generic "write, review, rewrite once" in the safety layer would widen its interface and pull lesson rules into it. |
+| 2026-11-16 | **The shelf order is the learner's and kept by the server** (`shelf_position`), with arranged books first and new ones at the end | It's the same on every device, and a new book doesn't jump into the middle of an arranged shelf. |
+| 2026-11-16 | **Drag uses the already-installed Gesture Handler 3 and Reanimated 4**, with no sound or haptics | No new dependency. Haptics (`expo-haptics`) and a soft "thunk" sound would need approval. |
+| 2026-11-16 | **Accounts are for adults; children use a parent's account**, whose reader settings the parent sets for them and locks with the parent PIN. Child accounts are removed. (user decision) | The user wants no child accounts. It also removes child emails and passwords. It doesn't by itself take LAA outside children's-privacy law; see the section above. |
+| 2026-11-16 | **The parent PIN locks the reader settings, the password and the PIN**; a forgotten PIN is replaced with the account password; it's suggested, not required, for child settings (user decision) | A child using the account can't loosen their settings or lock the parent out, and the parent can always recover. |
+| 2026-11-16 | **No age check at sign-up**, only a note that accounts are for adults (user decision) | A neutral date-of-birth screen was offered and declined. |
+| 2026-11-16 | **Email over SMTP** through `spring-boot-starter-mail` (user approved), with **Mailpit** (`axllent/mailpit:v1.33`) for local development | Any provider's SMTP works by changing `.env`, so there's no lock-in. Mailpit shows every email locally without a real account. |
+| 2026-11-16 | **A verified email is needed before any AI use** (user decision); children count through their parent; existing and dev sign-in accounts count as verified | Script-made accounts can't spend without an inbox each. Looking around stays open. |
+| 2026-11-16 | **Daily caps of $1 per learner and $25 in total**, from the run log's estimates, reset at midnight UTC (user decision); the owner's Compare counts toward the total only | Bounds the bill whatever happens. Set through `LAA_LEARNER_DAILY_USD` and `LAA_TOTAL_DAILY_USD`. |
+| 2026-11-16 | **No CAPTCHA**: 5 sign-ups per network address per 15 minutes, plus verification and the caps (user decision) | Avoids a third-party service and a WebView package on phones. |
+| 2026-11-16 | **The server's defaults are the production ones**: dev sign-in, `/dev`, practice providers and the default provider are all off or unset, and `./dev.sh` turns the local ones on | A deployment that forgets a setting fails safe or refuses to start, rather than serving practice text or dev tools. |
 | 2026-11-16 | **Email and password sign-in**, replacing email-only sign-in as the default (user request; BRIEF §2 had a real auth provider out of scope). Google and Apple sign-in are deferred. | The user wanted real accounts now. Google on phones needs development builds (no Xcode or Android tools here), and Apple on the web needs a paid developer account and an HTTPS domain. |
 | 2026-11-16 | Passwords are **Argon2id** (19 MiB, t=2, p=1, 16-byte salt) through Spring Security's `Argon2PasswordEncoder`, adding **BouncyCastle `bcprov-jdk18on` 1.87** (user approved) | OWASP's first choice. bcrypt needed no new dependency, but OWASP lists it for legacy systems and it truncates at 72 bytes. |
 | 2026-11-16 | Password rules follow **NIST SP 800-63B-4**: 15–128 characters, no composition rules, NFKC, a blocklist built from the **NCSC top-100k list via SecLists (MIT)**, kept to 15+ characters (user approved) | 15 is NIST's minimum when the password is the only factor. Shorter list entries already fail the length rule. |
@@ -701,3 +971,9 @@ From the architecture review (card 1, "Deepen learner-facing generation"): M6 ha
 | 2026-11-16 | **Owner emails need a setup code to sign up** (`LAA_OWNER_SETUP_CODE`); an OWNER taken off the list is demoted at sign-in. Existing accounts are only promoted through dev sign-in. | Without email verification, whoever signed up first with the owner's email would get the console. |
 | 2026-11-16 | **Dev sign-in is off by default** (`LAA_DEV_LOGIN`); `./dev.sh` and the tests turn it on | The security review rated "dev login on by default" high if exposed. |
 | 2026-11-09 | Researched "Sign in with ChatGPT" (user request): see `docs/research/sign-in-with-chatgpt.md` | It exists, but only for selected partners via a waitlist, so it's not available to LAA now. Dev sign-in stays, and a real auth provider is out of scope for the prototype (BRIEF §2). |
+| 2026-11-16 | **The shelf's motion is firm** (user feedback): critically or near-critically damped springs with `mass: 1`, and a clamped landing. No bounce, wobble or board dip. | The user asked for a solid shelf and snappy, less bouncy books. A clamped spring arrives quickly and stops at its place, which reads as solid. |
+| 2026-11-17 | **Production domain `learnanythinganywhere.app`**: the web app at the bare domain, the server at `api.` | The user bought it (plan D1). Email deliverability and an API address that's final before the first store build both need a domain. |
+| 2026-11-17 | **Personal Apple and Google developer accounts** | The user's choice (plan D2). Google's 14-day closed test with 12 testers comes before the public release. |
+| 2026-11-17 | **Nobody pushes to `main`**: every change arrives by pull request, and the user reviews by merging. A ruleset with no bypass, 0 approvals required; a project hook (`.claude/hooks/protect-main.sh`) stops Claude from pushing to `main`, merging or approving, or changing the branch rules | The user's rule (plan D5, option (a)). GitHub doesn't let anyone approve their own pull request, and Claude pushes with the user's sign-in, so "1 approval" would block every merge. |
+| 2026-11-17 | **App identity:** *Learn Anything Anywhere*, `app.learnanythinganywhere` as the iOS bundle ID and Android package | The user's choice (plan D3). The domain reversed. It can't change once published. |
+| 2026-11-17 | **Tasks live in GitHub Issues + Projects** | The user's choice: free, next to the code, and Claude reaches it through `gh`. Issues in this public repo are public, so security problems never go in one. |

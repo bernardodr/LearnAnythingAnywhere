@@ -11,6 +11,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -27,14 +28,20 @@ import com.laa.workspace.WorkspaceFiles;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
-/** The library (BRIEF section 10): list, create through the topic gate, read one, read its workspace files. */
+/**
+ * The library (BRIEF section 10): list (in the learner's own shelf order), arrange, create through the topic gate,
+ * read one, read its workspace files.
+ */
 @RestController
 @RequestMapping("/textbooks")
 class TextbookController {
 
     record CreateRequest(@NotBlank @Size(max = 120) String topic) {}
+
+    record ArrangeRequest(@NotNull @Size(max = 1000) List<@NotNull UUID> ids) {}
 
     /** {@code gateNote} is the topic gate's message when the topic was reframed, shown at the top of the preface. */
     record TextbookView(String id, String title, String topic, Textbook.Status status, String coverColor, int volume,
@@ -67,6 +74,16 @@ class TextbookController {
     @GetMapping
     List<TextbookView> library(@AuthenticationPrincipal Jwt jwt) {
         return textbooks.listForUser(CurrentUser.id(jwt)).stream().map(TextbookView::of).toList();
+    }
+
+    /** The learner's new shelf order, first to last. */
+    @PutMapping("/order")
+    ResponseEntity<Void> arrange(@Valid @RequestBody ArrangeRequest request, @AuthenticationPrincipal Jwt jwt) {
+        if (request.ids().stream().distinct().count() != request.ids().size()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Each book can only be in one place.");
+        }
+        textbooks.arrange(CurrentUser.id(jwt), request.ids());
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping

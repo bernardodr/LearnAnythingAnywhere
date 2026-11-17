@@ -11,7 +11,7 @@ LAA works in a web browser and on phones and tablets. Your textbooks are kept fo
 ## Who it's for
 
 - **Learners** of any age who want to learn a skill, a subject or a hobby: bouldering, sourdough, chess, Spanish for a trip, a programming language.
-- **Parents**, who set up safe, age-appropriate learning for their children, with [reader settings and a PIN lock](guide/07-reader-settings.md#for-parents).
+- **Parents**, who let their children learn on their own account, with [reader settings set for the child and locked with a PIN](guide/07-reader-settings.md#letting-a-child-use-your-account). Accounts are for adults.
 - **The people who run LAA**, who choose which AI service does each job, in the [owner console](guide/08-the-owner-console.md).
 
 ## The guide
@@ -20,13 +20,13 @@ Read it in order the first time; afterwards, jump to what you need.
 
 | | Page | What it covers |
 |---|---|---|
-| 1 | [Getting started](guide/01-getting-started.md) | Creating your account, signing in, your password, your shelf, staying signed in |
+| 1 | [Getting started](guide/01-getting-started.md) | Creating your account, confirming your email, signing in, your password, a forgotten password, your shelf, covers or spines, and arranging it |
 | 2 | [Starting a textbook](guide/02-starting-a-textbook.md) | Choosing a topic, the topic check, the preface interview, your mission card |
 | 3 | [Your contents page](guide/03-your-contents-page.md) | Your lessons, what's next, and the back of the book |
 | 4 | [Reading a lesson](guide/04-reading-a-lesson.md) | The parts of a lesson, quizzes, cheat sheets, finishing a lesson |
 | 5 | [Practice and your tutor](guide/05-practice-and-your-tutor.md) | Practice questions, the tutor's note, hints, chatting with your tutor, what you've learned |
-| 6 | [Good to know](guide/06-good-to-know.md) | Practice mode, when something goes wrong, what's coming next |
-| 7 | [Reader settings and parents](guide/07-reader-settings.md) | Reading level, what's left out, links, showing answers; adding children, their passwords and the parent PIN; how LAA keeps things safe |
+| 6 | [Good to know](guide/06-good-to-know.md) | Practice mode, when something goes wrong, the daily allowance, what's coming next |
+| 7 | [Reader settings and the parent PIN](guide/07-reader-settings.md) | Reading level, what's left out, links, showing answers; letting a child use your account; the parent PIN; how LAA keeps things safe |
 | 8 | [The owner console](guide/08-the-owner-console.md) | For the people who run LAA: choosing AI services, routing, comparing, the run log |
 
 ## The ideas behind LAA

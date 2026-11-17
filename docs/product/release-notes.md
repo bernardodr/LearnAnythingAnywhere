@@ -6,6 +6,78 @@ What's new in each release of Learn Anything Anywhere, newest first. Each featur
 
 ---
 
+## 0.11: A shelf of spines
+*16 November 2026*
+
+### New
+
+- **Spines.** Choose **Spines** above your books to see them standing on the shelf with their spines out, like a real bookcase, so many more fit on the screen. Books differ a little in thickness and height, and one you haven't finished starting has a red ribbon bookmark. Choose **Covers** to go back. LAA remembers your choice on each device. [Covers or spines →](guide/01-getting-started.md#covers-or-spines)
+- **Arrange spines by hand, too.** Pick a spine up and it lifts off the shelf. The others close the gap, and when you let go it drops straight into its place with a small knock against its neighbours. [Arranging your shelf →](guide/01-getting-started.md#arranging-your-shelf)
+- **Arranging without dragging** on spines: tap **Arrange**, tap a book to choose it, then **‹ Earlier** or **Later ›**.
+- **Sturdier shelves.** The shelves are thicker wooden planks that stay put, and books move quickly and land firmly, without bouncing or wobbling. [Arranging your shelf →](guide/01-getting-started.md#arranging-your-shelf)
+
+---
+
+## 0.10: Arrange your shelf
+*16 November 2026*
+
+Your shelf is now yours to arrange.
+
+### New
+
+- **Move your books by hand.** Drag a book to a new place (on a phone or tablet, press and hold it first). It lifts off the shelf and leans a little as you move it, the other books slide aside to make room, and when you let go it drops into place with a small knock against its neighbours. [Arranging your shelf →](guide/01-getting-started.md#arranging-your-shelf)
+- **Your order is kept**, the same on every device. New textbooks go at the end.
+- **No dragging needed:** tap **Arrange** for buttons that move each book earlier or later. Screen readers get *Move earlier* and *Move later* actions too.
+
+### Good to know
+
+- If your device is set to reduce motion, books still move, without the lean and the knock.
+
+---
+
+## 0.9: One account per family
+*16 November 2026*
+
+Accounts are now for adults only. A child uses a parent's account, with reader settings the parent sets for them and locks with a PIN.
+
+### New
+
+- **Set LAA up for your child on your own account.** Choose their age (from 5) and child-safe mode in **Settings**. LAA suggests a PIN when the settings are for a child. [Letting a child use your account →](guide/07-reader-settings.md#letting-a-child-use-your-account)
+- **The parent PIN locks your account's settings and password.** Changing either needs the PIN; reading, practice and the tutor stay open. [The parent PIN →](guide/07-reader-settings.md#the-parent-pin)
+- **Forgotten the PIN?** Choose a new one with your account password. You can also turn the lock off with the PIN.
+
+### Changed
+
+- **No more Learner or Parent choice** when you create an account: there's one kind of account.
+- **Children's accounts are gone**, along with *Add a child* and children's passwords. Any children's accounts made earlier, and their shelves, have been removed.
+- Any adult account can now set an age under 13.
+
+---
+
+## 0.8: Email, limits and fixes
+*16 November 2026*
+
+LAA now sends email: to confirm your address, and to reset a forgotten password. It also caps how much AI can be used each day, and a few problems are fixed.
+
+### New
+
+- **Confirm your email.** A new account gets an email with a link. Until you open it, you can look around, but starting a textbook waits. Lost it? Tap **Send the link again** on your shelf. Children count as confirmed once their parent has confirmed. [Creating your account →](guide/01-getting-started.md#creating-your-account)
+- **Forgotten your password?** Ask for a reset link on the title page, then choose a new password from the email. [Forgotten your password? →](guide/01-getting-started.md#forgotten-your-password)
+- **A daily allowance.** Each learner can use AI up to a daily limit, and so can LAA as a whole; both start again at midnight UTC. [Daily allowance →](guide/06-good-to-know.md#daily-allowance)
+
+### Fixed
+
+- Opening LAA for the first time could occasionally lose the reader settings you saved straight away. Every learner now has exactly one set of settings.
+- The safety check is harder to trick: text that imitates the check's own markings is treated as plain text, and a part it flags stays flagged.
+- Very large requests are refused.
+
+### Good to know
+
+- **Practice mode** only appears on test setups now. A real copy of LAA always uses a real AI service.
+- A few new accounts can be made from one network every 15 minutes, and a few emails sent to one address.
+
+---
+
 ## 0.7: Passwords
 *16 November 2026*
 
@@ -17,7 +89,7 @@ LAA now has proper accounts: you sign in with your email and a password, and nob
 - **Sign in with your password.** A wrong email or password gets the same message, and after 5 wrong tries signing in pauses for 15 minutes, so passwords can't be guessed. [Signing in →](guide/01-getting-started.md#signing-in)
 - **Long, simple passwords.** At least 15 characters, with no rules about symbols or numbers: three or four random words work well. Common passwords are turned down, with a reason. **Show** lets you check what you typed. [Choosing a password →](guide/01-getting-started.md#choosing-a-password)
 - **Change your password** in **Settings**. Changing it signs you out everywhere else. [Your password →](guide/01-getting-started.md#your-password)
-- **Children's passwords.** A parent chooses their child's password when adding them, and can reset it later (with the parent PIN, once it's set). [Adding a child →](guide/07-reader-settings.md#adding-a-child)
+- **Children's passwords.** A parent chooses their child's password when adding them, and can reset it later (with the parent PIN, once it's set). [Replaced in 0.9 →](#09-one-account-per-family)
 - **Owner accounts** need an owner setup code when they're made. [Making an owner account →](guide/08-the-owner-console.md#making-an-owner-account)
 
 ### Improved
@@ -89,7 +161,7 @@ Choose how your textbooks are written: the reading level, what's left out, wheth
 ### New
 
 - **Reader settings.** Tap **Settings** on your shelf: child-safe mode, an age setting that shows the reading level, *Leave out of lessons* switches plus your own topics to leave out, links (*Off*, *Allowlist* or *Open*), and *Reveal answer after 3 tries*. [Your settings →](guide/07-reader-settings.md#your-settings)
-- **Children's accounts.** Parents can add a child with their own shelf, sign-in email, age and child-safe mode, and manage their settings. Children can see their settings but not change them. [For parents →](guide/07-reader-settings.md#for-parents)
+- **Children's accounts.** Parents can add a child with their own shelf, sign-in email, age and child-safe mode, and manage their settings. Children can see their settings but not change them. [Replaced in 0.9 →](#09-one-account-per-family)
 - **Parent PIN lock.** Once set, changing a child's settings asks for the PIN. [The parent PIN lock →](guide/07-reader-settings.md#the-parent-pin-lock)
 - **See the answer, if your settings allow it.** With *Reveal answer after 3 tries* on, once every hint is used and you've tried three times, the next tap shows *A strong answer*. [Your settings →](guide/07-reader-settings.md#your-settings)
 - **Safety checks on everything.** Lessons, the tutor's replies and notes, and what you type are checked against the reader's settings. A lesson part that doesn't fit is rewritten or left out with a note; for children, the tutor's replies appear only once they've been checked. [How LAA keeps things safe →](guide/07-reader-settings.md#how-laa-keeps-things-safe)

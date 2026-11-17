@@ -1,20 +1,19 @@
 import { useQuery } from '@tanstack/react-query';
 import { Redirect, router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { Button, Field, Note, Ornament, Page, PasswordField, passwordLength } from '@/components/ui';
 import { ApiError, apiGet } from '@/lib/api';
 import { useSession } from '@/lib/session';
 import type { AuthOptions } from '@/lib/types';
-import { colors, fonts, minTouch, type } from '@/theme';
+import { colors, type } from '@/theme';
 
 type Mode = 'sign-in' | 'sign-up' | 'dev';
-type Chosen = 'LEARNER' | 'PARENT';
 
 /**
- * Screen 1: the title page. Sign in with email and password, or create an account (Learner or Parent). When the server
- * has dev sign-in on (local development), an email-only sign-in is offered too.
+ * Screen 1: the title page. Sign in with email and password, or create an account (accounts are for adults; a child uses
+ * a parent's). When the server has dev sign-in on (local development), an email-only sign-in is offered too.
  */
 export default function TitlePage() {
   const { ready, user, signIn, signUp, devSignIn } = useSession();
@@ -22,7 +21,6 @@ export default function TitlePage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [role, setRole] = useState<Chosen>('LEARNER');
   const [ownerCode, setOwnerCode] = useState('');
   const [needsOwnerCode, setNeedsOwnerCode] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -62,13 +60,12 @@ export default function TitlePage() {
     setError(null);
     try {
       if (mode === 'sign-in') await signIn(email.trim(), password);
-      else if (mode === 'dev') await devSignIn(email.trim(), role);
+      else if (mode === 'dev') await devSignIn(email.trim());
       else {
         await signUp({
           email: email.trim(),
           password,
           displayName: name.trim() || null,
-          role,
           ownerSetupCode: needsOwnerCode ? ownerCode.trim() : null,
         });
       }
@@ -132,26 +129,11 @@ export default function TitlePage() {
             onSubmitEditing={() => void submit()}
           />
         ) : null}
-        {mode !== 'sign-in' ? (
-          <>
-            <Text style={styles.label} nativeID="role-label">
-              {mode === 'sign-up' ? 'I’m signing up as' : 'I’m signing in as'}
-            </Text>
-            <View style={styles.roles} accessibilityRole="radiogroup" aria-labelledby="role-label">
-              {(['LEARNER', 'PARENT'] as const).map((r) => (
-                <Pressable
-                  key={r}
-                  accessibilityRole="radio"
-                  accessibilityState={{ checked: role === r }}
-                  aria-checked={role === r}
-                  accessibilityLabel={r === 'LEARNER' ? 'A learner' : 'A parent'}
-                  onPress={() => setRole(r)}
-                  style={[styles.role, role === r && styles.roleOn]}>
-                  <Text style={[styles.roleText, role === r && styles.roleTextOn]}>{r === 'LEARNER' ? 'Learner' : 'Parent'}</Text>
-                </Pressable>
-              ))}
-            </View>
-          </>
+        {mode === 'sign-up' ? (
+          <Text style={styles.adults}>
+            Accounts are for adults. To let a child use yours, set their reading level in Settings and lock it with a
+            parent PIN.
+          </Text>
         ) : null}
         {needsOwnerCode ? (
           <PasswordField label="Owner setup code" hint="The code from the server’s settings, for the people who run LAA." value={ownerCode}
@@ -167,7 +149,10 @@ export default function TitlePage() {
         />
         <View style={styles.switches}>
           {mode === 'sign-in' ? (
-            <Button label="New here? Create an account" variant="quiet" onPress={() => switchTo('sign-up')} />
+            <>
+              <Button label="Forgotten your password?" variant="quiet" onPress={() => router.push('/forgot-password')} />
+              <Button label="New here? Create an account" variant="quiet" onPress={() => switchTo('sign-up')} />
+            </>
           ) : (
             <Button label="Have an account? Sign in" variant="quiet" onPress={() => switchTo('sign-in')} />
           )}
@@ -192,21 +177,7 @@ const styles = StyleSheet.create({
   form: { width: '100%', maxWidth: 380, alignSelf: 'center' },
   formTitle: { ...type.h2, marginBottom: 16, textAlign: 'center' },
   switches: { marginTop: 12, alignItems: 'center', gap: 4 },
-  label: { ...type.kicker, marginBottom: 8 },
-  roles: { flexDirection: 'row', gap: 10, marginBottom: 20 },
-  role: {
-    flex: 1,
-    minHeight: minTouch,
-    borderWidth: 1,
-    borderColor: colors.rule,
-    borderRadius: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-  },
-  roleOn: { borderColor: colors.accent, backgroundColor: colors.noteFill },
-  roleText: { fontFamily: fonts.sans, fontSize: 15, color: colors.ink },
-  roleTextOn: { fontFamily: fonts.sansSemiBold, color: colors.accent },
+  adults: { ...type.body, fontSize: 15, color: colors.muted, marginBottom: 16 },
   submit: { marginTop: 4 },
   status: { ...type.kicker, fontSize: 11, marginTop: 40, textAlign: 'center' },
 });

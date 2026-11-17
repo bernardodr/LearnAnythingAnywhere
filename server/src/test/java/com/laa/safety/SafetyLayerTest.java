@@ -121,8 +121,8 @@ class SafetyLayerTest extends IntegrationTest {
         safety.admit(adult.userId(), adult.textbookId(), "I like scary zombie stories.");
         safety.admit(adult.userId(), adult.textbookId(), "  ");
 
-        Family f = family(9, true);
-        UUID child = userId(f.child());
+        ChildReader f = childReader(9, true);
+        UUID child = userId(f.token());
         assertThatThrownBy(() -> safety.admit(child, null, "I like scary zombie stories."))
                 .isInstanceOfSatisfying(ApiException.class, e -> {
                     assertThat(e.status()).isEqualTo(HttpStatus.BAD_REQUEST);

@@ -1,4 +1,4 @@
-# 7. Reader settings and parents
+# 7. Reader settings and the parent PIN
 
 [← Good to know](06-good-to-know.md) · [Guide home](../README.md) · Next: [The owner console →](08-the-owner-console.md)
 
@@ -27,45 +27,37 @@ Tap **Save settings** when you're done. New lessons and replies follow your sett
 - **Changing your settings** applies from that moment on: new lessons, replies and notes follow them, and what was already written stays as it was. The exception is links: they follow your new setting straight away, everywhere, including in lessons and conversations written before.
 - If you choose a topic that touches on something your settings leave out, LAA says so kindly and suggests something else, rather than writing the textbook.
 - With links **Off**, your sources at the back of the book show without their web addresses, and you can't add new ones.
-- Adults can set an age from 13 up. Settings for children under 13 are made by a parent (below).
+- A child using your account? Set the age to theirs and switch on child-safe mode, then lock the settings with a parent PIN (below).
 
-## For parents
+## Letting a child use your account
 
-Create your account as a **Parent** (see [Getting started](01-getting-started.md#creating-your-account)). In **Settings**, below your own settings, you'll find **Your children**.
+Accounts are for adults, so children don't have their own. A child uses a parent's account, on the parent's shelf, with reader settings the parent chooses for them.
 
-### Adding a child
+1. Open **Settings** and set the **Age** to your child's, so lessons are written at their reading level.
+2. Leave **Child-safe mode** on (or switch it on), and choose anything else to leave out.
+3. Tap **Save settings**.
+4. Set a **parent PIN** (below), so your child can't change them.
 
-1. Tap **Add a child**.
-2. Type their **name** and the **email** they'll sign in with.
-3. Choose **their password**: at least 15 characters. Three or four random words are easy for a child to type. See [Choosing a password](01-getting-started.md#choosing-a-password).
-4. Set their **age** with **−** and **+**. The reading level shows next to it.
-5. Leave **Child-safe mode** on (it starts on), or switch it off for an older child.
-6. Tap **Add child**.
+**Why it helps:** your child gets lessons pitched at their level, with anything unsuitable left out, and only you can change that.
 
-Making your child's account is how you give it permission to be your child's: their account lives under yours, with settings you choose. Your child signs in with that email and password and gets their own shelf. Their settings are yours to manage: they can see them, but not change them. They can change their own password in **Settings**, and you can always reset it.
+**Good to know:** the settings belong to the account, so everyone who uses it shares them, and one shelf. The daily AI allowance is for the account too. If more than one person uses your account, set the settings for the youngest.
 
-### Resetting a child's password
+### The parent PIN
 
-Under **Your children**, tap **Change** next to your child's name. Below their settings, type a **New password** for them (and your **Parent PIN**, once you've set one), then tap **Change password**. Your child is signed out everywhere and signs in again with the new password.
+A PIN of 4 to 8 digits that only you know. Once it's set:
 
-### Changing a child's settings
+- **Changing the reader settings** asks for the **Parent PIN** before you can save.
+- **Changing the password** asks for it too.
+- **Changing the PIN** needs the current one.
+- Reading, practice, the tutor and starting textbooks stay open, so your child can learn freely within the settings you chose.
 
-Under **Your children**, tap **Change** next to your child's name. You get the same settings as above (age from 5 to 18). Tap **Save settings** when you're done.
+To set it, go to **Parent PIN** in **Settings**, type a **PIN** and tap **Set PIN**. To change it, type the **Current PIN** and a **New PIN**, then tap **Change PIN**.
 
-### The parent PIN lock
+**Forgotten the PIN?** Tap **Forgotten the PIN?**, type your **account password** and a **New PIN**, then tap **Save new PIN**.
 
-Set a PIN so only you can change your children's settings, even on a shared tablet.
-
-1. Under **Parent PIN lock**, type a **PIN** of 4 to 8 digits.
-2. Tap **Set PIN**.
-
-From then on, changing a child's settings or password asks for your **Parent PIN** before you can save. To change the PIN, type your **Current PIN** and a **New PIN**, then tap **Change PIN**.
+**Turning the lock off:** type the **Current PIN** and tap **Turn the lock off**.
 
 After 5 wrong PINs, the PIN pauses for 15 minutes, even for the right one, so a PIN can't be guessed by trying them all.
-
-## What your child sees
-
-When your child opens **Settings**, they see their reading level, whether child-safe mode is on, what's left out, the links setting and whether answers can be shown, with a note that *"Your parent manages these settings."*
 
 ## How LAA keeps things safe
 

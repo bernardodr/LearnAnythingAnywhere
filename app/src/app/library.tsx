@@ -1,33 +1,55 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Redirect, router } from 'expo-router';
+import { useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
-import { Cover } from '@/components/Cover';
+import { ConfirmEmail } from '@/components/ConfirmEmail';
+import { Shelf, type ShelfView } from '@/components/Shelf';
 import { Button, Kicker, Note, Page } from '@/components/ui';
-import { apiGet } from '@/lib/api';
+import { apiGet, apiPut } from '@/lib/api';
+import { getPref, setPref } from '@/lib/prefs';
 import { useSession } from '@/lib/session';
 import type { Textbook } from '@/lib/types';
 import { colors, fonts, minTouch, type } from '@/theme';
 
+const SHELF_VIEW = 'laa.shelfView';
+
 const STARTERS = ['Bouldering', 'Sourdough bread', 'Chess openings', 'Spanish for travel', 'Watercolour painting', 'Python'];
 
-/** Screen 2: the library. Covers on a shelf, or an empty shelf with "Start with" chips. */
+/** Screen 2: the library. Covers on shelves, arranged by hand, or an empty shelf with "Start with" chips. */
 export default function Library() {
   const { ready, user, token, signOut } = useSession();
   const { width } = useWindowDimensions();
+  const queryClient = useQueryClient();
   const books = useQuery({
     queryKey: ['textbooks'],
     queryFn: () => apiGet<Textbook[]>('/textbooks', token),
     enabled: !!token,
+  });
+  const [arrangeError, setArrangeError] = useState(false);
+  // Covers or spines: remembered on this device.
+  const shelfView = useQuery({
+    queryKey: ['pref', 'shelf-view'],
+    queryFn: async (): Promise<ShelfView> => ((await getPref(SHELF_VIEW)) === 'spines' ? 'spines' : 'covers'),
+    staleTime: Infinity,
   });
 
   if (!ready) return null;
   if (!user) return <Redirect href="/" />;
 
   const column = Math.min(560, width - 48);
-  const perRow = column >= 480 ? 3 : 2;
-  const coverWidth = (column - (perRow - 1) * 20) / perRow;
-  const rows = chunk(books.data ?? [], perRow);
+  const shelved = books.data ?? [];
+
+  /** The new order shows at once; the server keeps it, and if it can't, the shelf goes back to what it has. */
+  const arrange = (ids: string[]) => {
+    const byId = new Map(shelved.map((b) => [b.id, b]));
+    queryClient.setQueryData<Textbook[]>(['textbooks'], ids.flatMap((id) => byId.get(id) ?? []));
+    setArrangeError(false);
+    apiPut('/textbooks/order', { ids }, token).catch(() => {
+      setArrangeError(true);
+      void queryClient.invalidateQueries({ queryKey: ['textbooks'] });
+    });
+  };
 
   const open = (book: Textbook) =>
     book.status === 'INTERVIEW'
@@ -51,9 +73,10 @@ export default function Library() {
         Your shelf
       </Text>
 
+      <ConfirmEmail />
       {books.isError ? <Note tone="error">{books.error.message}</Note> : null}
 
-      {books.isSuccess && rows.length === 0 ? (
+      {books.isSuccess && shelved.length === 0 ? (
         <View>
           <View style={styles.emptyShelf} accessible={false}>
             <View style={styles.bookend} />
@@ -75,16 +98,14 @@ export default function Library() {
         </View>
       ) : null}
 
-      {rows.map((row, i) => (
-        <View key={i} style={styles.row}>
-          <View style={styles.books}>
-            {row.map((book) => (
-              <Cover key={book.id} book={book} width={coverWidth} onPress={() => open(book)} />
-            ))}
-          </View>
-          <View style={styles.shelf} accessible={false} />
-        </View>
-      ))}
+      {arrangeError ? <Note tone="error">Your shelf’s new order couldn’t be saved, so it’s back as it was. Please try again.</Note> : null}
+      {shelved.length > 0 && shelfView.data ? (
+        <Shelf books={shelved} width={column} view={shelfView.data} onOpen={open} onArrange={arrange}
+          onView={(view) => {
+            queryClient.setQueryData(['pref', 'shelf-view'], view);
+            void setPref(SHELF_VIEW, view);
+          }} />
+      ) : null}
 
       <Pressable
         accessibilityRole="button"
@@ -95,12 +116,6 @@ export default function Library() {
       </Pressable>
     </Page>
   );
-}
-
-function chunk<T>(items: T[], size: number): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
-  return out;
 }
 
 const styles = StyleSheet.create({
@@ -129,9 +144,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   chipText: { fontFamily: fonts.sans, fontSize: 15, color: colors.ink },
-  row: { marginBottom: 28 },
-  books: { flexDirection: 'row', gap: 20, alignItems: 'flex-start' },
-  shelf: { height: 8, backgroundColor: '#C8B89A', borderRadius: 2, marginTop: 12 },
   plus: {
     alignSelf: 'center',
     width: 64,

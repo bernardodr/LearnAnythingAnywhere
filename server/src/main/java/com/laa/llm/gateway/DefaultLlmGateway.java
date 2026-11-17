@@ -20,6 +20,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
+import com.laa.llm.Allowance;
 import com.laa.llm.ChatMessage;
 import com.laa.llm.GenerationProfile;
 import com.laa.llm.LlmGateway;
@@ -79,11 +80,12 @@ public class DefaultLlmGateway implements LlmGateway {
     private final StructuredOutputs outputs;
     private final ModelRunRepository runs;
     private final LlmProperties props;
+    private final Allowance allowance;
     private final ExecutorService executor;
     private final Scheduler scheduler;
 
     public DefaultLlmGateway(ModelRouter router, ProviderClients clients, PromptLibrary prompts,
-                             StructuredOutputs outputs, ModelRunRepository runs, LlmProperties props,
+                             StructuredOutputs outputs, ModelRunRepository runs, LlmProperties props, Allowance allowance,
                              @Qualifier("llmExecutor") ExecutorService executor) {
         this.router = router;
         this.clients = clients;
@@ -91,6 +93,7 @@ public class DefaultLlmGateway implements LlmGateway {
         this.outputs = outputs;
         this.runs = runs;
         this.props = props;
+        this.allowance = allowance;
         this.executor = executor;
         this.scheduler = Schedulers.fromExecutorService(executor, "llm");
     }
@@ -99,6 +102,7 @@ public class DefaultLlmGateway implements LlmGateway {
 
     @Override
     public <T> LlmResult<T> structuredResult(StructuredCall<T> spec, PromptContext ctx, GenerationProfile profile) {
+        allowance.check(ctx.userId(), ctx.origin());
         Task task = spec.task();
         RoutingSnapshot snapshot = router.snapshot();
         Route route = snapshot.resolve(task);
@@ -133,6 +137,7 @@ public class DefaultLlmGateway implements LlmGateway {
     public LlmStream stream(TextCall spec, PromptContext ctx, GenerationProfile profile) {
         Sinks.One<UUID> run = Sinks.one();
         Flux<String> text = Flux.defer(() -> {
+            allowance.check(ctx.userId(), ctx.origin());
             RoutingSnapshot snapshot = router.snapshot();
             Route route = snapshot.resolve(spec.task());
             Invocation call = new Invocation(spec, route, systemPrompt(spec, route.promptVersion(), ctx, profile), messages(ctx),
@@ -233,6 +238,7 @@ public class DefaultLlmGateway implements LlmGateway {
      */
     public Outcome<?> runOnce(com.laa.llm.Call spec, Provider provider, ModelInfo model, Map<String, Object> params,
                               String promptVersion, PromptContext ctx, GenerationProfile profile) {
+        allowance.check(ctx.userId(), Origin.COMPARE);
         ProviderClient client = clients.client(provider)
                 .orElseThrow(() -> new LlmUnavailableException(clients.unavailableReason(provider)));
         Route route = new Route(null, spec.task(), provider, model.id(), model.tier(), params, promptVersion, List.of());

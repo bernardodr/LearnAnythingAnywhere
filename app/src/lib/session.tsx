@@ -3,7 +3,7 @@ import { createContext, type ReactNode, useCallback, useContext, useEffect, useM
 import { Platform } from 'react-native';
 
 import { apiPost, setUnauthorizedHandler } from '@/lib/api';
-import type { Role, SignInResponse, User } from '@/lib/types';
+import type { SignInResponse, User } from '@/lib/types';
 
 const KEY = 'laa.session';
 
@@ -13,7 +13,6 @@ export type SignUp = {
   email: string;
   password: string;
   displayName: string | null;
-  role: Exclude<Role, 'OWNER'>;
   ownerSetupCode: string | null;
 };
 
@@ -25,7 +24,7 @@ type Session = {
   signIn: (email: string, password: string) => Promise<User>;
   signUp: (details: SignUp) => Promise<User>;
   /** Email only, when the server has dev sign-in on (local development). */
-  devSignIn: (email: string, role: Exclude<Role, 'OWNER'>) => Promise<User>;
+  devSignIn: (email: string) => Promise<User>;
   /** A new sign-in from the server (after a password change) replaces this one. */
   renew: (res: SignInResponse) => Promise<void>;
   signOut: () => Promise<void>;
@@ -102,8 +101,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   );
 
   const devSignIn = useCallback(
-    async (email: string, role: Exclude<Role, 'OWNER'>) => {
-      const res = await apiPost<SignInResponse>('/auth/dev-login', { email, role });
+    async (email: string) => {
+      const res = await apiPost<SignInResponse>('/auth/dev-login', { email });
       await renew(res);
       return res.user;
     },

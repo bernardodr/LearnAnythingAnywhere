@@ -17,15 +17,12 @@ import com.laa.llm.GenerationProfile.LinksPolicy;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
 
-/** Generation profiles, the users they belong to, and the parent links and PINs around them. */
+/** Generation profiles (reader settings) and the users they belong to. */
 @Repository
 public class ProfileRepository {
 
-    /** A stored profile: whose it is ({@code userId}), who manages it ({@code ownerUserId}) and its settings. */
+    /** A stored profile: whose it is ({@code userId}), who manages it ({@code ownerUserId}, the same account) and its settings. */
     public record Stored(UUID id, UUID userId, UUID ownerUserId, GenerationProfile settings) {}
-
-    /** A child account under a parent, for the parent's settings screen. */
-    public record Child(UUID userId, String email, String displayName, Stored profile) {}
 
     private static final TypeReference<List<String>> STRINGS = new TypeReference<>() {};
     private static final String COLUMNS = "p.id, u.id AS user_id, p.owner_user_id, p.age, p.child_safe, p.filters::text AS filters, "
@@ -49,6 +46,18 @@ public class ProfileRepository {
                 .param("p", profileId).query(this::map).optional();
     }
 
+    /**
+     * The user's profile, creating it with {@code s} if they have none. Safe when several first requests arrive at once:
+     * the user's row is locked while it's checked and created, so exactly one profile is made and everyone gets it.
+     */
+    @Transactional
+    public Stored forUserOrCreate(UUID userId, GenerationProfile s) {
+        Optional<Stored> existing = forUser(userId);
+        if (existing.isPresent()) return existing.get();
+        jdbc.sql("SELECT id FROM users WHERE id = :u FOR UPDATE").param("u", userId).query(UUID.class).optional();
+        return forUser(userId).orElseGet(() -> create(userId, userId, s));
+    }
+
     /** Creates a profile for {@code userId}, managed by {@code ownerUserId}, and attaches it to the user. */
     @Transactional
     public Stored create(UUID userId, UUID ownerUserId, GenerationProfile s) {
@@ -70,35 +79,6 @@ public class ProfileRepository {
                 .param("lp", s.linksPolicy().name()).param("r", s.revealAfterAttempts()).param("lvl", s.level())
                 .param("id", profileId).update();
         return find(profileId).orElseThrow();
-    }
-
-    public Optional<UUID> parentOf(UUID userId) {
-        return jdbc.sql("SELECT parent_user_id FROM users WHERE id = :u").param("u", userId)
-                .query((rs, i) -> rs.getObject("parent_user_id", UUID.class)).optional().filter(java.util.Objects::nonNull);
-    }
-
-    public List<Child> children(UUID parentId) {
-        return jdbc.sql("SELECT u.id, u.email, u.display_name FROM users u WHERE u.parent_user_id = :p ORDER BY u.created_at")
-                .param("p", parentId)
-                .query((rs, i) -> new Child(rs.getObject("id", UUID.class), rs.getString("email"), rs.getString("display_name"), null))
-                .list().stream()
-                .map(c -> new Child(c.userId(), c.email(), c.displayName(), forUser(c.userId()).orElse(null)))
-                .toList();
-    }
-
-    public UUID createChildUser(UUID parentId, String email, String displayName, String passwordHash) {
-        return jdbc.sql("INSERT INTO users (email, display_name, role, parent_user_id, password_hash) VALUES (:e, :n, 'LEARNER', :p, :h) RETURNING id")
-                .param("e", email.toLowerCase()).param("n", displayName).param("p", parentId).param("h", passwordHash)
-                .query(UUID.class).single();
-    }
-
-    public Optional<String> pinHash(UUID parentId) {
-        return jdbc.sql("SELECT pin_hash FROM users WHERE id = :u").param("u", parentId)
-                .query((rs, i) -> rs.getString("pin_hash")).optional().filter(java.util.Objects::nonNull);
-    }
-
-    public void setPinHash(UUID parentId, String hash) {
-        jdbc.sql("UPDATE users SET pin_hash = :h WHERE id = :u").param("h", hash).param("u", parentId).update();
     }
 
     private Stored map(ResultSet rs, int row) throws SQLException {

@@ -3,10 +3,9 @@ package com.laa.profile;
 import java.util.Map;
 import java.util.UUID;
 
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,32 +16,34 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.laa.auth.CurrentUser;
+import com.laa.auth.PinLock;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
- * Reader settings (BRIEF section 10, {@code GET/PUT /profiles/{id}}):
+ * Reader settings (BRIEF section 10, {@code GET/PUT /profiles/{id}}) and the parent PIN that locks them:
  * <ul>
- *   <li>{@code GET /profiles/me}: the signed-in learner's own settings</li>
- *   <li>{@code GET|PUT /profiles/{id}}: a profile its learner or their parent may see; a parent edits a child's with
- *       the {@code X-Parent-Pin} header once a PIN is set</li>
- *   <li>{@code GET|POST /profiles/children}: a parent's children, and adding one</li>
- *   <li>{@code PUT /profiles/children/{childId}/password}: a parent resets their child's password (with the PIN once set)</li>
- *   <li>{@code PUT /profiles/pin}: a parent sets or changes their PIN</li>
+ *   <li>{@code GET /profiles/me}: the signed-in account's settings, with {@code pinSet}</li>
+ *   <li>{@code GET|PUT /profiles/{id}}: the account's own profile; a change needs {@code X-Parent-Pin} once a PIN is set</li>
+ *   <li>{@code PUT /profiles/pin}: set the PIN, or change it with the current one; {@code DELETE /profiles/pin} (with
+ *       {@code X-Parent-Pin}): turn the lock off; {@code POST /profiles/pin/reset}: a forgotten PIN, replaced with the
+ *       account password</li>
  * </ul>
  */
 @RestController
 @RequestMapping("/profiles")
 class ProfileController {
 
-    record ChildRequest(String email, String displayName, Integer age, Boolean childSafe, String password) {}
-
-    record ChildPasswordRequest(String password) {}
-
     record PinRequest(String pin, String currentPin) {}
 
-    private final Profiles profiles;
+    record PinReset(String password, String pin) {}
 
-    ProfileController(Profiles profiles) {
+    private final Profiles profiles;
+    private final PinLock lock;
+
+    ProfileController(Profiles profiles, PinLock lock) {
         this.profiles = profiles;
+        this.lock = lock;
     }
 
     @GetMapping("/me")
@@ -61,27 +62,21 @@ class ProfileController {
         return profiles.update(CurrentUser.id(jwt), id, settings, pin);
     }
 
-    @GetMapping("/children")
-    Map<String, Object> children(@AuthenticationPrincipal Jwt jwt) {
-        return profiles.parentState(CurrentUser.id(jwt));
-    }
-
-    @PostMapping("/children")
-    ResponseEntity<Profiles.ChildView> addChild(@RequestBody ChildRequest r, @AuthenticationPrincipal Jwt jwt) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(profiles.addChild(CurrentUser.id(jwt), r.email(), r.displayName(), r.age(), r.childSafe(), r.password()));
-    }
-
-    @PutMapping("/children/{childId}/password")
-    ResponseEntity<Void> childPassword(@PathVariable UUID childId, @RequestBody ChildPasswordRequest r,
-                                       @RequestHeader(name = "X-Parent-Pin", required = false) String pin, @AuthenticationPrincipal Jwt jwt) {
-        profiles.resetChildPassword(CurrentUser.id(jwt), childId, r.password(), pin);
-        return ResponseEntity.noContent().build();
-    }
-
     @PutMapping("/pin")
     Map<String, Object> pin(@RequestBody PinRequest r, @AuthenticationPrincipal Jwt jwt) {
-        profiles.setPin(CurrentUser.id(jwt), r.pin(), r.currentPin());
+        lock.set(CurrentUser.id(jwt), r.pin(), r.currentPin());
+        return Map.of("pinSet", true);
+    }
+
+    @DeleteMapping("/pin")
+    Map<String, Object> removePin(@RequestHeader(name = "X-Parent-Pin", required = false) String pin, @AuthenticationPrincipal Jwt jwt) {
+        lock.remove(CurrentUser.id(jwt), pin);
+        return Map.of("pinSet", false);
+    }
+
+    @PostMapping("/pin/reset")
+    Map<String, Object> resetPin(@RequestBody PinReset r, @AuthenticationPrincipal Jwt jwt, HttpServletRequest http) {
+        lock.resetWithPassword(CurrentUser.id(jwt), r.password(), r.pin(), http.getRemoteAddr());
         return Map.of("pinSet", true);
     }
 }

@@ -32,7 +32,8 @@ public class SecurityConfig {
                         // SSE responses finish on an async dispatch of a request that was already authorised.
                         .dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/health", "/error", "/auth/options", "/auth/sign-up", "/auth/sign-in", "/auth/dev-login").permitAll()
+                        .requestMatchers("/health", "/error", "/auth/options", "/auth/sign-up", "/auth/sign-in", "/auth/dev-login",
+                                "/auth/verify-email", "/auth/password-reset", "/auth/password-reset/confirm").permitAll()
                         .requestMatchers("/owner/**", "/dev/**").hasRole(Role.OWNER.name())
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(rs -> rs.jwt(jwt -> jwt.jwtAuthenticationConverter(roleConverter())));

@@ -1,9 +1,20 @@
 // Shapes returned by the LAA server (server/src/main/java/com/laa/...). Keep in step with the records there.
 
-export type Role = 'LEARNER' | 'PARENT' | 'OWNER';
+/** Every account is an adult's; OWNER also runs LAA. */
+export type Role = 'LEARNER' | 'OWNER';
 
-/** `hasPassword` is false for accounts made before passwords, until they set one. */
-export type User = { id: string; email: string; displayName: string | null; role: Role; hasPassword: boolean };
+/**
+ * `hasPassword` is false for accounts made before passwords, until they set one. `emailVerified` is false until the
+ * link in the confirmation email is opened (a child counts when their parent has).
+ */
+export type User = {
+  id: string;
+  email: string;
+  displayName: string | null;
+  role: Role;
+  hasPassword: boolean;
+  emailVerified: boolean;
+};
 
 export type SignInResponse = { token: string; tokenType: string; expiresIn: number; user: User };
 
@@ -255,13 +266,11 @@ export type Profile = {
   linksPolicy: LinksPolicy;
   /** null = never reveal the answer. */
   revealAfterAttempts: number | null;
-  managedByParent: boolean;
-  canEdit: boolean;
+  /** The parent PIN is set: changing these settings (or the password) needs it. */
+  pinSet: boolean;
   allCategories: CategoryOption[];
 };
 
 export type ProfileSettings = Pick<Profile, 'age' | 'childSafe' | 'categories' | 'extras' | 'linksPolicy' | 'revealAfterAttempts'>;
 
-export type Child = { userId: string; email: string; displayName: string | null; profile: Profile | null };
 
-export type ParentState = { pinSet: boolean; children: Child[] };

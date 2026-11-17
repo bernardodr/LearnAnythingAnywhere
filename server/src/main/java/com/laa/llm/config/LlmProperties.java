@@ -16,12 +16,20 @@ import com.laa.llm.Provider;
 
 /**
  * {@code laa.llm.*}. Model IDs, tiers, capabilities and prices live here (config, not code) and are
- * synced into the {@code providers} table on every start. {@code defaultProvider} only seeds an empty
- * database; after that the owner's choice in the DB wins.
+ * synced into the {@code providers} table on every start.
+ * <ul>
+ *   <li>{@code defaultProvider} only seeds an empty database; after that the owner's choice in the DB wins. It has
+ *       no default: an empty database with none set refuses to start.</li>
+ *   <li>{@code practiceProviders}: the practice providers (FAKE, FAKE_B) can be called only when this is on (local
+ *       development and tests).</li>
+ *   <li>{@code limits}: daily spending caps, in estimated US dollars.</li>
+ * </ul>
  */
 @ConfigurationProperties("laa.llm")
 public record LlmProperties(
-        @DefaultValue("FAKE") Provider defaultProvider,
+        Provider defaultProvider,
+        @DefaultValue("false") boolean practiceProviders,
+        @DefaultValue Limits limits,
         @DefaultValue("30s") Duration routeCacheTtl,
         @DefaultValue("120s") Duration callTimeout,
         @DefaultValue("30s") Duration firstTokenTimeout,
@@ -30,6 +38,12 @@ public record LlmProperties(
     public LlmProperties {
         providers = providers == null ? Map.of() : new EnumMap<>(providers);
     }
+
+    /**
+     * Daily caps on estimated spend, reset at midnight UTC: per learner (their own requests) and in total (every
+     * request, the owner's included).
+     */
+    public record Limits(@DefaultValue("1.00") BigDecimal learnerDailyUsd, @DefaultValue("25.00") BigDecimal totalDailyUsd) {}
 
     public record ProviderSettings(
             String apiKey,
@@ -71,11 +85,11 @@ public record LlmProperties(
         return providers.getOrDefault(provider, new ProviderSettings(null, null, 1, true, List.of()));
     }
 
-    /** A provider can be called only if its key (or, for Ollama, its URL) is present. Fakes always can. */
+    /** A provider can be called only if its key (or, for Ollama, its URL) is present. Fakes only in practice mode. */
     public boolean isConfigured(Provider provider) {
         ProviderSettings s = settings(provider);
         return switch (provider) {
-            case FAKE, FAKE_B -> true;
+            case FAKE, FAKE_B -> practiceProviders;
             case OLLAMA -> hasText(s.baseUrl());
             case OPENAI, GOOGLE, ANTHROPIC -> hasText(s.apiKey());
         };
@@ -87,7 +101,8 @@ public record LlmProperties(
             case OPENAI -> "OPENAI is not configured (OPENAI_API_KEY is empty)";
             case GOOGLE -> "GOOGLE is not configured (GEMINI_API_KEY is empty)";
             case ANTHROPIC -> "ANTHROPIC is not configured (ANTHROPIC_API_KEY is empty)";
-            case FAKE, FAKE_B -> provider + " is always configured";
+            case FAKE, FAKE_B -> practiceProviders ? provider + " is configured"
+                    : provider + " is a practice provider, and practice mode is off on this server (LAA_PRACTICE_PROVIDERS)";
         };
     }
 
