@@ -51,7 +51,7 @@ Hetzner Cloud server (Docker Compose)
 | D5 | **How code reaches production** | ✅ **Decided 2026-11-17: nobody pushes to `main`, you and I included.** Every change arrives by pull request, and CI must pass. **You review by merging** (Phase 2, option (a)). Merging deploys the server and web after you click Approve. Store builds happen when you push a version tag. |
 | D6 | **Health check** | A small `/health` endpoint of our own. Spring Boot Actuator would be a new dependency. |
 | D7 | **Server type** | **CX23** (x86, 2 vCPU, 4 GB) if Hetzner lets you order it. Otherwise **CAX11** (ARM), and I build ARM images. |
-| D8 | **Email provider** (to send confirmation and reset emails) | Choose after the domain exists. Postmark, Resend, Amazon SES and Brevo all verify a domain with DNS records and have small free tiers. |
+| D8 | **Email provider** (to send confirmation and reset emails) | ✅ **Decided 2026-11-17: Cloudflare Email Sending** (the domain is on Cloudflare; Workers Paid plan, 3,000 emails a month included). SMTP on port 465 with `SPRING_MAIL_SSL_ENABLED=true`. Email Routing forwards `support@` to the user's inbox. Setup steps: issue #29. |
 | D9 | **Keep the repo public?** | Your call. Public keeps Actions free and costs nothing as long as secrets stay out. |
 | D10 | **Who the app is for on the stores** (Google's "target audience") | **Adults**, matching "accounts are for adults". Choosing ages under 13 brings in Google's Families policy, which changes a lot. Settle it with the legal review. |
 | D11 | **Third-party GitHub Actions** (checkout, setup-java, setup-node, Docker login/build-push, Expo's action, an SSH step) | Approve the list in Phase 2. Each is pinned to a commit hash, so a hijacked tag can't run in the pipeline. |
@@ -94,7 +94,7 @@ Each step is one milestone: built, tested, documented in the product docs where 
 
 1. ✅ **Real client addresses behind the proxy** (done 2026-11-17). Trust `X-Forwarded-For` only from the proxy on the server's private Docker network (`server.forward-headers-strategy` plus Tomcat's trusted proxies), so throttling and the sign-up limit count real people again. A test checks that a forwarded address is used from the trusted proxy and ignored from anyone else.
 2. ✅ **`GET /health`** (done 2026-11-17): it already checked the database; now it answers 503 when the database can't be reached, instead of a 500. Used by the deploy and the uptime monitor (D6).
-3. **Email must be set up in production.** The server refuses to start without an SMTP host unless outbox mode is switched on (tests, and dev without Mailpit). This follows the existing rule that the server's own defaults are safe for production.
+3. ✅ **Email must be set up in production** (done 2026-11-17). The server refuses to start without an SMTP host unless outbox mode is switched on (tests, and dev without Mailpit). This follows the existing rule that the server's own defaults are safe for production.
 4. **Delete your account** (Apple guideline 5.1.1(v); Google Play's account-deletion rule):
    - In Settings: type your password (and the parent PIN, if one is set). This deletes the account and everything in it: books, lessons, chats and reader settings.
    - The AI cost records stay for the owner's totals, with the person removed.

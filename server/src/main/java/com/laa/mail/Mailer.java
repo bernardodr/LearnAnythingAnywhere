@@ -20,8 +20,9 @@ import com.laa.security.SecretRedactor;
  * <ul>
  *   <li><b>With an SMTP server</b> ({@code SPRING_MAIL_HOST}; ./dev.sh points at Mailpit): sent in the background, so
  *       answering a request never waits on, or shows the timing of, a send. A failed send is logged, never shown.</li>
- *   <li><b>Without one</b> (tests, or email not set up yet): kept in an in-memory {@link #outbox()}, with a warning at
- *       startup, because then nobody can verify or reset.</li>
+ *   <li><b>Without one</b>, only if {@code laa.mail.outbox} is on (tests, or a local run without Mailpit): kept in an
+ *       in-memory {@link #outbox()}, with a warning at startup. Otherwise the server refuses to start, because nobody
+ *       could confirm an email or reset a password.</li>
  * </ul>
  * Messages carry one-use links, which are credentials: nothing here logs a body or an address.
  */
@@ -38,10 +39,16 @@ public class Mailer {
     private final List<Message> outbox = new ArrayList<>();
     private final ExecutorService sender = Executors.newVirtualThreadPerTaskExecutor();
 
-    Mailer(ObjectProvider<JavaMailSender> smtp, @Value("${laa.mail.from}") String from) {
+    Mailer(ObjectProvider<JavaMailSender> smtp, @Value("${laa.mail.from}") String from,
+            @Value("${laa.mail.outbox}") boolean outboxAllowed) {
         this.smtp = smtp.getIfAvailable();
         this.from = from;
         if (this.smtp == null) {
+            if (!outboxAllowed) {
+                throw new IllegalStateException("Email isn't set up: set SPRING_MAIL_HOST (and the other SMTP settings) "
+                        + "so people can confirm their email and reset their password. For a local run without an SMTP "
+                        + "server, set LAA_MAIL_OUTBOX=true to keep emails in memory instead.");
+            }
             log.warn("Email isn't set up (SPRING_MAIL_HOST is empty): verification and reset emails are kept in memory only");
         }
     }

@@ -39,7 +39,7 @@ server/   Spring Boot 4 + Spring AI 2, Java 21, Maven wrapper; package com.laa
   chat/     chat_messages
   auth/     Accounts (sign-up, sign-in, passwords, email links), Passwords (Argon2id + rules), PinLock (the parent PIN),
             EmailLinks, Throttle, dev sign-in, JWT
-  mail/     Mailer (SMTP when SPRING_MAIL_HOST is set, else an in-memory outbox)
+  mail/     Mailer (SMTP when SPRING_MAIL_HOST is set; else the in-memory outbox if LAA_MAIL_OUTBOX=true, else it refuses to start)
   owner/    owner API + compare     dev/  /dev smoke endpoints
   security/ SecretRedactor + log converters      web/    ApiException, problem responses, Sse (chat streaming)
 docs/     BRIEF.md (spec), PROGRESS.md, WORKFLOW.md (dev → PR → deploy → release), PRODUCTION-PLAN.md, product/ (user guide + release notes, for users),
@@ -57,7 +57,7 @@ GLOSSARY.md  domain words (safety layer, reader settings, shown text, held back,
 | Emails sent locally (verification, reset links) | Mailpit at http://localhost:8025 |
 | Postgres only | `docker compose up -d --wait` · stop with `docker compose down` |
 | Server tests (Testcontainers, needs Docker) | `cd server && ./mvnw test` |
-| Server alone | `cd server && ./mvnw spring-boot:run` (needs `.env` exported: `set -a; source ../.env; set +a`) |
+| Server alone | `cd server && ./mvnw spring-boot:run` (needs `.env` exported: `set -a; source ../.env; set +a`, plus `SPRING_MAIL_HOST=localhost SPRING_MAIL_PORT=1025` for Mailpit or `LAA_MAIL_OUTBOX=true`) |
 | App typecheck / lint | `cd app && npm run typecheck && npx expo lint` |
 | Add an app package | `cd app && npx expo install <pkg>` (resolves SDK-compatible versions) |
 | Gateway demo (server running) | `./scripts/m1-switch-default.sh [FROM] [TO]` |
@@ -97,7 +97,7 @@ GLOSSARY.md  domain words (safety layer, reader settings, shown text, held back,
   - **OWNER** only for `LAA_OWNER_EMAILS`. Signing up with one needs `LAA_OWNER_SETUP_CODE`, and an OWNER taken off the list is a learner at their next sign-in.
   - **Dev sign-in** (`/auth/dev-login`, email only) is off unless `LAA_DEV_LOGIN=true` (`./dev.sh` and the test profile turn it on). Its accounts count as verified.
   - **Email links** (`EmailLinks`): random tokens stored only as SHA-256, used once (verify 24h, reset 30 min). Never log a link, a body or an address. A reset request answers the same for any email.
-- **Production defaults:** the server's own defaults are safe for production. Dev sign-in, `/dev` (`LAA_DEV_ENDPOINTS`) and the practice providers (`LAA_PRACTICE_PROVIDERS`) are off, and `LAA_DEFAULT_PROVIDER` has no default (a new database without it refuses to start). `./dev.sh` turns the local switches on; `application-test.yml` sets its own. Request bodies are capped at 256 KB.
+- **Production defaults:** the server's own defaults are safe for production. Dev sign-in, `/dev` (`LAA_DEV_ENDPOINTS`) and the practice providers (`LAA_PRACTICE_PROVIDERS`) are off, and `LAA_DEFAULT_PROVIDER` has no default (a new database without it refuses to start). Without an SMTP host the server refuses to start, unless `LAA_MAIL_OUTBOX=true` keeps emails in memory. `./dev.sh` turns the local switches on; `application-test.yml` sets its own. Request bodies are capped at 256 KB.
 - **`Allowance`** runs before every gateway call. A learner's own requests (origin APP) need a verified email (403 `email-unverified`) and must be under the per-learner daily cap (429). Every request must be under the total cap (503). Spend is `model_runs.cost_estimate` since midnight UTC.
 - **Tests** extend `IntegrationTest`, which gives a shared context, Testcontainers `postgres:18`, routing re-seeded and the `Throttle` cleared before each test. `login(email)` uses dev sign-in, so its accounts are verified; a `/auth/sign-up` account isn't until a test uses its link. `PASSWORD` passes the password rules. Emails land in `mailer.outbox()` (cleared per test); `emailedToken(email, "/verify-email")` reads a link's token. They use the `FAKE` and `FAKE_B` providers. Make a fake fail with `FakeBehaviour` or `PUT /dev/fake/{provider}/failure`, and pin a reply to exactly one call with `fakes.setCanned(Calls.X, json)` or `setCannedText(Calls.X, text)`. Text containing `FakeBehaviour.BLOCK_MARKER` fails the fake safety check. `safetyCheckOnFakeB()` keeps the safety check up while FAKE fails, and `childReader(age, childSafe)` makes an account set up for a child. Test the safety layer through its interface (`SafetyLayerTest`); `ModerationApiTest` covers each flow end to end. `FakeScripts` holds the scripted offline preface. Read a streamed endpoint with `sse(...)`. The real adapters get canary keys pointed at a dead port, so tests never need real keys or the network.
 - **Postgres port:** this machine runs Postgres.app on 5432, so the local `.env` sets `POSTGRES_PORT=5433` and `DATABASE_URL` to match. `docker-compose.yml` reads `POSTGRES_PORT`.
