@@ -23,6 +23,24 @@
 | A firmer shelf: a solid board, snappy physics, no bounce (user feedback) | ✅ Done (2026-11-16) |
 | Production: GitHub Actions pipeline, Hetzner server, web, App Store, Google Play (user request) | 🚧 Phase 1 in progress (steps 1–3 done): `docs/PRODUCTION-PLAN.md` (2026-11-17). Tasks are GitHub issues on the *LAA production* board; the process is `docs/WORKFLOW.md` |
 
+## Developer docs (done 2026-11-17)
+
+The user asked for developer documentation that gets a new developer up to speed on the app and the process quickly (GitHub issue #54). Docs only.
+
+**Done**
+- **`README.md`** (new; the repo had none), the start-here page:
+  - what LAA is, and a diagram of how the parts fit together;
+  - the first hour: what to install, `.env`, `./dev.sh`, developer sign-in, Mailpit, and the checks to run;
+  - a map of the code, the index of the developer docs, the six rules that matter most, and the board.
+- **`docs/DATABASE.md`:** conventions, an entity diagram of all 13 tables, a table per group, what deleting does (and why deleting a user is blocked today, for #14), how to change the database, and the migration history. Read from the local database after `V13`.
+- **`docs/EMAIL.md`:** the two emails, sequence diagrams of sign-up and reset, how the links work, the limits, the sending modes (SMTP, outbox, refusing to start), where email goes in each setup, the settings, the tests and the gotchas.
+- **`CLAUDE.md`:** points to the three, and asks for them to be updated in the same pull request as the change they describe.
+- **`docs/WORKFLOW.md`:** the dashed arrow for store releases now uses the standard `-.->|label|` form.
+
+**Verified**
+- The tables, columns, keys, checks and deletion rules come from the local database's catalogue, and the migration history from the files.
+- **Not checked:** whether the Mermaid diagrams render. Fetching Mermaid's renderer was refused here, so they were reviewed by hand. GitHub's rich diff on the pull request shows them.
+
 ## Production 1.3: email must be set up (done 2026-11-17)
 
 Phase 1, step 3 of `docs/PRODUCTION-PLAN.md` (GitHub issue #13). Server only. The first milestone built on a branch (`13-email-required`) under the pull-request rule; 1.1 and 1.2 were merged in #52.

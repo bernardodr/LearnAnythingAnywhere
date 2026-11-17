@@ -42,7 +42,8 @@ server/   Spring Boot 4 + Spring AI 2, Java 21, Maven wrapper; package com.laa
   mail/     Mailer (SMTP when SPRING_MAIL_HOST is set; else the in-memory outbox if LAA_MAIL_OUTBOX=true, else it refuses to start)
   owner/    owner API + compare     dev/  /dev smoke endpoints
   security/ SecretRedactor + log converters      web/    ApiException, problem responses, Sse (chat streaming)
-docs/     BRIEF.md (spec), PROGRESS.md, WORKFLOW.md (dev → PR → deploy → release), PRODUCTION-PLAN.md, product/ (user guide + release notes, for users),
+README.md  start here for developers (setup, the map, the doc index)
+docs/     BRIEF.md (spec), PROGRESS.md, WORKFLOW.md (dev → PR → deploy → release), DATABASE.md, EMAIL.md, PRODUCTION-PLAN.md, product/ (user guide + release notes, for users),
           research/, reference/ (skills/ is a git-ignored clone of mattpocock/skills)
 scripts/  m1-switch-default.sh (curl demo of the gateway), redteam.sh (red-team topics against real providers)
 dev.sh    one-command dev start
@@ -65,6 +66,7 @@ GLOSSARY.md  domain words (safety layer, reader settings, shown text, held back,
 
 ## Conventions and gotchas
 
+- **Developer docs stay current in the same pull request:** a migration updates `docs/DATABASE.md`, a change to emails or their settings updates `docs/EMAIL.md`, and a new setup step, tool or doc updates `README.md`.
 - **Server:** use `JdbcClient` and Flyway SQL, not JPA. Every table gets a UUID primary key (`gen_random_uuid()`), `created_at` and `updated_at`. Attach the `set_updated_at()` trigger from `V1__baseline.sql`.
 - **Spring Boot 4 modules:** autoconfig is split into separate modules. For example, `RestClient.Builder` isn't a bean without `spring-boot-restclient`. Tests build clients with `RestClient.create(...)`.
 - **LLM calls** go through `LlmGateway` only. Code outside `llm/provider/` never touches a `ChatClient` or provider SDK, so routing, fallbacks, metering and safety stay in one place.

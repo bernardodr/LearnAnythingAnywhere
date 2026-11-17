@@ -23,7 +23,7 @@ flowchart TD
     K --> L["Deploy to Hetzner<br/>wait for /health"]
     L -- healthy --> M["Live at<br/>learnanythinganywhere.app"]
     L -- unhealthy --> N["Roll back to<br/>the previous version"]
-    H -. "Daniel pushes a tag v1.2.0" .-> O["EAS builds iOS + Android<br/>(Phase 5)"]
+    H -.->|Daniel pushes a tag v1.2.0| O["EAS builds iOS + Android<br/>(Phase 5)"]
     O --> P["TestFlight ·<br/>Play testing track"]
     P --> Q{"Daniel promotes<br/>in the store consoles"}
     Q --> R["App Store ·<br/>Google Play"]
