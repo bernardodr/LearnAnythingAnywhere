@@ -1,6 +1,6 @@
 # 8. The owner console
 
-[← Reader settings and parents](07-reader-settings.md) · [Guide home](../README.md)
+[← Reader settings and the parent PIN](07-reader-settings.md) · [Guide home](../README.md)
 
 *For the people who run Learn Anything Anywhere.*
 
@@ -33,7 +33,15 @@ Each service has a card:
 
 **To take a service out of use,** tap **Turn off**. LAA won't let you turn off a service that's still doing a job, or make one the default if it isn't ready; it tells you why.
 
-**Practice mode** and **Practice mode B** are stand-in services that need no AI at all, for trying LAA out and testing. See [Practice mode](06-good-to-know.md#practice-mode-text-that-starts-with-fake).
+**Practice mode** and **Practice mode B** are stand-in services that need no AI at all, for trying LAA out and testing. They're only offered on test setups; on a real copy of LAA their cards say they're not set up. See [Practice mode](06-good-to-know.md#practice-mode-text-that-starts-with-fake).
+
+## Daily limits
+
+LAA caps what AI can cost each day: an allowance per learner (by default $1 a day) and a limit for all of LAA (by default $25 a day), both starting again at midnight UTC. They're set when LAA's server is set up. Costs are LAA's estimates from each service's prices, the same ones the run log shows.
+
+- A learner who uses up their allowance is told so, and can carry on reading.
+- When the total limit is reached, everything that uses AI pauses for everyone, including **Compare before switching**, until midnight UTC.
+- Your comparisons count toward the total, but not toward your own learner allowance.
 
 ## Routing: who does which job
 

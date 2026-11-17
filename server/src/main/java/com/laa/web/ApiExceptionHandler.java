@@ -42,6 +42,20 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         return problem(HttpStatus.BAD_REQUEST, e.getMessage(), List.of());
     }
 
+    /** A body that went past the size cap while it was read (one sent without a length) is 413, like the rest. */
+    @Override
+    protected org.springframework.http.ResponseEntity<Object> handleHttpMessageNotReadable(
+            org.springframework.http.converter.HttpMessageNotReadableException ex, org.springframework.http.HttpHeaders headers,
+            org.springframework.http.HttpStatusCode status, org.springframework.web.context.request.WebRequest request) {
+        for (Throwable t = ex; t != null; t = t.getCause()) {
+            if (t instanceof RequestSizeLimit.TooLarge) {
+                return org.springframework.http.ResponseEntity.status(HttpStatus.CONTENT_TOO_LARGE)
+                        .body(problem(HttpStatus.CONTENT_TOO_LARGE, RequestSizeLimit.TOO_LARGE, List.of()));
+            }
+        }
+        return super.handleHttpMessageNotReadable(ex, headers, status, request);
+    }
+
     @ExceptionHandler(Exception.class)
     ProblemDetail unexpected(Exception e) {
         log.error("Unhandled error", e);

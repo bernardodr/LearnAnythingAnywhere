@@ -31,22 +31,18 @@ const REVEAL_AFTER = 3;
 
 /**
  * Screen 7's form: child-safe switch, age (5 to Adult) with the reading level, "Leave out of lessons" switches and
- * extra topics, links policy, revealing the answer, and the parent PIN when one guards a child's settings.
+ * extra topics, links policy, revealing the answer, and the parent PIN when it locks the settings. Set up for a child
+ * without a PIN, it suggests setting one.
  */
 export function SettingsForm({
   profile,
-  forChild,
-  needsPin,
   saved,
   onEdit,
   onSave,
 }: {
   profile: Profile;
-  /** A child's profile, edited by their parent: ages 5 to 18, no Adult. */
-  forChild: boolean;
-  needsPin: boolean;
   /**
-   * Held by the parent: saving refreshes the profile, which remounts this form (it's keyed on the data), so a
+   * Held by the screen: saving refreshes the profile, which remounts this form (it's keyed on the data), so a
    * "saved" message kept in here would vanish.
    */
   saved: boolean;
@@ -65,6 +61,8 @@ export function SettingsForm({
   const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const needsPin = profile.pinSet;
+  const forAChild = s.childSafe || (s.age != null && s.age < 13);
   const change = (next: Partial<ProfileSettings>) => {
     setS((prev) => ({ ...prev, ...next }));
     setError(null);
@@ -95,8 +93,10 @@ export function SettingsForm({
       <ToggleRow label="Child-safe mode" hint="Leaves out everything listed below and shows replies only once they’ve been checked."
         value={s.childSafe} onChange={(v) => change({ childSafe: v })} />
 
-      <AgeStepper age={s.age} min={forChild ? 5 : 13} allowAdult={!forChild} onChange={(age) => change({ age })} />
-      {!forChild ? <Text style={styles.hint}>Settings for children under 13 are set up by a parent account.</Text> : null}
+      <AgeStepper age={s.age} min={5} allowAdult onChange={(age) => change({ age })} />
+      {forAChild && !needsPin ? (
+        <Note>Setting LAA up for a child? Set a parent PIN below, so these settings can only be changed with it.</Note>
+      ) : null}
 
       <Kicker style={styles.section}>Leave out of lessons</Kicker>
       {profile.allCategories.map((c) => (
@@ -146,36 +146,12 @@ export function SettingsForm({
 
       {needsPin ? (
         <Field label="Parent PIN" value={pin} onChangeText={(t) => setPin(t.replace(/\D/g, ''))} secureTextEntry
-          inputMode="numeric" keyboardType="number-pad" maxLength={8} hint="Changes to a child’s settings need your PIN." />
+          inputMode="numeric" keyboardType="number-pad" maxLength={8} hint="Changing these settings needs the parent PIN." />
       ) : null}
       {error ? <Note tone="error">{error}</Note> : null}
       {saved && !error ? <Note>Saved. New lessons and replies follow these settings.</Note> : null}
       <Button label="Save settings" onPress={() => void save()} busy={busy} disabled={needsPin && pin.length < 4}
         style={styles.save} />
-    </View>
-  );
-}
-
-/** What a child sees: their settings, which their parent manages. */
-export function SettingsSummary({ profile }: { profile: Profile }) {
-  const left = profile.childSafe
-    ? 'Everything in child-safe mode'
-    : [...profile.allCategories.filter((c) => profile.categories.includes(c.key)).map((c) => c.label), ...profile.extras].join(', ') || 'Nothing';
-  const rows: [string, string][] = [
-    ['Reading level', profile.readingLevel],
-    ['Child-safe mode', profile.childSafe ? 'On' : 'Off'],
-    ['Left out of lessons', left],
-    ['Links', LINKS.find((l) => l.value === profile.linksPolicy)?.hint ?? profile.linksPolicy],
-    ['Reveal answers', profile.revealAfterAttempts != null ? `After ${profile.revealAfterAttempts} tries` : 'Never'],
-  ];
-  return (
-    <View>
-      {rows.map(([k, v]) => (
-        <View key={k} style={styles.summaryRow}>
-          <Text style={styles.summaryKey}>{k}</Text>
-          <Text style={styles.summaryValue}>{v}</Text>
-        </View>
-      ))}
     </View>
   );
 }
@@ -295,7 +271,4 @@ const styles = StyleSheet.create({
   radioTextOn: { fontFamily: fonts.sansSemiBold, color: colors.accent },
   radioHint: { fontFamily: fonts.sans, fontSize: 13, color: colors.muted },
   save: { marginTop: 12, alignSelf: 'flex-start' },
-  summaryRow: { paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.rule },
-  summaryKey: { ...type.kicker, fontSize: 11 },
-  summaryValue: { ...type.body, marginTop: 2 },
 });

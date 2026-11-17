@@ -10,6 +10,7 @@ import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.laa.mission.MissionDraft;
 import com.laa.textbook.Textbook.Status;
@@ -59,9 +60,20 @@ public class TextbookRepository {
         return findForUser(id, userId).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "No such textbook"));
     }
 
+    /** The shelf, in the learner's own order: books they've arranged first, then the rest (new ones too) by volume. */
     public List<Textbook> listForUser(UUID userId) {
-        return jdbc.sql("SELECT " + COLUMNS + " FROM textbooks WHERE user_id = :u AND status <> 'ARCHIVED' ORDER BY volume")
+        return jdbc.sql("SELECT " + COLUMNS + " FROM textbooks WHERE user_id = :u AND status <> 'ARCHIVED' "
+                        + "ORDER BY shelf_position NULLS LAST, volume, created_at")
                 .param("u", userId).query(this::map).list();
+    }
+
+    /** Puts the learner's books in this order. Ids that aren't theirs are ignored. */
+    @Transactional
+    public void arrange(UUID userId, List<UUID> ids) {
+        for (int i = 0; i < ids.size(); i++) {
+            jdbc.sql("UPDATE textbooks SET shelf_position = :p WHERE id = :id AND user_id = :u")
+                    .param("p", i).param("id", ids.get(i)).param("u", userId).update();
+        }
     }
 
     public void saveDraft(UUID id, MissionDraft draft) {

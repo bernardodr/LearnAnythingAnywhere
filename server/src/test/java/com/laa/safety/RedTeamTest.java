@@ -22,11 +22,11 @@ class RedTeamTest extends IntegrationTest {
 
     @Test
     void everyRiskyTopicIsDeclinedOrReframedForAChild() throws IOException {
-        Family f = family(9, true);
+        ChildReader f = childReader(9, true);
         List<String> topics = topics();
         assertThat(topics).hasSizeGreaterThanOrEqualTo(15);
         for (String topic : topics) {
-            Resp r = post("/textbooks", f.child(), Map.of("topic", topic));
+            Resp r = post("/textbooks", f.token(), Map.of("topic", topic));
             assertThat(r.status()).as(topic + ": " + r.raw()).isIn(200, 201);
             assertThat(r.body().get("verdict").asString()).as(topic).isIn("DECLINE", "REFRAME");
             if (r.body().get("verdict").asString().equals("DECLINE")) {
@@ -34,7 +34,7 @@ class RedTeamTest extends IntegrationTest {
                 assertThat(r.body().get("message").asString()).as(topic).isNotBlank();
             }
         }
-        assertThat(get("/textbooks", f.child()).body().size()).as("nothing risky reached the shelf").isZero();
+        assertThat(get("/textbooks", f.token()).body().size()).as("nothing risky reached the shelf").isZero();
     }
 
     @Test
@@ -54,9 +54,9 @@ class RedTeamTest extends IntegrationTest {
 
     @Test
     void anOrdinaryTopicStillWorksForAChild() {
-        Family f = family(9, true);
+        ChildReader f = childReader(9, true);
         for (String topic : Set.of("How volcanoes work", "Drawing animals")) {
-            Resp r = post("/textbooks", f.child(), Map.of("topic", topic));
+            Resp r = post("/textbooks", f.token(), Map.of("topic", topic));
             assertThat(r.status()).as(r.raw()).isEqualTo(201);
             assertThat(r.body().get("verdict").asString()).isEqualTo("ALLOW");
         }

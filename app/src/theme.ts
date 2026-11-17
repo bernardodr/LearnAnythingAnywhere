@@ -9,6 +9,8 @@ export const colors = {
   accent: '#9B2C1F',
   noteFill: '#F2EEE4',
   ribbon: '#C9962B',
+  /** The shelf's wood: the lit top of a board, its front edge, and the darker grain of a bookend. */
+  shelf: { top: '#D8C9AB', front: '#B5A07A', end: '#9E8862' },
   covers: {
     rust: '#9B2C1F',
     slate: '#3E4C5E',

@@ -88,6 +88,27 @@ public class UserRepository {
         jdbc.sql("UPDATE users SET password_hash = :hash WHERE id = :id").param("id", id).param("hash", passwordHash).update();
     }
 
+    /** Whether the user has proved they read their email. */
+    public boolean emailVerified(UUID id) {
+        return jdbc.sql("SELECT email_verified_at IS NOT NULL FROM users WHERE id = :id")
+                .param("id", id).query(Boolean.class).optional().orElse(false);
+    }
+
+    public void markVerified(UUID id) {
+        jdbc.sql("UPDATE users SET email_verified_at = now() WHERE id = :id AND email_verified_at IS NULL").param("id", id).update();
+    }
+
+    /** The parent PIN's hash, if one is set ({@link PinLock}). */
+    public Optional<String> pinHash(UUID id) {
+        return jdbc.sql("SELECT pin_hash FROM users WHERE id = :id").param("id", id)
+                .query((rs, i) -> rs.getString("pin_hash")).optional().filter(java.util.Objects::nonNull);
+    }
+
+    /** A new PIN hash, or null to turn the lock off. */
+    public void setPinHash(UUID id, String hash) {
+        jdbc.sql("UPDATE users SET pin_hash = :h WHERE id = :id").param("h", hash).param("id", id).update();
+    }
+
     private static Account account(ResultSet rs) throws SQLException {
         return new Account(map(rs), rs.getString("password_hash"), rs.getInt("password_version"));
     }

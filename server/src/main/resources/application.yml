@@ -10,9 +10,23 @@ spring:
     password: ${DATABASE_PASSWORD:laa}
   flyway:
     locations: classpath:db/migration
+  mail:
+    # The SMTP server comes from SPRING_MAIL_HOST / _PORT / _USERNAME / _PASSWORD (./dev.sh points at Mailpit).
+    # Without SPRING_MAIL_HOST, emails are kept in memory only (tests, or email not set up yet).
+    properties:
+      mail.smtp.starttls.enable: true                       # used when the server offers it
+      mail.smtp.starttls.required: ${SMTP_STARTTLS_REQUIRED:false}   # set true for a real provider
+      mail.smtp.connectiontimeout: 10000
+      mail.smtp.timeout: 10000
+      mail.smtp.writetimeout: 10000
 
 server:
   port: 8080
+  # Behind a proxy (Caddy, in production), the client's address is the last one in X-Forwarded-For. Tomcat trusts
+  # that header only on a connection from an internal proxy: by default a private or loopback address, which is all
+  # a Docker network or this machine can be. From anyone else it's ignored, so it can't be forged to dodge the sign-in
+  # throttle or the sign-up limit. Narrow the list with SERVER_TOMCAT_REMOTEIP_INTERNALPROXIES (CIDRs).
+  forward-headers-strategy: native
 
 logging:
   level:
@@ -20,8 +34,16 @@ logging:
     org.springframework.ai.chat.model.MessageAggregator: "off"
 
 laa:
+  app-url: ${LAA_APP_URL:http://localhost:8081}   # where links in emails point (the web app)
+
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:8081}
+
+  web:
+    max-request-size: 256KB              # bigger request bodies get 413; every LAA request is short text
+
+  mail:
+    from: ${LAA_MAIL_FROM:Learn Anything Anywhere <no-reply@localhost>}
 
   auth:
     jwt-secret: ${JWT_SECRET:}            # HS256; at least 32 bytes (openssl rand -hex 32)
@@ -31,10 +53,14 @@ laa:
     dev-login-enabled: ${LAA_DEV_LOGIN:false}        # email-only sign-in, for local development; ./dev.sh turns it on
 
   dev:
-    endpoints-enabled: true                # /dev/** (OWNER only): gateway ping, fake-provider failure switch
+    endpoints-enabled: ${LAA_DEV_ENDPOINTS:false}   # /dev/** (OWNER only): gateway ping, practice-provider failures; ./dev.sh turns it on
 
   llm:
-    default-provider: ${LAA_DEFAULT_PROVIDER:FAKE}   # seeds an empty DB only; the owner console decides after that
+    default-provider: ${LAA_DEFAULT_PROVIDER:}       # seeds an empty DB only (required then); the owner console decides after that
+    practice-providers: ${LAA_PRACTICE_PROVIDERS:false}  # FAKE and FAKE_B, for local development and tests; ./dev.sh turns it on
+    limits:                                # daily caps on estimated spend (USD), reset at midnight UTC
+      learner-daily-usd: ${LAA_LEARNER_DAILY_USD:1.00}
+      total-daily-usd: ${LAA_TOTAL_DAILY_USD:25.00}
     route-cache-ttl: 30s
     call-timeout: 120s                     # per provider attempt; a route can override with params.timeoutMs
     first-token-timeout: 30s               # streaming: give up on a provider that hasn't started answering

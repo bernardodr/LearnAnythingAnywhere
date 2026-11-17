@@ -12,11 +12,19 @@ _Avoid_: job type, route (a route is the owner's choice for a task)
 One kind of request LAA makes for a task: which prompt it sends and what it expects back. A task can have several, as the safety checks do (topic gate, content check, leak check), and they always share the task's route.
 _Avoid_: variant (only the prompt part of it), request type
 
+**Daily allowance**:
+How much AI one learner can use in a day, measured by its estimated cost and reset at midnight UTC. All of LAA together has a daily limit too.
+_Avoid_: quota, credits, budget
+
 ## Accounts
 
 **Account**:
-How a person signs in to LAA: their email, a password, and whether they're a learner, a parent or an owner. A parent makes their child's account, which then sits under the parent's.
-_Avoid_: login, profile (that's reader settings)
+How a person signs in to LAA: their email and a password. Accounts are for adults. A child uses a parent's account, with reader settings the parent chooses for them; children don't have accounts of their own. An owner's account also runs LAA.
+_Avoid_: login, profile (that's reader settings), child account (there's no such thing)
+
+**Parent PIN**:
+A short number code an account holder can set so a child using their account can't change its reader settings, its password or the PIN. Everything else stays open to the child.
+_Avoid_: lock code, password (that's for signing in)
 
 **Dev sign-in**:
 Signing in with an email alone, with no password, for building and testing LAA. It's off unless someone running LAA turns it on.
@@ -25,6 +33,10 @@ _Avoid_: dev login (the address it answers on), guest sign-in
 **Owner setup code**:
 The secret, chosen by whoever sets up LAA's server, that making an owner account needs.
 
+**Confirmed email**:
+An account whose holder has opened the link LAA emailed them, proving the address is theirs. Using AI waits for it.
+_Avoid_: verified (fine in code; the guide says confirmed), activated
+
 ## Safety
 
 **Safety layer**:
@@ -32,7 +44,7 @@ LAA's own part that stands between learners and the AI services: everything a le
 _Avoid_: moderation (one of its checks, not the whole), filter, guard
 
 **Reader settings**:
-What a learner's textbooks may contain and how they're pitched: age and reading level, child-safe mode, what's left out, links, and whether answers can be shown. A child's are managed by their parent.
+What an account's textbooks may contain and how they're pitched: age and reading level, child-safe mode, what's left out, links, and whether answers can be shown. When a child uses a parent's account, the parent sets them for the child and can lock them with the parent PIN.
 _Avoid_: profile, generation profile (the brief's term for the same thing), preferences
 
 **Shown text**:

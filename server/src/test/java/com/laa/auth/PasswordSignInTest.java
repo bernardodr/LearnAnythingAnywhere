@@ -33,10 +33,10 @@ class PasswordSignInTest extends IntegrationTest {
     }
 
     @Test
-    void aParentCanSignUpButNobodyCanChooseOwner() {
-        Resp parent = post("/auth/sign-up", null, Map.of("email", email(), "password", PASSWORD, "role", "PARENT"));
-        assertThat(parent.body().get("user").get("role").asString()).isEqualTo("PARENT");
-        assertThat(post("/auth/sign-up", null, Map.of("email", email(), "password", PASSWORD, "role", "OWNER")).status()).isEqualTo(400);
+    void everyAccountIsTheSameKindAndNobodyCanChooseOwner() {
+        Resp asOwner = post("/auth/sign-up", null, Map.of("email", email(), "password", PASSWORD, "role", "OWNER"));
+        assertThat(asOwner.status()).as(asOwner.raw()).isEqualTo(201);
+        assertThat(asOwner.body().get("user").get("role").asString()).isEqualTo("LEARNER");
     }
 
     @Test

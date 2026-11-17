@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
@@ -13,146 +14,112 @@ import com.laa.IntegrationTest;
 
 import tools.jackson.databind.JsonNode;
 
-/** Reader settings, parents and children, and the parent PIN (BRIEF sections 8 and 9, screen 7; milestone M6). */
+/**
+ * Reader settings and the parent PIN (BRIEF sections 8 and 9, screen 7). Accounts are for adults; a child uses a
+ * parent's account, whose settings the parent sets for them and locks with the PIN.
+ */
 class ProfilesApiTest extends IntegrationTest {
 
     @Test
-    void anAdultStartsWithDefaultsAndManagesTheirOwnSettings() {
-        String adult = login("settings-adult@test.dev");
-        JsonNode me = get("/profiles/me", adult).body();
+    void anAccountStartsWithAdultDefaultsAndCanBeSetUpForAChild() {
+        String token = login("settings-" + UUID.randomUUID().toString().substring(0, 8) + "@test.dev");
+        JsonNode me = get("/profiles/me", token).body();
         assertThat(me.get("age").isNull()).isTrue();
         assertThat(me.get("readingLevel").asString()).isEqualTo("Adult");
         assertThat(me.get("childSafe").asBoolean()).isFalse();
         assertThat(me.get("linksPolicy").asString()).isEqualTo("ALLOWLIST");
-        assertThat(me.get("canEdit").asBoolean()).isTrue();
-        assertThat(me.get("managedByParent").asBoolean()).isFalse();
+        assertThat(me.get("pinSet").asBoolean()).isFalse();
         assertThat(me.get("allCategories").size()).isEqualTo(5);
 
-        Resp saved = put("/profiles/" + me.get("id").asString(), adult, settings(16, false, List.of("gambling"), List.of("spiders"), "OFF", 3));
-        ok(saved);
-        assertThat(saved.body().get("age").asInt()).isEqualTo(16);
-        assertThat(saved.body().get("readingLevel").asString()).isEqualTo("Older teen (ages 16–18)");
-        assertThat(saved.body().get("categories").toString()).isEqualTo("[\"gambling\"]");
-        assertThat(saved.body().get("extras").toString()).isEqualTo("[\"spiders\"]");
-        assertThat(saved.body().get("revealAfterAttempts").asInt()).isEqualTo(3);
-        assertThat(get("/profiles/me", adult).body().get("linksPolicy").asString()).isEqualTo("OFF");
+        Resp young = put("/profiles/" + me.get("id").asString(), token, settings(9, true, List.of(), List.of("spiders"), "OFF", 3));
+        assertThat(young.status()).as(young.raw()).isEqualTo(200);
+        assertThat(young.body().get("readingLevel").asString()).isEqualTo("Confident reader (ages 9–10)");
+        assertThat(young.body().get("extras").toString()).isEqualTo("[\"spiders\"]");
 
-        // Profiles for children under 13 are only made by a parent.
-        Resp young = put("/profiles/" + me.get("id").asString(), adult, settings(9, true, List.of(), List.of(), "OFF", null));
-        assertThat(young.status()).isEqualTo(400);
-        assertThat(young.body().get("detail").asString()).contains("parent");
-
-        Resp unknown = put("/profiles/" + me.get("id").asString(), adult, settings(null, false, List.of("nope"), List.of(), "OFF", null));
-        assertThat(unknown.status()).isEqualTo(400);
-
-        // Only a parent can add children.
-        assertThat(post("/profiles/children", adult, Map.of("email", "kid@test.dev", "age", 9)).status()).isEqualTo(403);
-    }
-
-    @Test
-    void aParentAddsAChildWhoCanSeeButNotChangeTheirSettings() {
-        Family f = family(9, true);
-
-        JsonNode mine = get("/profiles/me", f.child()).body();
-        assertThat(mine.get("id").asString()).isEqualTo(f.childProfileId());
-        assertThat(mine.get("age").asInt()).isEqualTo(9);
-        assertThat(mine.get("readingLevel").asString()).isEqualTo("Confident reader (ages 9–10)");
-        assertThat(mine.get("childSafe").asBoolean()).isTrue();
-        assertThat(mine.get("linksPolicy").asString()).isEqualTo("OFF");
-        assertThat(mine.get("managedByParent").asBoolean()).isTrue();
-        assertThat(mine.get("canEdit").asBoolean()).isFalse();
-
-        Resp childEdit = put("/profiles/" + f.childProfileId(), f.child(), settings(9, false, List.of(), List.of(), "OPEN", null));
-        assertThat(childEdit.status()).isEqualTo(403);
-        assertThat(childEdit.body().get("detail").asString()).isEqualTo("Your parent manages these settings.");
-
-        JsonNode family = get("/profiles/children", f.parent()).body();
-        assertThat(family.get("pinSet").asBoolean()).isFalse();
-        assertThat(family.get("children").size()).isEqualTo(1);
-        assertThat(family.get("children").get(0).get("profile").get("canEdit").asBoolean()).isTrue();
-
-        // Without a PIN the parent can change it straight away; a child's profile needs an age.
-        ok(put("/profiles/" + f.childProfileId(), f.parent(), settings(10, true, List.of(), List.of("spiders"), "OFF", 3)));
-        assertThat(put("/profiles/" + f.childProfileId(), f.parent(), settings(null, true, List.of(), List.of(), "OFF", null)).status())
+        assertThat(put("/profiles/" + me.get("id").asString(), token, settings(4, true, List.of(), List.of(), "OFF", null)).status()).isEqualTo(400);
+        assertThat(put("/profiles/" + me.get("id").asString(), token, settings(null, false, List.of("nope"), List.of(), "OFF", null)).status())
                 .isEqualTo(400);
-
-        // Another parent can't see it at all.
-        Family other = family(8, true);
-        assertThat(get("/profiles/" + f.childProfileId(), other.parent()).status()).isEqualTo(404);
-        assertThat(put("/profiles/" + f.childProfileId(), other.parent(), settings(10, false, List.of(), List.of(), "OPEN", null)).status())
-                .isEqualTo(404);
     }
 
     @Test
-    void onceAParentSetsAPinEveryChangeToAChildsSettingsNeedsIt() {
-        Family f = family(7, true);
-        assertThat(put("/profiles/pin", f.parent(), Map.of("pin", "12")).status()).isEqualTo(400);
-        ok(put("/profiles/pin", f.parent(), Map.of("pin", "2468")));
-        assertThat(get("/profiles/children", f.parent()).body().get("pinSet").asBoolean()).isTrue();
+    void someoneElsesSettingsAreNotFound() {
+        ChildReader a = childReader(9, true);
+        String other = login("settings-other-" + UUID.randomUUID().toString().substring(0, 8) + "@test.dev");
+        assertThat(get("/profiles/" + a.profileId(), other).status()).isEqualTo(404);
+        assertThat(put("/profiles/" + a.profileId(), other, settings(null, false, List.of(), List.of(), "OPEN", null)).status()).isEqualTo(404);
+    }
 
-        Map<String, Object> change = settings(7, false, List.of("gambling"), List.of(), "OFF", null);
-        String path = "/profiles/" + f.childProfileId();
-        Resp noPin = put(path, f.parent(), change);
+    @Test
+    void onceAPinIsSetChangingTheSettingsNeedsIt() {
+        ChildReader r = childReader(7, true);
+        assertThat(put("/profiles/pin", r.token(), Map.of("pin", "12")).status()).isEqualTo(400);
+        ok(put("/profiles/pin", r.token(), Map.of("pin", "2468")));
+        assertThat(get("/profiles/me", r.token()).body().get("pinSet").asBoolean()).isTrue();
+
+        Map<String, Object> change = settings(null, false, List.of(), List.of(), "OPEN", null);
+        String path = "/profiles/" + r.profileId();
+        Resp noPin = put(path, r.token(), change);
         assertThat(noPin.status()).isEqualTo(403);
-        assertThat(noPin.body().get("detail").asString()).contains("PIN");
-        assertThat(call(HttpMethod.PUT, path, f.parent(), change, Map.of("X-Parent-Pin", "1111")).status()).isEqualTo(403);
+        assertThat(noPin.body().get("detail").asString()).contains("parent PIN");
+        assertThat(call(HttpMethod.PUT, path, r.token(), change, Map.of("X-Parent-Pin", "1111")).status()).isEqualTo(403);
+        assertThat(get("/profiles/me", r.token()).body().get("age").asInt()).as("unchanged").isEqualTo(7);
 
-        Resp withPin = call(HttpMethod.PUT, path, f.parent(), change, Map.of("X-Parent-Pin", "2468"));
+        Resp withPin = call(HttpMethod.PUT, path, r.token(), change, Map.of("X-Parent-Pin", "2468"));
         ok(withPin);
-        assertThat(withPin.body().get("childSafe").asBoolean()).isFalse();
-        assertThat(withPin.body().get("categories").toString()).isEqualTo("[\"gambling\"]");
+        assertThat(withPin.body().get("readingLevel").asString()).isEqualTo("Adult");
 
         // Changing the PIN needs the current one.
-        assertThat(put("/profiles/pin", f.parent(), Map.of("pin", "1357")).status()).isEqualTo(403);
-        ok(put("/profiles/pin", f.parent(), Map.of("pin", "1357", "currentPin", "2468")));
+        assertThat(put("/profiles/pin", r.token(), Map.of("pin", "1357")).status()).isEqualTo(403);
+        ok(put("/profiles/pin", r.token(), Map.of("pin", "1357", "currentPin", "2468")));
     }
 
     @Test
-    void aChildSignsInWithThePasswordTheirParentChose() {
-        String parent = parent();
-        Resp weak = post("/profiles/children", parent, Map.of("email", "kid-weak@test.dev", "age", 9, "password", "short"));
-        assertThat(weak.status()).isEqualTo(400);
-        assertThat(weak.body().get("detail").asString()).contains("at least 15 characters");
-        assertThat(get("/profiles/children", parent).body().get("children").size()).as("no child made").isZero();
+    void thePinLocksThePasswordToo() {
+        String email = "lock-" + UUID.randomUUID().toString().substring(0, 8) + "@test.dev";
+        String token = post("/auth/sign-up", null, Map.of("email", email, "password", PASSWORD)).body().get("token").asString();
+        ok(put("/profiles/pin", token, Map.of("pin", "2468")));
 
-        String email = "kid-" + java.util.UUID.randomUUID().toString().substring(0, 8) + "@test.dev";
-        ok(post("/profiles/children", parent, Map.of("email", email, "age", 9, "password", PASSWORD)));
-        Resp in = post("/auth/sign-in", null, Map.of("email", email, "password", PASSWORD));
-        assertThat(in.status()).as(in.raw()).isEqualTo(200);
-        assertThat(get("/profiles/me", in.body().get("token").asString()).body().get("managedByParent").asBoolean()).isTrue();
+        Resp noPin = put("/auth/password", token, Map.of("currentPassword", PASSWORD, "newPassword", "a brand new long password"));
+        assertThat(noPin.status()).isEqualTo(403);
+        assertThat(noPin.body().get("detail").asString()).contains("parent PIN");
+        Resp withPin = put("/auth/password", token, Map.of("currentPassword", PASSWORD, "newPassword", "a brand new long password", "pin", "2468"));
+        assertThat(withPin.status()).as(withPin.raw()).isEqualTo(200);
     }
 
     @Test
-    void aParentResetsTheirChildsPasswordWithThePinAndTheChildsSignInsEnd() {
-        String parent = parent();
-        String email = "kid-" + java.util.UUID.randomUUID().toString().substring(0, 8) + "@test.dev";
-        String childId = post("/profiles/children", parent, Map.of("email", email, "age", 10, "password", PASSWORD)).body().get("userId").asString();
-        String child = post("/auth/sign-in", null, Map.of("email", email, "password", PASSWORD)).body().get("token").asString();
-        ok(put("/profiles/pin", parent, Map.of("pin", "2468")));
+    void aForgottenPinIsReplacedWithTheAccountPassword() {
+        String email = "forgot-pin-" + UUID.randomUUID().toString().substring(0, 8) + "@test.dev";
+        String token = post("/auth/sign-up", null, Map.of("email", email, "password", PASSWORD)).body().get("token").asString();
+        ok(put("/profiles/pin", token, Map.of("pin", "2468")));
 
-        String path = "/profiles/children/" + childId + "/password";
-        Map<String, Object> reset = Map.of("password", "violet harbour lantern");
-        assertThat(put(path, parent, reset).status()).as("needs the PIN").isEqualTo(403);
-        assertThat(call(HttpMethod.PUT, path, parent, reset, Map.of("X-Parent-Pin", "2468")).status()).isEqualTo(204);
+        assertThat(post("/profiles/pin/reset", token, Map.of("password", "not the password at all", "pin", "9753")).status()).isEqualTo(403);
+        ok(post("/profiles/pin/reset", token, Map.of("password", PASSWORD, "pin", "9753")));
+        String profile = get("/profiles/me", token).body().get("id").asString();
+        Map<String, Object> change = settings(10, true, List.of(), List.of(), "OFF", null);
+        assertThat(call(HttpMethod.PUT, "/profiles/" + profile, token, change, Map.of("X-Parent-Pin", "2468")).status()).isEqualTo(403);
+        ok(call(HttpMethod.PUT, "/profiles/" + profile, token, change, Map.of("X-Parent-Pin", "9753")));
+    }
 
-        assertThat(get("/auth/me", child).status()).as("the child's old sign-in has ended").isEqualTo(401);
-        assertThat(post("/auth/sign-in", null, Map.of("email", email, "password", PASSWORD)).status()).isEqualTo(401);
-        assertThat(post("/auth/sign-in", null, Map.of("email", email, "password", "violet harbour lantern")).status()).isEqualTo(200);
-
-        // Only their own parent can.
-        assertThat(call(HttpMethod.PUT, path, parent(), reset, Map.of("X-Parent-Pin", "2468")).status()).isEqualTo(404);
+    @Test
+    void theLockCanBeTurnedOffWithThePin() {
+        ChildReader r = childReader(8, true);
+        ok(put("/profiles/pin", r.token(), Map.of("pin", "2468")));
+        assertThat(call(HttpMethod.DELETE, "/profiles/pin", r.token(), null, Map.of("X-Parent-Pin", "1111")).status()).isEqualTo(403);
+        ok(call(HttpMethod.DELETE, "/profiles/pin", r.token(), null, Map.of("X-Parent-Pin", "2468")));
+        assertThat(get("/profiles/me", r.token()).body().get("pinSet").asBoolean()).isFalse();
+        ok(put("/profiles/" + r.profileId(), r.token(), settings(null, false, List.of(), List.of(), "OPEN", null)));
     }
 
     @Test
     void fiveWrongPinsPauseThePinEvenForTheRightOne() {
-        Family f = family(8, true);
-        ok(put("/profiles/pin", f.parent(), Map.of("pin", "2468")));
+        ChildReader r = childReader(8, true);
+        ok(put("/profiles/pin", r.token(), Map.of("pin", "2468")));
         Map<String, Object> change = settings(8, true, List.of(), List.of(), "OFF", null);
-        String path = "/profiles/" + f.childProfileId();
+        String path = "/profiles/" + r.profileId();
         for (int i = 0; i < 5; i++) {
-            assertThat(call(HttpMethod.PUT, path, f.parent(), change, Map.of("X-Parent-Pin", "100" + i)).status()).isEqualTo(403);
+            assertThat(call(HttpMethod.PUT, path, r.token(), change, Map.of("X-Parent-Pin", "100" + i)).status()).isEqualTo(403);
         }
-        Resp paused = call(HttpMethod.PUT, path, f.parent(), change, Map.of("X-Parent-Pin", "2468"));
+        Resp paused = call(HttpMethod.PUT, path, r.token(), change, Map.of("X-Parent-Pin", "2468"));
         assertThat(paused.status()).isEqualTo(429);
         assertThat(paused.body().get("detail").asString()).contains("Too many tries");
     }
@@ -166,11 +133,6 @@ class ProfilesApiTest extends IntegrationTest {
         Resp declined = post("/textbooks", adult, Map.of("topic", "Blackjack basics"));
         assertThat(declined.body().get("verdict").asString()).isEqualTo("DECLINE");
         assertThat(declined.body().get("message").asString()).contains("gambling", "reader settings");
-    }
-
-    private String parent() {
-        String email = "parent-" + java.util.UUID.randomUUID().toString().substring(0, 8) + "@test.dev";
-        return post("/auth/sign-up", null, Map.of("email", email, "password", PASSWORD, "role", "PARENT")).body().get("token").asString();
     }
 
     private static Map<String, Object> settings(Integer age, boolean childSafe, List<String> categories, List<String> extras,

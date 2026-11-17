@@ -59,13 +59,8 @@ public class RoutingSeeder implements SmartInitializingSingleton {
             boolean hasDefault = providers.values().stream().anyMatch(ProviderRecord::isDefault);
             if (!hasDefault) {
                 Provider wanted = props.defaultProvider();
-                boolean usable = clients.isAvailable(wanted) && providers.get(wanted).enabled();
-                Provider chosen = usable ? wanted : Provider.FAKE;
-                if (!usable) {
-                    log.warn("Configured default provider {} is not usable ({}); seeding FAKE as default",
-                            wanted, clients.unavailableReason(wanted));
-                }
-                repository.setDefault(chosen);
+                repository.setDefault(firstDefault(wanted, wanted != null && clients.isAvailable(wanted) && providers.get(wanted).enabled(),
+                        wanted == null ? null : clients.unavailableReason(wanted)));
             }
 
             var routes = repository.activeRoutes();
@@ -80,6 +75,19 @@ public class RoutingSeeder implements SmartInitializingSingleton {
         router.invalidate();
         router.snapshot().allProblems().forEach((task, problems) ->
                 problems.forEach(p -> log.warn("Routing problem: {}", p)));
+    }
+
+    /**
+     * The default provider for an empty database: the configured one, which must be usable. Never a silent stand-in:
+     * a server that would otherwise answer every learner with practice text refuses to start instead.
+     */
+    static Provider firstDefault(Provider wanted, boolean usable, String reason) {
+        if (wanted == null) {
+            throw new IllegalStateException("No default AI service: set LAA_DEFAULT_PROVIDER (ANTHROPIC, OPENAI, GOOGLE or OLLAMA) "
+                    + "for a new database. After that, the owner console chooses.");
+        }
+        if (!usable) throw new IllegalStateException("The default AI service " + wanted + " can't be used: " + reason);
+        return wanted;
     }
 
     private static Map<String, Object> summary(List<ModelInfo> models) {

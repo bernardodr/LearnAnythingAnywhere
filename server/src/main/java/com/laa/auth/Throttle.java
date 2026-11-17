@@ -13,14 +13,16 @@ import com.laa.web.ApiException;
 
 /**
  * Limits guessing (NIST SP 800-63B-4 rate limiting): a password for one email, the parent PIN for one parent, and
- * everything from one network address.
+ * everything from one network address. Also limits things that cost or send something: new accounts and emails.
  * <ul>
  *   <li>Each key counts failed tries within {@value #MINUTES} minutes of its first one. Once it reaches its limit, that
  *       key is paused for {@value #MINUTES} minutes: every try is refused, right or wrong, before anything is
  *       checked.</li>
  *   <li>A success clears that key (an email's count, a PIN's count), but not the network address's.</li>
  * </ul>
- * Kept in memory, so a restart clears it, and one server only (prototype). Behind a proxy, the address is the proxy's.
+ * Kept in memory, so a restart clears it, and one server only (prototype). The network address is the client's, also
+ * behind a proxy: Tomcat takes it from {@code X-Forwarded-For} on connections from an internal proxy only
+ * ({@code server.forward-headers-strategy} in {@code application.yml}).
  */
 @Component
 public class Throttle {
@@ -43,6 +45,21 @@ public class Throttle {
         return new Key("pin:" + parentId, 5);
     }
 
+    /** New accounts from one network address. */
+    public static Key signUps(String address) {
+        return new Key("sign-up:" + address, 5);
+    }
+
+    /** Emails LAA sends to one address (verification and reset links), however they were asked for. */
+    public static Key emailsTo(String email) {
+        return new Key("emails-to:" + email.toLowerCase(), 3);
+    }
+
+    /** Reset links asked for from one network address. */
+    public static Key resetRequests(String address) {
+        return new Key("reset-requests:" + address, 10);
+    }
+
     private record Count(Instant start, int failures, Instant pausedUntil) {}
 
     private final Cache<String, Count> counts = Caffeine.newBuilder()
@@ -61,6 +78,17 @@ public class Throttle {
                         + (minutes == 1 ? "a minute" : minutes + " minutes") + " and try again.");
             }
         }
+    }
+
+    /** Counts one use of something limited (an account made, an email sent), the same way as a failure. */
+    public void used(Key... keys) {
+        failed(keys);
+    }
+
+    /** True if {@code key} is paused right now (for callers that must not say so). */
+    public boolean paused(Key key) {
+        Count c = counts.getIfPresent(key.id());
+        return c != null && c.pausedUntil() != null && Instant.now().isBefore(c.pausedUntil());
     }
 
     public void failed(Key... keys) {
