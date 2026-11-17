@@ -12,7 +12,8 @@ spring:
     locations: classpath:db/migration
   mail:
     # The SMTP server comes from SPRING_MAIL_HOST / _PORT / _USERNAME / _PASSWORD (./dev.sh points at Mailpit).
-    # Without SPRING_MAIL_HOST, emails are kept in memory only (tests, or email not set up yet).
+    # Without SPRING_MAIL_HOST the server refuses to start, unless LAA_MAIL_OUTBOX=true (laa.mail.outbox below).
+    # Port 465 (TLS from the start, e.g. Cloudflare) needs SPRING_MAIL_SSL_ENABLED=true; 587 upgrades with STARTTLS.
     properties:
       mail.smtp.starttls.enable: true                       # used when the server offers it
       mail.smtp.starttls.required: ${SMTP_STARTTLS_REQUIRED:false}   # set true for a real provider
@@ -44,6 +45,7 @@ laa:
 
   mail:
     from: ${LAA_MAIL_FROM:Learn Anything Anywhere <no-reply@localhost>}
+    outbox: ${LAA_MAIL_OUTBOX:false}   # no SMTP server: keep emails in memory (tests, local runs without Mailpit)
 
   auth:
     jwt-secret: ${JWT_SECRET:}            # HS256; at least 32 bytes (openssl rand -hex 32)

@@ -21,7 +21,24 @@
 | Arrange your shelf: drag books with light physics (user request) | ✅ Done (2026-11-16) |
 | A shelf of spines: a compact view with the same physics (user request) | ✅ Done (2026-11-16) |
 | A firmer shelf: a solid board, snappy physics, no bounce (user feedback) | ✅ Done (2026-11-16) |
-| Production: GitHub Actions pipeline, Hetzner server, web, App Store, Google Play (user request) | 🚧 Phase 1 in progress (steps 1–2 done): `docs/PRODUCTION-PLAN.md` (2026-11-17). Tasks are GitHub issues on the *LAA production* board; the process is `docs/WORKFLOW.md` |
+| Production: GitHub Actions pipeline, Hetzner server, web, App Store, Google Play (user request) | 🚧 Phase 1 in progress (steps 1–3 done): `docs/PRODUCTION-PLAN.md` (2026-11-17). Tasks are GitHub issues on the *LAA production* board; the process is `docs/WORKFLOW.md` |
+
+## Production 1.3: email must be set up (done 2026-11-17)
+
+Phase 1, step 3 of `docs/PRODUCTION-PLAN.md` (GitHub issue #13). Server only. The first milestone built on a branch (`13-email-required`) under the pull-request rule; 1.1 and 1.2 were merged in #52.
+
+**Done**
+- **`Mailer` refuses to start the server without an SMTP host** (`SPRING_MAIL_HOST`), unless `laa.mail.outbox` (`LAA_MAIL_OUTBOX`, off by default) is on. The message names both settings. Before, a missing host only logged a warning, and in production nobody would have got a confirmation or reset email.
+- **The outbox is opt-in:** `application-test.yml` turns it on, and `./dev.sh` is unchanged because it always points SMTP at Mailpit.
+- **Port 465** (Cloudflare Email Sending, the user's choice for D8): Spring Boot's own `SPRING_MAIL_SSL_ENABLED=true`, documented in `.env.example` and `application.yml`. No code.
+- **`.env.example`** quotes `LAA_MAIL_FROM`: unquoted, its spaces and `<>` break `source .env` (and so `./dev.sh`).
+- **Docs:** `CLAUDE.md` (production defaults, the mail module, running the server alone), `.env.example`, `application.yml`. Nothing for the product docs: it's a setting for whoever runs the server.
+
+**Verified**
+- `MailerSmtpTest`: `Mailer` sends through a real SMTP server (a Mailpit container), and the email read back from Mailpit's API has the subject, sender name and address, recipient and link. Before it, the SMTP path had no automated test.
+- Signing in to Cloudflare's SMTP with the user's `.env` (connect and authenticate, nothing sent): fails with STARTTLS settings, succeeds with SSL on.
+- `MailerSetupTest` (3): no SMTP host and no outbox refuses to start, naming `SPRING_MAIL_HOST` and `LAA_MAIL_OUTBOX`; the outbox keeps emails when asked for; an SMTP host is enough on its own. It failed to compile before the change.
+- By hand, the packaged server with the local `.env` (which has no SMTP host): it refused to start with the message; with `LAA_MAIL_OUTBOX=true` it started, with the warning; with SMTP pointed at Mailpit it started.
 
 ## Production 1.2: a health check that says "down" (done 2026-11-17)
 
@@ -977,3 +994,4 @@ From the architecture review (card 1, "Deepen learner-facing generation"): M6 ha
 | 2026-11-17 | **Nobody pushes to `main`**: every change arrives by pull request, and the user reviews by merging. A ruleset with no bypass, 0 approvals required; a project hook (`.claude/hooks/protect-main.sh`) stops Claude from pushing to `main`, merging or approving, or changing the branch rules | The user's rule (plan D5, option (a)). GitHub doesn't let anyone approve their own pull request, and Claude pushes with the user's sign-in, so "1 approval" would block every merge. |
 | 2026-11-17 | **App identity:** *Learn Anything Anywhere*, `app.learnanythinganywhere` as the iOS bundle ID and Android package | The user's choice (plan D3). The domain reversed. It can't change once published. |
 | 2026-11-17 | **Tasks live in GitHub Issues + Projects** | The user's choice: free, next to the code, and Claude reaches it through `gh`. Issues in this public repo are public, so security problems never go in one. |
+| 2026-11-17 | **Email: Cloudflare.** Email Sending (SMTP, port 465, `SPRING_MAIL_SSL_ENABLED=true`) for what LAA sends; Email Routing forwards `support@learnanythinganywhere.app` to the user's inbox | The user's choice (plan D8). The domain and its DNS are on Cloudflare, so the records are added automatically. Email Sending is in beta and needs the Workers Paid plan. |

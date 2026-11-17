@@ -8,6 +8,8 @@ laa:
     dev-login-enabled: true
   dev:
     endpoints-enabled: true
+  mail:
+    outbox: true   # emails land in mailer.outbox(); no SMTP server in tests
   llm:
     default-provider: FAKE
     practice-providers: true
