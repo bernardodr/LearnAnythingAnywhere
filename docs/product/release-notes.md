@@ -6,6 +6,17 @@ What's new in each release of Learn Anything Anywhere, newest first. Each featur
 
 ---
 
+## 0.13: Interactive diagrams
+*18 November 2026*
+
+### New
+
+- **Interactive diagrams in lessons.** When a picture helps, a lesson can include one or two diagrams you explore right on the page: tap the parts of something, step through a process, compare two things, or move a slider and watch what changes. Each is drawn for your lesson, in its own words. [Interactive diagrams →](guide/04-reading-a-lesson.md#interactive-diagrams)
+- **Show as text:** every diagram has the same explanation written out. Switch to it whenever you like. It also appears by itself if a diagram can't be shown on your device.
+- **For the owner:** *Diagrams* is a new job in the routing table, so you can choose which AI service and model draws them, and try one with **Compare before switching**. [Routing: who does which job →](guide/08-the-owner-console.md#routing-who-does-which-job)
+
+---
+
 ## 0.12: Two more AI models
 *18 November 2026*
 

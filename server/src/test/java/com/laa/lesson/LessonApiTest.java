@@ -25,7 +25,7 @@ class LessonApiTest extends IntegrationTest {
         // Lesson 1, as a job with progress events.
         SseResp job = writeNext(learner, id);
         assertThat(job.named("progress")).extracting(e -> e.data().get("stage").asString())
-                .containsSubsequence("context", "plan", "write", "check", "save");
+                .containsSubsequence("context", "plan", "write", "check", "draw", "save");
         JsonNode done = job.named("done").getFirst().data();
         assertThat(done.get("seq").asInt()).isEqualTo(1);
         assertThat(job.events().getLast().name()).isEqualTo("done");
@@ -37,14 +37,21 @@ class LessonApiTest extends IntegrationTest {
         assertThat(l.get("missionLink").asString()).isNotBlank();
         assertThat(l.get("referenceSheet").get("title").asString()).isEqualTo("Small steps");
         List<String> types = l.get("blocks").valueStream().map(b -> b.get("type").asString()).toList();
-        assertThat(types).containsExactly("heading", "text", "key_idea", "callout", "quiz", "steps", "free_response", "ask_tutor");
+        assertThat(types).containsExactly("heading", "text", "diagram", "key_idea", "callout", "quiz", "steps", "free_response", "ask_tutor");
+        // The diagram arrives drawn: its page, title, text version and caption. Its brief stays on the server.
+        JsonNode diagram = l.get("blocks").get(2);
+        assertThat(diagram.get("title").asString()).endsWith("The small-step loop");
+        assertThat(diagram.get("html").asString()).contains("<svg", "laa-button").doesNotContain("<html");
+        assertThat(diagram.get("text").asString()).contains("**Pick**");
+        assertThat(diagram.get("caption").asString()).endsWith("Press Next to walk round the loop one stage at a time.");
+        assertThat(lesson.raw()).doesNotContain("A step-through of the small-step loop");
         JsonNode quiz = l.get("blocks").valueStream().filter(b -> b.get("type").asString().equals("quiz")).findFirst().orElseThrow();
         assertThat(quiz.get("options").get(quiz.get("answer").asInt()).asString()).isEqualTo("Practise it in small steps");
         assertThat(l.get("prev").isNull()).isTrue();
         assertThat(l.get("next").isNull()).isTrue();
         // Rubrics and hints never leave the server.
         assertThat(lesson.raw()).doesNotContain("answerOutline", "Names one concrete step", "Think about what you could do", "\"hints\"");
-        assertThat(l.get("blocks").get(6).get("hintCount").asInt()).isEqualTo(3);
+        assertThat(l.get("blocks").get(7).get("hintCount").asInt()).isEqualTo(3);
 
         Resp contents = get("/textbooks/" + id + "/contents", learner);
         ok(contents);

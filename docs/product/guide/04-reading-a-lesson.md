@@ -19,6 +19,7 @@ Lessons follow the same pattern, so you always know where you are.
 - Short sections, each with a heading, explaining just what you need to know.
 - **Key idea:** the one sentence to remember, marked with a line down the side.
 - **Watch out for this habit:** a common mistake and how to avoid it. You may also see a **Note** with a useful extra.
+- **Diagrams**, where a picture helps: see [Interactive diagrams](#interactive-diagrams) below.
 
 **Check yourself**
 - Quick questions to check you've understood. See [Quizzes](#quizzes) below.
@@ -34,6 +35,21 @@ Lessons follow the same pattern, so you always know where you are.
 
 **Stuck or curious?**
 - Ask your tutor anything about the lesson. See [Chatting with your tutor](05-practice-and-your-tutor.md#chatting-with-your-tutor).
+
+## Interactive diagrams
+
+Some ideas are easier to *see*: how the parts of something fit together, the stages of a process, or what changes when one thing changes. When a lesson has one of those, it can include an **interactive diagram** (at most two per lesson). It's drawn for your lesson, in its own words, and you explore it right there on the page:
+
+- **Tap a part** to read what it does.
+- **Step through** a process with **Next** and **Back**.
+- **Compare** two things side by side.
+- **Move a slider** and watch what changes.
+
+The line in italics under each diagram tells you what to try.
+
+**Prefer reading?** Tap **Show as text** under any diagram to see the same explanation written out, and **Show the diagram** to go back. Screen readers can use the text version too. If a diagram can't be shown on your device, the lesson shows the text version by itself, with a note saying so.
+
+**Safe by design:** a diagram can't go online, open links, or see anything else in LAA or on your device. Every word in it is checked against your reader settings before it reaches you, like the rest of the lesson. If a diagram doesn't pass, it's simply left out.
 
 ## Quizzes
 

@@ -12,6 +12,7 @@ export const TASK_LABEL: Record<TaskId, string> = {
   MISSION_INTERVIEW: 'Mission interview',
   LESSON_PLAN: 'Lesson planning',
   LESSON_WRITE: 'Lesson writing',
+  DIAGRAM: 'Diagrams',
   TUTOR: 'Tutor chat',
   GRADE: 'Grading practice',
   RECORD_UPDATE: 'Learning records',
@@ -37,6 +38,7 @@ function useCalls(token: string | null) {
 /** A request to start from, per call, so a comparison runs on something that call would really see. */
 const SAMPLE: Record<string, string> = {
   LESSON_WRITE: 'Write lesson 2 from this plan: {"title": "Placing your feet on purpose", "skill": "Choose and place each foot deliberately"}',
+  DIAGRAM: 'Draw one interactive diagram for lesson 2, "Placing your feet on purpose".\n\nWhat it shows, and how the learner explores it:\nA climbing shoe with four parts to tap: the toe, the inside edge, the outside edge and the heel. Tapping a part says when you use it on the wall.\n\nThe caption under it: Tap each part of the shoe to see when you use it.',
   MISSION_INTERVIEW: 'I want to climb a V3 with my friends by spring.',
   'MISSION_INTERVIEW.draft': 'Interview transcript:\nLEARNER: I want to climb a V3 with my friends by spring.\nLEARNER: Twice a week at my local gym.',
   GRADE: "Attempt 1. The learner's answer:\nI'd practise one small step, like a single move, ten times.",

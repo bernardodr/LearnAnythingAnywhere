@@ -52,6 +52,7 @@ The routing table lists each job LAA does:
 | Mission interview | The preface conversation and the mission card |
 | Lesson planning | Choosing what each lesson teaches |
 | Lesson writing | Writing each lesson |
+| Diagrams | Drawing the interactive diagrams in lessons |
 | Tutor chat | *Stuck or curious?* conversations |
 | Grading practice | Marking practice answers and coaching |
 | Learning records | Notes on what learners have shown they can do |

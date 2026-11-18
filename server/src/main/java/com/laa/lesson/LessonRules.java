@@ -26,6 +26,10 @@ import com.laa.lesson.LessonDraft.Type;
  *   <li>Structure: required fields per block type, at least one "check yourself" quiz and one free-response
  *       practice with a rubric, and a warm-up first from lesson 2 on (lesson 1 has nothing to recall).</li>
  * </ul>
+ * <ul>
+ *   <li>Diagrams: a DIAGRAM block needs a brief and a caption, and a lesson keeps at most {@value #MAX_DIAGRAMS};
+ *       later ones are dropped. The brief stays on the server, in {@link Result#diagrams}, for the diagram writer.</li>
+ * </ul>
  * Block ids are renumbered b1…bn. Problems are either fixable by dropping a quiz ({@link Problem#quiz}) or
  * structural; the writer retries once with them listed, then drops rule-breaking quizzes if that's enough.
  */
@@ -44,15 +48,26 @@ public final class LessonRules {
     /** Server-side data for one free-response block: the rubric and the hint ladder. */
     public record Marking(List<String> points, String answerOutline, List<String> hints) {}
 
-    /** A lesson ready to store: client-safe blocks, server-only marking, and what was removed on the way. */
-    public record Result(List<Map<String, Object>> blocks, Map<String, Marking> marking, List<Problem> problems,
-                         List<String> removed) {
+    /**
+     * What the diagram writer is asked to draw for one DIAGRAM block (by its client id), and the caption the learner
+     * sees under it.
+     */
+    public record DiagramBrief(String brief, String caption) {}
+
+    /**
+     * A lesson ready to store: client-safe blocks, server-only marking, the briefs for its diagrams (to be drawn
+     * next, then filled in by {@link LessonChecks#withDiagrams}), and what was removed on the way.
+     */
+    public record Result(List<Map<String, Object>> blocks, Map<String, Marking> marking, Map<String, DiagramBrief> diagrams,
+                         List<Problem> problems, List<String> removed) {
         public boolean ok() {
             return problems.isEmpty();
         }
     }
 
     static final Set<String> CALLOUT_KINDS = Set.of("win", "note", "watch_out");
+    /** At most this many diagrams per lesson: each one costs a model call, and a page of pictures teaches less, not more. */
+    static final int MAX_DIAGRAMS = 2;
     private static final Pattern NONE_OF_THE_KIND = Pattern.compile(
             "(?i)\\b(all|none|both|neither)\\s+of\\s+(the\\s+)?(above|these|those|options|answers)\\b|^\\s*(all|none)\\s*$");
 
@@ -75,6 +90,7 @@ public final class LessonRules {
         }
 
         List<Block> kept = new ArrayList<>();
+        int diagrams = 0;
         boolean warmupsOpen = true; // warm-ups may only lead the lesson
         for (Block b : draft.blocks()) {
             String where = "Block " + b.id() + " (" + b.type() + ")";
@@ -86,6 +102,11 @@ public final class LessonRules {
                 if (!warmupsOpen) problems.add(Problem.structure(where + ": warm-up quizzes must come first."));
             } else {
                 warmupsOpen = false;
+            }
+            if (b.type() == Type.DIAGRAM && ++diagrams > MAX_DIAGRAMS) {
+                // Dropped rather than sent back: the lesson is fine without it, and a rewrite would cost a whole lesson.
+                removed.add(where + ": dropped, a lesson has at most " + MAX_DIAGRAMS + " diagrams");
+                continue;
             }
             List<Problem> own = check(b, where, rubrics);
             if (b.type() == Type.QUIZ && dropBrokenQuizzes && !own.isEmpty() && own.stream().allMatch(Problem::quiz)) {
@@ -109,10 +130,11 @@ public final class LessonRules {
         if (seq > 1 && (kept.isEmpty() || kept.getFirst().type() != Type.QUIZ || !"warmup".equals(kept.getFirst().style()))) {
             problems.add(Problem.structure("Lesson " + seq + " must open with a warm-up quiz recalling an earlier lesson."));
         }
-        if (!problems.isEmpty()) return new Result(List.of(), Map.of(), problems, removed);
+        if (!problems.isEmpty()) return new Result(List.of(), Map.of(), Map.of(), problems, removed);
 
         List<Map<String, Object>> blocks = new ArrayList<>();
         Map<String, Marking> marking = new LinkedHashMap<>();
+        Map<String, DiagramBrief> briefs = new LinkedHashMap<>();
         int n = 0;
         for (Block b : kept) {
             String id = "b" + (++n);
@@ -121,8 +143,9 @@ public final class LessonRules {
                 Rubric r = rubrics.get(b.id());
                 marking.put(id, new Marking(r.points(), r.answerOutline(), clean(b.items())));
             }
+            if (b.type() == Type.DIAGRAM) briefs.put(id, new DiagramBrief(b.text().strip(), b.explanation().strip()));
         }
-        return new Result(blocks, marking, List.of(), removed);
+        return new Result(blocks, marking, briefs, List.of(), removed);
     }
 
     private static List<Problem> check(Block b, String where, Map<String, Rubric> rubrics) {
@@ -160,6 +183,10 @@ public final class LessonRules {
             case ASK_TUTOR -> {
                 int examples = clean(b.items()).size();
                 if (examples < 1 || examples > 3) p.add(Problem.structure(where + ": give 1 to 3 example questions."));
+            }
+            case DIAGRAM -> {
+                if (noText) p.add(Problem.structure(where + ": text needs the brief: what the diagram shows and how the learner explores it."));
+                if (b.explanation().isBlank()) p.add(Problem.structure(where + ": explanation needs the caption shown under the diagram."));
             }
         }
         return p;
@@ -249,6 +276,8 @@ public final class LessonRules {
                 m.put("note", text);
             }
             case ASK_TUTOR -> m.put("examples", clean(b.items()));
+            // Only the caption for now: the brief stays on the server, and the page is added once it's drawn and checked.
+            case DIAGRAM -> m.put("caption", b.explanation().strip());
         }
         return m;
     }

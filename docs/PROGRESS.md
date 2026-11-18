@@ -23,6 +23,67 @@
 | A firmer shelf: a solid board, snappy physics, no bounce (user feedback) | ✅ Done (2026-11-16) |
 | Production: GitHub Actions pipeline, Hetzner server, web, App Store, Google Play (user request) | 🚧 Phase 1 in progress (steps 1–3 done): `docs/PRODUCTION-PLAN.md` (2026-11-17). Tasks are GitHub issues on the *LAA production* board; the process is `docs/WORKFLOW.md` |
 
+## Interactive diagrams in lessons (done 2026-11-18)
+
+The user: "I have noticed a distinct lack of interactive diagrams… it's important that interactive diagrams [are used] if they would be good in helping the learner understand." Then, offered diagrams drawn from data or AI-written HTML: "I really like the html you generate… is there no way we can get away with that style?" Decisions (asked first): AI-written HTML in a sealed frame, `react-native-webview` (new dependency), diagrams as their own AI call with at most 2 per lesson, built now with no prototype. GitHub issue #60.
+
+**Done**
+- **Server:**
+  - **New task `DIAGRAM`** with `Calls.DIAGRAM` → `DiagramDraft` (title, html ≤ 40,000 characters, text version), prompt `diagram.v1.md`. **V14** allows the task and moves lesson-writing routes from prompt v1 to **`lesson_write.v2.md`**, which can place `DIAGRAM` blocks (a brief and a caption). A new route starts on the newest complete prompt version (`PromptLibrary.latest`).
+  - **`LessonRules`:** a DIAGRAM block needs a brief and a caption, a third diagram is dropped, and the brief stays server-only (`Result.diagrams`). The client block starts with only its caption.
+  - **`LessonWriter`:** after the lesson passes, it asks for each diagram (progress stage `draw`, "Drawing the diagrams"), redrawing once with the reasons if `DiagramRules` refuses the page. If drawing fails (an outage, or the wrong shape), the diagram is left out.
+  - **`LessonChecks.withDiagrams`:** the final say. Page rules, then the links rule on the title and text version, then one safety check over each diagram's words (title, text version, and `DiagramRules.words`: markup text, readable attributes and every script string). A failing diagram is left out and its run marked BLOCKED.
+  - **`DiagramRules`:** refuses outside addresses, script `src`, iframes, objects, forms, links, network calls, modules, `eval`, storage, cookies, `window.open`, `parent`, `top`, navigation, `postMessage`, device APIs and `alert`. It strips any document wrapper and SVG `xmlns`.
+  - **Practice mode** writes a diagram (the small-step loop), so the whole path can be tried for free.
+- **App:**
+  - **`lib/diagramShell.ts`:** the sealed document. It has a CSP with only inline script and style plus `data:` images and fonts, LAA's colours as CSS variables, a `laa-button` class, reduced-motion handling, and a bridge that reports only height and errors.
+  - **`DiagramFrame.web.tsx`:** `<iframe sandbox="allow-scripts">`, with no referrer and no permissions. It listens only to its own frame.
+  - **`DiagramFrame.tsx`:** a `react-native-webview` that loads only the document. It's incognito, with no storage, files, windows, data detectors or scrolling.
+  - **`Diagram.tsx`:** the title, the frame, the caption, and *Show as text* / *Show the diagram* (44 px). If the page fails, it falls back to the text version with a note.
+  - **Owner console:** a *Diagrams* job label and a Compare sample.
+- **Docs:**
+  - the guide (*Interactive diagrams* in "Reading a lesson", and the owner's routing table);
+  - release notes 0.13;
+  - the glossary (Interactive diagram, Diagram brief, Sealed frame);
+  - `DATABASE.md`, `CLAUDE.md`.
+
+**Verified**
+- `./mvnw test`: **227 passed**.
+  - **`DiagramRulesTest` (30):** 24 pages that reach out are refused; ordinary words like "fetch" and "location" pass; wrappers and `xmlns` are stripped; the size limit holds; words are found in markup, attributes, script strings and template literals, and CSS is ignored.
+  - **`LessonDiagramsTest` (5):** a drawn diagram is stored with its page and at most 2 are kept (the third is never drawn). A page that keeps reaching out is redrawn once, then left out. A diagram whose words fail the reader settings (text only shown after a tap) is left out, with its run BLOCKED. A wrong-shape answer is left out. When the *Diagrams* route's service is down, the lesson is saved without it.
+  - **`LessonApiTest`:** the `draw` stage, and the stored diagram with its page, text and caption. The brief never reaches the app.
+- `npm run typecheck` and `npx expo lint`: clean.
+- **Browser** (exported web app; practice mode on a scratch database `laa_e2e`, with no AI keys, so no spend):
+  - the lesson job runs context → plan → write → check → draw → save, and the diagram shows in LAA's style, the frame growing to fit (372×491);
+  - **real clicks** on Next step it from "1 of 4" to "3 of 4", highlighting *Notice*;
+  - **from inside the frame**, its own storage, the app's storage, the parent page, the network (`fetch` to the server), cookies and `window.open` are all blocked, and its origin is `null`;
+  - *Show as text* and back work, with no console errors or warnings.
+- **Not checked:** a real phone (iOS or Android web view), and a diagram drawn by a real AI service. Both are for the user to try: switch the owner console's default from practice mode, or route *Diagrams* to a real service.
+
+**Rigorous testing (user request: "make sure we have rigorous testing for the diagram feature")**
+
+Writing the tests found and fixed four problems:
+- **A lesson lost to the allowance.** If the learner hit their daily cap partway through a lesson, the diagram call's refusal threw the whole lesson away, although it was already written and checked. Now the diagram is left out. A safety check that's down still stops everything.
+- **Words shown by CSS weren't checked.** `content: "…"` can put words on screen. `DiagramRules.words` now reads CSS strings too.
+- **Prose tripped the JavaScript rules.** "Please confirm (once)", or a line starting "Import…", would have refused a page. The rules are now split: page rules cover tags, attributes and CSS; script rules cover only scripts and `on…=` handlers, case-sensitively, with strings and comments blanked. `Function('…')` and `document.write` are now refused, and an unclosed `<script>` is read to the end.
+- **A web frame could navigate itself away.** No sandbox flag or CSP rule stops that. The frame can't take any of LAA's data with it, but it can make one request. `DiagramFrame.web` now spots the second load and shows the text version. Phones refuse the navigation before it starts.
+
+The tests now:
+- **Server: 281 passed.**
+  - `DiagramRulesTest` (70): 53 hostile pages refused (other spellings, unquoted values, SVG `image`/`xlink:href`, `srcset`, `@font-face`, meta refresh, `on…=` handlers, unclosed scripts, …). 7 kinds of prose and ordinary code pass. Words are found in CSS, every readable attribute, script strings and template literals, decoded and each listed once. Normalising twice changes nothing. An empty page is refused.
+  - `LessonDiagramsTest` (12): metering (origin APP, user, textbook). Practice still works after a diagram is left out. Reaching the daily cap mid-lesson keeps the lesson. A safety check that's down while diagrams are checked saves nothing. A brief that fails the reader settings becomes a placeholder and is never drawn. The links rule applies to a diagram's text. The stored page is normalised. The owner can route and compare diagrams. Plus the 5 earlier cases.
+  - `LessonRulesTest` (+4): only the caption reaches the app and the brief stays under the new id; a missing brief or caption asks for a rewrite; a third diagram is dropped, not sent back; no diagrams means no briefs.
+  - `PromptLibraryTest` (+2): the newest complete version per task (lesson writing v2), and what the diagram prompt promises.
+  - `DiagramsMigrationTest` (2): the real migrations in a schema of their own, up to V13, with existing routes, then V14. DIAGRAM is refused before and allowed after, only v1 lesson-writing routes move, and a version the owner chose is kept.
+- **Browser: `./e2e/run.sh diagrams`**, committed and repeatable; it starts a scratch stack in practice mode with no keys. 8 checks, **passed 3 runs out of 3**:
+  - the diagram steps with real clicks, and *Show as text* works and back;
+  - **the frame attacked from inside:** 15 kinds of request (fetch, XHR, beacon, WebSocket, EventSource, img, stylesheet, prefetch, iframe, CSS background, font, video, object, script, form) went to a canary that counts hits, and **0 arrived**. Storage, app storage, the app's page, cookies, top navigation, eval, `window.open` and link pop-ups are all blocked, and the origin is `null`;
+  - messages: height is clamped to 120–1600, and other message kinds, or messages from the app's own page, change nothing;
+  - a script error, or navigating away, shows the text version;
+  - no console errors.
+  - DevTools' `Runtime.evaluate` lets eval past the CSP by default (`allowUnsafeEvalBlockedByCSP`), which first made eval look allowed. The harness turns that off, so it sees what a real page sees.
+- **Still not covered:** iOS and Android web views (no device here); a real AI service drawing diagrams.
+
 ## Developer docs (done 2026-11-17)
 
 The user asked for developer documentation that gets a new developer up to speed on the app and the process quickly (GitHub issue #54). Docs only.
@@ -1015,3 +1076,4 @@ From the architecture review (card 1, "Deepen learner-facing generation"): M6 ha
 | 2026-11-17 | **Email: Cloudflare.** Email Sending (SMTP, port 465, `SPRING_MAIL_SSL_ENABLED=true`) for what LAA sends; Email Routing forwards `support@learnanythinganywhere.app` to the user's inbox | The user's choice (plan D8). The domain and its DNS are on Cloudflare, so the records are added automatically. Email Sending is in beta and needs the Workers Paid plan. |
 | 2026-11-18 | **Code comments are written for a newcomer** (standard in `CLAUDE.md`; catch-up in issue #56, one area per pull request, in between the Phase 1 steps). **Pull requests are assigned to the user.** | The user: "I still don't see good explainer comments in the code or good javadoc", and wants new developers up to speed quickly. Their own pull requests never appear under *Review requests*. |
 | 2026-11-18 | **GPT-6.2 Sol ($2/$10 per 1M tokens) and GPT-6.2 Astra ($8/$40) added**, after the older OpenAI models so the LARGE default stays GPT-6.1 Sol | The user asked for them (issue #58); both are available to their key. Prices and capabilities from OpenAI's model pages on 2026-11-18. They're reasoning models, and LAA sets no reasoning effort, so OpenAI's default applies. |
+| 2026-11-18 | **Interactive diagrams: AI-written HTML in a sealed frame**, as their own AI call (task `DIAGRAM`), at most 2 per lesson; **`react-native-webview` 14.0.1** (Expo's supported version) for phones | The user chose the HTML style over diagrams drawn from data. A diagram can't stop a lesson, and every readable word is checked. A frame with no network, no app access and no navigation keeps an AI-written page harmless. |

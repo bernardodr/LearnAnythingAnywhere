@@ -14,13 +14,15 @@ import com.laa.llm.ModelInfo;
 import com.laa.llm.ModelTier;
 import com.laa.llm.Provider;
 import com.laa.llm.Task;
+import com.laa.llm.prompt.PromptLibrary;
 import com.laa.llm.config.LlmProperties;
 import com.laa.llm.config.LlmProperties.ModelSettings;
 import com.laa.llm.provider.ProviderClients;
 
 /**
  * On startup: sync every provider's model catalogue from config, then fill in anything missing
- * (a default provider, a route per task). Never overwrites the owner's choices.
+ * (a default provider, a route per task). Never overwrites the owner's choices. A task's first route uses the newest
+ * prompt version that ships every call of the task ({@link PromptLibrary#latest}); after that, the owner decides.
  */
 @Component
 public class RoutingSeeder implements SmartInitializingSingleton {
@@ -32,9 +34,11 @@ public class RoutingSeeder implements SmartInitializingSingleton {
     private final LlmProperties props;
     private final ModelRouter router;
     private final TransactionTemplate tx;
+    private final PromptLibrary prompts;
 
     public RoutingSeeder(RoutingRepository repository, ProviderClients clients, LlmProperties props,
-                         ModelRouter router, TransactionTemplate tx) {
+                         ModelRouter router, TransactionTemplate tx, PromptLibrary prompts) {
+        this.prompts = prompts;
         this.repository = repository;
         this.clients = clients;
         this.props = props;
@@ -68,7 +72,7 @@ public class RoutingSeeder implements SmartInitializingSingleton {
                 if (!routes.containsKey(task)) {
                     int maxTokens = task.defaultTier() == ModelTier.LARGE ? 16_000 : 4_000;
                     repository.insertRoute(new RouteRecord(null, task, null, task.defaultTier(), null,
-                            Map.of("maxTokens", maxTokens), "v1", List.of(), null));
+                            Map.of("maxTokens", maxTokens), prompts.latest(task), List.of(), null));
                 }
             }
         });
