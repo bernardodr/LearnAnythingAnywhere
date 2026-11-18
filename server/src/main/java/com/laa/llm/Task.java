@@ -10,6 +10,8 @@ public enum Task {
     RESEARCH(new Needs(false, true, true, 32_000), ModelTier.LARGE),
     LESSON_PLAN(new Needs(true, false, false, 32_000), ModelTier.LARGE),
     LESSON_WRITE(new Needs(true, false, false, 32_000), ModelTier.LARGE),
+    /** An interactive diagram for a lesson: a small self-contained HTML page, written after the lesson passes its checks. */
+    DIAGRAM(new Needs(true, false, false, 32_000), ModelTier.LARGE),
     TUTOR(new Needs(false, false, true, 16_000), ModelTier.SMALL),
     GRADE(new Needs(true, false, false, 8_000), ModelTier.SMALL),
     RECORD_UPDATE(new Needs(true, false, false, 16_000), ModelTier.SMALL),

@@ -3,6 +3,7 @@ package com.laa.llm;
 import java.util.List;
 import java.util.Optional;
 
+import com.laa.lesson.DiagramDraft;
 import com.laa.lesson.LessonDraft;
 import com.laa.lesson.LessonPlan;
 import com.laa.mission.MissionDraft;
@@ -29,6 +30,9 @@ public final class Calls {
             new StructuredCall<>(Task.LESSON_PLAN, null, LessonPlan.class, "Lesson plan");
     public static final StructuredCall<LessonDraft> LESSON_WRITE =
             new StructuredCall<>(Task.LESSON_WRITE, null, LessonDraft.class, "Lesson writing");
+    /** One interactive diagram for a lesson, from the brief the lesson writer left in a DIAGRAM block. */
+    public static final StructuredCall<DiagramDraft> DIAGRAM =
+            new StructuredCall<>(Task.DIAGRAM, null, DiagramDraft.class, "Diagram");
 
     // Tutor (BRIEF 6.5)
     public static final StructuredCall<GradeResult> GRADE = new StructuredCall<>(Task.GRADE, null, GradeResult.class, "Grading");
@@ -47,7 +51,7 @@ public final class Calls {
     // Not called by the app yet (BRIEF 6.3); registered so it can be routed and compared.
     public static final TextCall RESEARCH = new TextCall(Task.RESEARCH, null, "Research (not used yet)");
 
-    private static final List<Call> ALL = List.of(INTERVIEW_TURN, MISSION_DRAFT, LESSON_PLAN, LESSON_WRITE, GRADE,
+    private static final List<Call> ALL = List.of(INTERVIEW_TURN, MISSION_DRAFT, LESSON_PLAN, LESSON_WRITE, DIAGRAM, GRADE,
             RECORD_UPDATE, TUTOR_REPLY, TOPIC_GATE, CONTENT_CHECK, LEAK_CHECK, RESEARCH);
 
     private Calls() {}

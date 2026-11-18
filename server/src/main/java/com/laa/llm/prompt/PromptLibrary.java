@@ -39,6 +39,18 @@ public class PromptLibrary {
         return Calls.forTask(task).stream().allMatch(c -> has(c, version));
     }
 
+    /**
+     * The newest version (v1, v2, …) that ships the task's main prompt and every registered call's prompt; a new route
+     * starts there. Versions are numbered without gaps, so the search stops at the first one missing.
+     */
+    public String latest(Task task) {
+        String newest = "v1";
+        for (int n = 2; n < 1000 && load(task, null, "v" + n).isPresent(); n++) {
+            if (exists(task, "v" + n)) newest = "v" + n;
+        }
+        return newest;
+    }
+
     /** True when this version ships the call's prompt. */
     public boolean has(Call call, String version) {
         return load(call.task(), call.variant(), version).isPresent();

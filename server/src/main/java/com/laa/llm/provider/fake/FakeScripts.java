@@ -27,7 +27,7 @@ final class FakeScripts {
     private static final JsonMapper MAPPER = JsonMapper.builder().build();
 
     /** The structured calls with a scripted reply; every other structured call gets schema-generated JSON. */
-    private static final Set<Call> SCRIPTED = Set.of(Calls.TOPIC_GATE, Calls.MISSION_DRAFT, Calls.LESSON_PLAN, Calls.LESSON_WRITE,
+    private static final Set<Call> SCRIPTED = Set.of(Calls.TOPIC_GATE, Calls.MISSION_DRAFT, Calls.LESSON_PLAN, Calls.LESSON_WRITE, Calls.DIAGRAM,
             Calls.GRADE, Calls.LEAK_CHECK, Calls.CONTENT_CHECK, Calls.RECORD_UPDATE);
 
     private FakeScripts() {}
@@ -59,6 +59,9 @@ final class FakeScripts {
         }
         if (call.equals(Calls.LESSON_WRITE)) {
             return lesson(request, tag);
+        }
+        if (call.equals(Calls.DIAGRAM)) {
+            return diagram(tag);
         }
         if (call.equals(Calls.GRADE)) {
             return grade(request, tag);
@@ -139,6 +142,9 @@ final class FakeScripts {
         blocks.add(block("t1", "TEXT", "", tag + "Start with **one small step** you can repeat. Small steps are easy to "
                 + "practise and easy to check, so you get feedback quickly.\n\n- Pick the step\n- Try it once\n- Notice what happened",
                 List.of(), -1, "", cite));
+        blocks.add(block("d1", "DIAGRAM", "", "A step-through of the small-step loop: pick the step, try it once, notice what "
+                + "happened, then repeat. Back and Next move between the four stages, highlighting each on a loop.",
+                List.of(), -1, tag + "Press Next to walk round the loop one stage at a time.", List.of()));
         blocks.add(block("k1", "KEY_IDEA", "", tag + "Small, repeated steps beat one big leap.", List.of(), -1, "", List.of()));
         blocks.add(block("c1", "CALLOUT", "watch_out", tag + "Trying to do everything at once. Pick one step and stay with it.",
                 List.of(), -1, "", List.of()));
@@ -163,6 +169,63 @@ final class FakeScripts {
                 "rubrics", List.of(Map.of("blockId", "f1",
                         "points", List.of("Names one concrete step", "Explains how it gives quick feedback"),
                         "answerOutline", "A specific small action, plus why repeating it gives quick feedback."))));
+    }
+
+    /**
+     * Practice mode's diagram: a working step-through of the small-step loop, so the whole diagram path (the page
+     * rules, the safety check, the sealed frame in the app) can be tried without a real AI service. It follows the
+     * diagram prompt's own rules: LAA's CSS variables, real buttons, whole strings, no outside anything.
+     */
+    private static String diagram(String tag) {
+        String html = """
+                <style>
+                  .loop { display: block; width: 100%; max-width: 360px; margin: 0 auto; }
+                  .stage circle { fill: var(--note); stroke: var(--rule); stroke-width: 2; transition: fill 200ms; }
+                  .stage text { font: 600 13px var(--sans); fill: var(--ink); text-anchor: middle; }
+                  .stage.on circle { fill: var(--accent); stroke: var(--accent); }
+                  .stage.on text { fill: var(--paper); }
+                  .panel { background: var(--note); border-radius: 8px; padding: 12px 14px; margin: 12px 0; min-height: 3.2em;
+                           font: 16px/1.5 var(--serif); color: var(--ink); }
+                  .count { font: 13px var(--sans); color: var(--muted); }
+                  .controls { display: flex; gap: 8px; justify-content: space-between; align-items: center; }
+                  @media (prefers-reduced-motion: reduce) { .stage circle { transition: none; } }
+                </style>
+                <svg class="loop" viewBox="0 0 300 300" role="img" aria-label="A loop of four stages: pick, try, notice, repeat">
+                  <circle cx="150" cy="150" r="95" fill="none" stroke="var(--rule)" stroke-width="3"/>
+                  <g class="stage" data-i="0"><circle cx="150" cy="55" r="38"/><text x="150" y="60">Pick</text></g>
+                  <g class="stage" data-i="1"><circle cx="245" cy="150" r="38"/><text x="245" y="155">Try</text></g>
+                  <g class="stage" data-i="2"><circle cx="150" cy="245" r="38"/><text x="150" y="250">Notice</text></g>
+                  <g class="stage" data-i="3"><circle cx="55" cy="150" r="38"/><text x="55" y="155">Repeat</text></g>
+                </svg>
+                <div class="panel" aria-live="polite" id="panel"></div>
+                <div class="controls">
+                  <button class="laa-button" id="back">Back</button>
+                  <span class="count" id="count"></span>
+                  <button class="laa-button" id="next">Next</button>
+                </div>
+                <script>
+                  const stages = [
+                    "Pick one small step you can do in ten minutes.",
+                    "Try it once, without worrying about doing it well.",
+                    "Notice what happened: what worked, and what felt hard?",
+                    "Repeat the step, changing one thing you noticed."
+                  ];
+                  let current = 0;
+                  function show() {
+                    document.querySelectorAll(".stage").forEach((g, i) => g.classList.toggle("on", i === current));
+                    document.getElementById("panel").textContent = stages[current];
+                    document.getElementById("count").textContent = (current + 1) + " of " + stages.length;
+                  }
+                  document.getElementById("back").addEventListener("click", () => { current = (current + stages.length - 1) % stages.length; show(); });
+                  document.getElementById("next").addEventListener("click", () => { current = (current + 1) % stages.length; show(); });
+                  show();
+                </script>
+                """;
+        return json(Map.of(
+                "title", tag + "The small-step loop",
+                "html", html,
+                "textVersion", "1. **Pick** one small step you can do in ten minutes.\n2. **Try** it once, without worrying about doing it well.\n"
+                        + "3. **Notice** what happened: what worked, and what felt hard?\n4. **Repeat** the step, changing one thing you noticed."));
     }
 
     private static Map<String, Object> block(String id, String type, String style, String text, List<String> items,

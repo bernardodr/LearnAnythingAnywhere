@@ -1,7 +1,9 @@
 package com.laa.lesson;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -38,6 +40,13 @@ import tools.jackson.databind.json.JsonMapper;
  * proximal development, LESSON_WRITE writes it, and {@link LessonChecks} judges it. If the checks ask for a rewrite,
  * the writer gets the problems back and rewrites once, and the checks judge that as the final attempt. Only what the
  * checks pass can be saved.
+ *
+ * <p><b>Diagrams.</b> The lesson writer may mark up to two places where a picture would help (DIAGRAM blocks, each a
+ * brief and a caption). Once the lesson has passed, each brief goes to the diagram writer ({@code Calls.DIAGRAM}),
+ * which returns a small interactive page. A page that breaks {@link DiagramRules} is sent back once with the reasons;
+ * then {@link LessonChecks#withDiagrams} has the final say. A diagram that can't be drawn (the writer is down, or its
+ * answer is the wrong shape) or doesn't pass is left out, and the lesson is saved without it. So diagrams can make a
+ * lesson better, but never stop one.
  */
 @Service
 public class LessonWriter {
@@ -104,6 +113,14 @@ public class LessonWriter {
                 }
                 case Rewrite r -> throw new IllegalStateException("A final check never asks for another rewrite");
             };
+            if (!lesson.result().diagrams().isEmpty()) {
+                progress.stage("draw", "Drawing the diagrams");
+                Map<String, LessonChecks.Drawn> drawn = new LinkedHashMap<>();
+                for (var diagram : lesson.result().diagrams().entrySet()) {
+                    draw(diagram.getValue(), seq, lesson.draft(), vars, userId, tb, profile).ifPresent(d -> drawn.put(diagram.getKey(), d));
+                }
+                lesson = checks.withDiagrams(lesson, drawn, about);
+            }
             if (!lesson.changes().isEmpty()) log.info("Lesson {} for textbook {}: {}", seq, tb.id(), lesson.changes());
 
             progress.stage("save", "Binding the pages");
@@ -117,6 +134,45 @@ public class LessonWriter {
             throw new ApiException(HttpStatus.BAD_GATEWAY,
                     "The lesson came back in the wrong shape twice, so it wasn’t saved. Please try again.");
         }
+    }
+
+    /**
+     * Asks the diagram writer for one diagram, and once more with the reasons if its page breaks {@link DiagramRules}.
+     * Empty when no diagram came back at all; a page that still breaks the rules is returned anyway, for
+     * {@link LessonChecks#withDiagrams} to leave out and note.
+     */
+    private Optional<LessonChecks.Drawn> draw(LessonRules.DiagramBrief brief, int seq, LessonDraft lesson, Map<String, String> vars,
+                                              UUID userId, Textbook tb, GenerationProfile profile) {
+        String ask = "Draw one interactive diagram for lesson " + seq + ", \"" + lesson.title() + "\".\n\n"
+                + "What it shows, and how the learner explores it:\n" + brief.brief() + "\n\n"
+                + "The caption under it: " + brief.caption() + "\n\n"
+                + "The lesson it belongs to, so the diagram uses the same words and examples:\n" + lessonText(lesson);
+        try {
+            LlmResult<DiagramDraft> first = gateway.structuredResult(Calls.DIAGRAM, prompt(vars, ask, userId, tb.id()), profile);
+            List<String> problems = DiagramRules.problems(DiagramRules.normalise(first.value().html()));
+            if (problems.isEmpty()) return Optional.of(new LessonChecks.Drawn(first.value(), first.runId()));
+            log.info("A diagram for lesson {} of textbook {} broke the page rules, redrawing: {}", seq, tb.id(), problems);
+            String fix = ask + "\n\nYour previous page had these problems:\n- " + String.join("\n- ", problems)
+                    + "\n\nYour previous page, to correct:\n" + first.value().html() + "\n\nReturn the whole corrected diagram.";
+            LlmResult<DiagramDraft> second = gateway.structuredResult(Calls.DIAGRAM, prompt(vars, fix, userId, tb.id()), profile);
+            return Optional.of(new LessonChecks.Drawn(second.value(), second.runId()));
+        } catch (LlmUnavailableException | StructuredOutputException e) {
+            log.warn("A diagram for lesson {} of textbook {} couldn't be drawn, so it's left out: {}", seq, tb.id(), e.getClass().getSimpleName());
+            return Optional.empty();
+        }
+    }
+
+    /** The lesson's teaching text (headings, paragraphs, the key idea and callouts), as context for the diagram writer. */
+    private static String lessonText(LessonDraft lesson) {
+        StringBuilder out = new StringBuilder(lesson.subtitle()).append("\n");
+        for (LessonDraft.Block b : lesson.blocks()) {
+            switch (b.type()) {
+                case HEADING -> out.append("\n## ").append(b.text()).append('\n');
+                case TEXT, KEY_IDEA, CALLOUT -> out.append(b.text()).append('\n');
+                default -> { }
+            }
+        }
+        return out.length() > 6000 ? out.substring(0, 6000) + "…" : out.toString();
     }
 
     private static PromptContext prompt(Map<String, String> vars, String message, UUID userId, UUID textbookId) {
