@@ -22,6 +22,23 @@ class PromptLibraryTest {
     }
 
     @Test
+    void aNewRouteStartsOnTheNewestCompleteVersion() {
+        // Lesson writing has v2 (it can place diagrams); everything else is still on v1.
+        assertThat(prompts.latest(Task.LESSON_WRITE)).isEqualTo("v2");
+        assertThat(prompts.latest(Task.DIAGRAM)).isEqualTo("v1");
+        assertThat(prompts.latest(Task.SAFETY_CHECK)).isEqualTo("v1");
+        assertThat(prompts.render(Calls.LESSON_WRITE, "v2", java.util.Map.of())).contains("DIAGRAM", "brief", "caption");
+        assertThat(prompts.render(Calls.LESSON_WRITE, "v1", java.util.Map.of())).doesNotContain("DIAGRAM");
+    }
+
+    @Test
+    void theDiagramPromptStatesTheFramesLimitsAndTheLook() {
+        String prompt = prompts.render(Calls.DIAGRAM, "v1", java.util.Map.of("title", "Bouldering"));
+        assertThat(prompt).contains("Bouldering", "No internet", "--accent", "laa-button", "44px", "textVersion", "whole")
+                .doesNotContain("<!--");
+    }
+
+    @Test
     void variantsRenderTheirOwnFileWithVariablesAndWithoutAuthoringComments() {
         String draft = prompts.render(Calls.MISSION_DRAFT, "v1", Map.of("title", "Bouldering"));
         assertThat(draft).contains("**Bouldering**").contains("successLooksLike").doesNotContain("<!--");

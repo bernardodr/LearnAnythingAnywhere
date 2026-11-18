@@ -14,9 +14,15 @@ import { colors } from '@/theme';
  *
  * The only thing the app listens to is the bridge's messages from this frame: the page's height, and whether its
  * script failed (`onFailed`, so the caller can show the text version instead).
+ *
+ * **The one way out the web can't close:** a sandboxed frame may still navigate *itself* to another address (no
+ * sandbox flag or CSP rule stops that, and it carries none of LAA's data, which the frame can't reach). If it does,
+ * the frame loads a second time, and the app swaps the diagram for its text version at once. On phones the web view
+ * refuses the navigation before it starts.
  */
 export function DiagramFrame({ html, title, onFailed }: { html: string; title: string; onFailed: () => void }) {
   const frame = useRef<HTMLIFrameElement>(null);
+  const loads = useRef(0);
   const [height, setHeight] = useState(320);
 
   useEffect(() => {
@@ -40,6 +46,11 @@ export function DiagramFrame({ html, title, onFailed }: { html: string; title: s
       referrerPolicy="no-referrer"
       allow=""
       loading="lazy"
+      // The document loads once; a second load means the page navigated away from it.
+      onLoad={() => {
+        loads.current += 1;
+        if (loads.current > 1) onFailed();
+      }}
       style={{ width: '100%', height, border: 0, display: 'block', background: colors.paper }}
     />
   );

@@ -28,6 +28,7 @@ import com.laa.llm.LlmUnavailableException;
 import com.laa.llm.PromptContext;
 import com.laa.llm.StructuredOutputException;
 import com.laa.llm.runs.Origin;
+import com.laa.safety.Moderation;
 import com.laa.textbook.Textbook;
 import com.laa.web.ApiException;
 import com.laa.workspace.Resources.Resource;
@@ -45,8 +46,9 @@ import tools.jackson.databind.json.JsonMapper;
  * brief and a caption). Once the lesson has passed, each brief goes to the diagram writer ({@code Calls.DIAGRAM}),
  * which returns a small interactive page. A page that breaks {@link DiagramRules} is sent back once with the reasons;
  * then {@link LessonChecks#withDiagrams} has the final say. A diagram that can't be drawn (the writer is down, or its
- * answer is the wrong shape) or doesn't pass is left out, and the lesson is saved without it. So diagrams can make a
- * lesson better, but never stop one.
+ * answer is the wrong shape, or the daily allowance runs out mid-lesson) or doesn't pass is left out, and the lesson
+ * is saved without it. So diagrams can make a lesson better, but never stop one. The one exception is the safety check
+ * itself being down: then nothing is saved, as everywhere in LAA.
  */
 @Service
 public class LessonWriter {
@@ -156,8 +158,15 @@ public class LessonWriter {
                     + "\n\nYour previous page, to correct:\n" + first.value().html() + "\n\nReturn the whole corrected diagram.";
             LlmResult<DiagramDraft> second = gateway.structuredResult(Calls.DIAGRAM, prompt(vars, fix, userId, tb.id()), profile);
             return Optional.of(new LessonChecks.Drawn(second.value(), second.runId()));
+        } catch (Moderation.Unavailable e) {
+            throw e; // never thrown while drawing today, but an unchecked page must never be carried on with
         } catch (LlmUnavailableException | StructuredOutputException e) {
             log.warn("A diagram for lesson {} of textbook {} couldn't be drawn, so it's left out: {}", seq, tb.id(), e.getClass().getSimpleName());
+            return Optional.empty();
+        } catch (ApiException e) {
+            // The allowance (llm/Allowance) refused the call: the learner reached their daily cap, or LAA its total,
+            // while this lesson was being written. The lesson is already written and checked, so keep it.
+            log.info("A diagram for lesson {} of textbook {} wasn't drawn ({}), so it's left out", seq, tb.id(), e.getMessage());
             return Optional.empty();
         }
     }

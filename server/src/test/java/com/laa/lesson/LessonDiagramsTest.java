@@ -12,6 +12,7 @@ import com.laa.llm.Calls;
 import com.laa.llm.Provider;
 import com.laa.llm.provider.fake.FailureMode;
 import com.laa.llm.provider.fake.FakeBehaviour;
+import com.laa.safety.Moderation;
 
 import tools.jackson.databind.JsonNode;
 
@@ -35,6 +36,9 @@ class LessonDiagramsTest extends IntegrationTest {
         assertThat(diagrams.getFirst().get("html").asString()).contains("<svg");
         assertThat(diagrams.getFirst().get("caption").asString()).isEqualTo("Tap each stage. 1");
         assertThat(diagramRuns()).isEqualTo(2); // the third was dropped before anyone drew it
+        // Metered like any other learner request: theirs, for this textbook, so it counts toward their allowance.
+        assertThat(jdbc.sql("SELECT count(*) FROM model_runs WHERE task = 'DIAGRAM' AND origin = 'APP' AND user_id IS NOT NULL "
+                + "AND textbook_id = :t AND call = 'DIAGRAM'").param("t", java.util.UUID.fromString(id)).query(Long.class).single()).isEqualTo(2);
     }
 
     @Test
@@ -49,6 +53,11 @@ class LessonDiagramsTest extends IntegrationTest {
         assertThat(job.named("done")).hasSize(1);
         assertThat(types(learner, id)).doesNotContain("diagram").contains("free_response");
         assertThat(diagramRuns()).isEqualTo(2);
+        // The diagram's block id is simply missing; practice on the blocks after it still finds its marking.
+        JsonNode lesson = get("/textbooks/" + id + "/lessons/1", learner).body();
+        String practice = lesson.get("blocks").valueStream().filter(b -> b.get("type").asString().equals("free_response"))
+                .findFirst().orElseThrow().get("id").asString();
+        ok(post("/lessons/" + lesson.get("id").asString() + "/blocks/" + practice + "/hint", learner, null));
     }
 
     @Test
@@ -91,6 +100,112 @@ class LessonDiagramsTest extends IntegrationTest {
 
         assertThat(job.named("done")).hasSize(1);
         assertThat(types(learner, id)).doesNotContain("diagram").contains("free_response");
+    }
+
+    @Test
+    void aLearnerWhoReachesTheirDailyCapMidLessonStillGetsTheLessonWithoutTheDiagram() {
+        String learner = login("cap-mid-lesson@test.dev");
+        String id = activeTextbook(learner);
+        fakes.setCanned(Calls.LESSON_WRITE, lessonWithDiagrams(1));
+        // The lesson's own safety check is the last call before the diagram. As soon as it's logged, this learner's
+        // spend jumps past their daily cap, so the diagram call is refused by the allowance, not by an outage.
+        jdbc.sql("""
+                CREATE OR REPLACE FUNCTION test_overspend() RETURNS trigger AS $$ BEGIN
+                  IF NEW.call = 'SAFETY_CHECK.content' AND NEW.user_id IS NOT NULL THEN
+                    INSERT INTO model_runs (task, provider, model, latency_ms, status, origin, cost_estimate, user_id, call)
+                    VALUES ('LESSON_WRITE', 'FAKE', 'fake', 1, 'OK', 'APP', 99, NEW.user_id, 'LESSON_WRITE');
+                  END IF;
+                  RETURN NEW;
+                END $$ LANGUAGE plpgsql""").update();
+        jdbc.sql("CREATE TRIGGER test_overspend AFTER INSERT ON model_runs FOR EACH ROW EXECUTE FUNCTION test_overspend()").update();
+        try {
+            SseResp job = writeNext(learner, id);
+
+            assertThat(job.named("error")).as("the lesson was written and checked: it must not be thrown away").isEmpty();
+            assertThat(types(learner, id)).doesNotContain("diagram").contains("free_response");
+            assertThat(diagramRuns()).isZero();
+        } finally {
+            jdbc.sql("DROP TRIGGER test_overspend ON model_runs").update();
+            jdbc.sql("DROP FUNCTION test_overspend()").update();
+        }
+    }
+
+    @Test
+    void whenTheSafetyCheckIsDownWhileCheckingDiagramsNothingIsSaved() {
+        String learner = login("check-down@test.dev");
+        String id = activeTextbook(learner);
+        fakes.setCanned(Calls.LESSON_WRITE, lessonWithDiagrams(1));
+        // The lesson's own check passes; the check of the diagram's words can't run. An unchecked page is never shown,
+        // and LAA never carries on past a safety check that's down, so the lesson isn't saved either.
+        fakes.setCanned(Calls.DIAGRAM, diagram("<p>" + FakeBehaviour.CHECK_DOWN_MARKER + " A part to tap</p>"));
+
+        SseResp job = writeNext(learner, id);
+
+        assertThat(job.named("error")).as(job.raw()).isNotEmpty();
+        assertThat(job.named("error").getFirst().data().get("message").asString()).contains("couldn’t run the safety check");
+        assertThat(get("/textbooks/" + id + "/lessons/1", learner).status()).isEqualTo(404);
+    }
+
+    @Test
+    void aBriefThatDoesntFitTheReaderSettingsBecomesAPlaceholderAndIsNeverDrawn() {
+        String learner = login("blocked-brief@test.dev");
+        String id = activeTextbook(learner);
+        // The brief goes to another AI, so it's checked with the lesson like any other block. Both attempts fail.
+        fakes.setCanned(Calls.LESSON_WRITE, lessonWithDiagrams(1).replace("A loop of four stages", FakeBehaviour.BLOCK_MARKER + " A loop"));
+
+        ok(writeNext(learner, id));
+
+        JsonNode blocks = get("/textbooks/" + id + "/lessons/1", learner).body().get("blocks");
+        assertThat(blocks.valueStream().map(b -> b.get("type").asString())).doesNotContain("diagram");
+        assertThat(blocks.valueStream().filter(b -> Moderation.PLACEHOLDER.equals(b.path("text").asString(null)))).hasSize(1);
+        assertThat(diagramRuns()).isZero();
+    }
+
+    @Test
+    void theDiagramsWordsFollowTheLearnersLinksRule() {
+        // A learner set up for a child of 10: links are off.
+        ChildReader child = childReader(10, true);
+        String id = activeTextbook(child.token());
+        fakes.setCanned(Calls.LESSON_WRITE, lessonWithDiagrams(1));
+        fakes.setCanned(Calls.DIAGRAM, JSON.writeValueAsString(Map.of("title", "Feet on the wall",
+                "html", "<p>Tap a part</p>", "textVersion", "- Toe: read more at https://example.com/feet")));
+
+        ok(writeNext(child.token(), id));
+
+        JsonNode diagram = get("/textbooks/" + id + "/lessons/1", child.token()).body().get("blocks").valueStream()
+                .filter(b -> b.get("type").asString().equals("diagram")).findFirst().orElseThrow();
+        assertThat(diagram.get("text").asString()).startsWith("- Toe: read more at").doesNotContain("https://", "example.com");
+    }
+
+    @Test
+    void theStoredPageHasNoDocumentWrapperOrNamespaces() {
+        String learner = login("wrapped@test.dev");
+        String id = activeTextbook(learner);
+        fakes.setCanned(Calls.LESSON_WRITE, lessonWithDiagrams(1));
+        fakes.setCanned(Calls.DIAGRAM, diagram("<!DOCTYPE html><html><head><title>t</title></head><body>"
+                + "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 10 10\"><circle r=\"4\"/></svg></body></html>"));
+
+        ok(writeNext(learner, id));
+
+        String html = get("/textbooks/" + id + "/lessons/1", learner).body().get("blocks").valueStream()
+                .filter(b -> b.get("type").asString().equals("diagram")).findFirst().orElseThrow().get("html").asString();
+        assertThat(html).isEqualTo("<svg viewBox=\"0 0 10 10\"><circle r=\"4\"/></svg>");
+    }
+
+    @Test
+    void theOwnerCanRouteDiagramsOnTheirOwnAndCompareThem() {
+        String owner = ownerToken();
+        JsonNode routes = get("/owner/routes", owner).body();
+        assertThat(routes.toString()).contains("\"DIAGRAM\"");
+        assertThat(get("/owner/calls", owner).body().valueStream().map(c -> c.get("id").asString()).toList()).contains("DIAGRAM");
+
+        Resp compared = post("/owner/compare", owner, Map.of("call", "DIAGRAM",
+                "input", Map.of("message", "Draw one interactive diagram: a loop of four stages."),
+                "a", Map.of("provider", "FAKE"), "b", Map.of("provider", "FAKE_B")));
+        ok(compared);
+        assertThat(compared.body().get("mode").asString()).isEqualTo("structured:DiagramDraft");
+        assertThat(compared.body().get("a").get("checks").get("schemaValid").asBoolean()).isTrue();
+        assertThat(compared.body().get("a").get("parsed").get("html").asString()).contains("<svg");
     }
 
     // ------------------------------------------------------------------ helpers

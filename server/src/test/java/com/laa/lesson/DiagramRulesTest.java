@@ -59,6 +59,35 @@ class DiagramRulesTest {
             "<script>navigator.clipboard.writeText('x')</script>",
             "<script>alert('Well done!')</script>",
             "<button onclick=\"location.assign('x')\">Go</button>",
+            // The same, in other spellings and places.
+            "<SCRIPT SRC='d3.js'></SCRIPT>",
+            "<img src=//evil.example/pixel.gif>",
+            "<svg><image href=\"https://example.com/foot.png\"/></svg>",
+            "<svg><a xlink:href=\"javascript:alert(1)\"><text>Tap</text></a></svg>",
+            "<img srcset=\"https://example.com/a.png 2x\">",
+            "<video poster=\"https://example.com/p.png\"></video>",
+            "<style>@font-face { font-family: x; src: url(https://example.com/f.woff) }</style>",
+            "<div style=\"background:URL( 'HTTPS://example.com/x.png' )\"></div>",
+            "<meta http-equiv=\"refresh\" content=\"0;url=https://example.com\">",
+            "<base href=\"https://example.com/\">",
+            "<object data=\"x.swf\"></object>",
+            "<embed src=\"x.swf\">",
+            "<button onclick=fetch('/x')>Go</button>",
+            "<script>navigator.sendBeacon('/x', 'y')</script>",
+            "<script>new EventSource('/x')</script>",
+            "<script>importScripts('x.js')</script>",
+            "<script>import { a } from './a.js'</script>",
+            "<script>window.top.location = 'x'</script>",
+            "<script>document.location.href = 'x'</script>",
+            "<script>location.reload()</script>",
+            "<script>const f = Function('return 1')</script>",
+            "<script>setInterval('tick()', 1000)</script>",
+            "<script>sessionStorage.x = 1</script>",
+            "<script>const w = opener</script>",
+            "<script>document.write('<p>x</p>')</script>",
+            "<script>navigator.geolocation.getCurrentPosition(() => {})</script>",
+            // An unclosed script still runs to the end of the page, so it's still read.
+            "<p>Tap</p><script>fetch('/x')",
     })
     void aPageThatReachesOutsideItsFrameIsTurnedAway(String page) {
         assertThat(DiagramRules.problems(DiagramRules.normalise(page))).isNotEmpty();
@@ -70,6 +99,25 @@ class DiagramRulesTest {
         String page = "<p>Dogs fetch sticks. The location of the heart. Use the prompt card. An important import. </p>"
                 + "<script>const a = document.body.parentNode; const rect = a.getBoundingClientRect(); rect.top;</script>";
         assertThat(DiagramRules.problems(page)).isEmpty();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "<p>Please confirm (once) that your feet are placed.</p>",
+            "<p>Import duties\nImport taxes rise.</p>",
+            "<p>A dog will fetch (and carry) a stick.</p>",
+            "<script>const stages = ['Try to fetch (bring back) the rope', \"Confirm (check) your knot\", `Then location = top`];</script>",
+            "<script>// fetch (later) and confirm (maybe)\n/* window.open would go here */ const a = 1;</script>",
+            "<script>function show(i) { return i; } const f = function (x) { return x; };</script>",
+            "<script>const cookies = ['oat', 'ginger']; const promptText = 'Ready?';</script>",
+    })
+    void proseAndOrdinaryCodeThatLookLikeRulesStillPass(String page) {
+        assertThat(DiagramRules.problems(page)).isEmpty();
+    }
+
+    @Test
+    void codeInsideATemplateLiteralIsStillRead() {
+        assertThat(DiagramRules.problems("<script>panel.innerHTML = `${fetch('/x')}`;</script>")).isNotEmpty();
     }
 
     @Test
@@ -94,6 +142,40 @@ class DiagramRulesTest {
                 "Where your toes press on small holds.");
         // CSS isn't text a learner reads.
         assertThat(words).doesNotContain("prefers-reduced-motion", "var(--slate)");
+    }
+
+    @Test
+    void wordsShownByCssAreFoundToo() {
+        // content: "…" puts words on screen without any markup or script.
+        assertThat(DiagramRules.words("<style>.toe::after { content: 'shown by CSS'; }</style><p>Tap</p>")).contains("shown by CSS");
+    }
+
+    @Test
+    void wordsInEveryReadableAttributeAreFound() {
+        String words = DiagramRules.words("<input type=\"range\" aria-label=\"Angle of the foot\" aria-description=\"Slide to tilt\" "
+                + "placeholder=\"Type a grade\" value=\"Start here\"><img alt=\"A shoe\" src=\"data:,\"><g data-info='Grips small edges'></g>"
+                + "<span title=\"More about heels\">Heel</span>");
+        assertThat(words).contains("Angle of the foot", "Slide to tilt", "Type a grade", "Start here", "A shoe", "Grips small edges",
+                "More about heels", "Heel");
+    }
+
+    @Test
+    void wordsAreDecodedAndEachPhraseAppearsOnce() {
+        String words = DiagramRules.words("<p>Toes &amp; heels</p><p>Toes &amp; heels</p><script>const s = \"Say \\\"hold\\\" now\";</script><p>42</p>");
+        assertThat(words.lines()).containsOnlyOnce("Toes & heels");
+        assertThat(words).contains("Say \"hold\" now");
+        assertThat(words.lines()).doesNotContain("42"); // no letters, nothing to check
+    }
+
+    @Test
+    void normalisingTwiceChangesNothing() {
+        String once = DiagramRules.normalise("<html><body><svg xmlns=\"http://www.w3.org/2000/svg\"><circle/></svg></body></html>");
+        assertThat(DiagramRules.normalise(once)).isEqualTo(once);
+    }
+
+    @Test
+    void anEmptyPageIsTurnedAway() {
+        assertThat(DiagramRules.problems(DiagramRules.normalise("<html><body>  </body></html>"))).containsExactly("The page is empty.");
     }
 
     @Test

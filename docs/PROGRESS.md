@@ -60,6 +60,30 @@ The user: "I have noticed a distinct lack of interactive diagrams… it's import
   - *Show as text* and back work, with no console errors or warnings.
 - **Not checked:** a real phone (iOS or Android web view), and a diagram drawn by a real AI service. Both are for the user to try: switch the owner console's default from practice mode, or route *Diagrams* to a real service.
 
+**Rigorous testing (user request: "make sure we have rigorous testing for the diagram feature")**
+
+Writing the tests found and fixed four problems:
+- **A lesson lost to the allowance.** If the learner hit their daily cap partway through a lesson, the diagram call's refusal threw the whole lesson away, although it was already written and checked. Now the diagram is left out. A safety check that's down still stops everything.
+- **Words shown by CSS weren't checked.** `content: "…"` can put words on screen. `DiagramRules.words` now reads CSS strings too.
+- **Prose tripped the JavaScript rules.** "Please confirm (once)", or a line starting "Import…", would have refused a page. The rules are now split: page rules cover tags, attributes and CSS; script rules cover only scripts and `on…=` handlers, case-sensitively, with strings and comments blanked. `Function('…')` and `document.write` are now refused, and an unclosed `<script>` is read to the end.
+- **A web frame could navigate itself away.** No sandbox flag or CSP rule stops that. The frame can't take any of LAA's data with it, but it can make one request. `DiagramFrame.web` now spots the second load and shows the text version. Phones refuse the navigation before it starts.
+
+The tests now:
+- **Server: 281 passed.**
+  - `DiagramRulesTest` (70): 53 hostile pages refused (other spellings, unquoted values, SVG `image`/`xlink:href`, `srcset`, `@font-face`, meta refresh, `on…=` handlers, unclosed scripts, …). 7 kinds of prose and ordinary code pass. Words are found in CSS, every readable attribute, script strings and template literals, decoded and each listed once. Normalising twice changes nothing. An empty page is refused.
+  - `LessonDiagramsTest` (12): metering (origin APP, user, textbook). Practice still works after a diagram is left out. Reaching the daily cap mid-lesson keeps the lesson. A safety check that's down while diagrams are checked saves nothing. A brief that fails the reader settings becomes a placeholder and is never drawn. The links rule applies to a diagram's text. The stored page is normalised. The owner can route and compare diagrams. Plus the 5 earlier cases.
+  - `LessonRulesTest` (+4): only the caption reaches the app and the brief stays under the new id; a missing brief or caption asks for a rewrite; a third diagram is dropped, not sent back; no diagrams means no briefs.
+  - `PromptLibraryTest` (+2): the newest complete version per task (lesson writing v2), and what the diagram prompt promises.
+  - `DiagramsMigrationTest` (2): the real migrations in a schema of their own, up to V13, with existing routes, then V14. DIAGRAM is refused before and allowed after, only v1 lesson-writing routes move, and a version the owner chose is kept.
+- **Browser: `./e2e/run.sh diagrams`**, committed and repeatable; it starts a scratch stack in practice mode with no keys. 8 checks, **passed 3 runs out of 3**:
+  - the diagram steps with real clicks, and *Show as text* works and back;
+  - **the frame attacked from inside:** 15 kinds of request (fetch, XHR, beacon, WebSocket, EventSource, img, stylesheet, prefetch, iframe, CSS background, font, video, object, script, form) went to a canary that counts hits, and **0 arrived**. Storage, app storage, the app's page, cookies, top navigation, eval, `window.open` and link pop-ups are all blocked, and the origin is `null`;
+  - messages: height is clamped to 120–1600, and other message kinds, or messages from the app's own page, change nothing;
+  - a script error, or navigating away, shows the text version;
+  - no console errors.
+  - DevTools' `Runtime.evaluate` lets eval past the CSP by default (`allowUnsafeEvalBlockedByCSP`), which first made eval look allowed. The harness turns that off, so it sees what a real page sees.
+- **Still not covered:** iOS and Android web views (no device here); a real AI service drawing diagrams.
+
 ## Developer docs (done 2026-11-17)
 
 The user asked for developer documentation that gets a new developer up to speed on the app and the process quickly (GitHub issue #54). Docs only.

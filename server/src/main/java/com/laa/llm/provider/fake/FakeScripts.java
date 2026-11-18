@@ -93,6 +93,10 @@ final class FakeScripts {
      */
     private static String moderation(ProviderRequest request) {
         String message = request.messages().isEmpty() ? "" : request.messages().getLast().content();
+        // Anywhere in the conversation: the gateway's retry adds a correction message after the items.
+        if (request.messages().stream().anyMatch(m -> m.content().contains(FakeBehaviour.CHECK_DOWN_MARKER))) {
+            return "{\"not\": \"a verdict\"}";
+        }
         List<Map<String, Object>> items = new ArrayList<>();
         java.util.regex.Matcher m = java.util.regex.Pattern.compile("(?s)<item id=\"([^\"]+)\">(.*?)</item>").matcher(message);
         while (m.find()) {
