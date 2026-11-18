@@ -6,6 +6,15 @@ What's new in each release of Learn Anything Anywhere, newest first. Each featur
 
 ---
 
+## 0.12: Two more AI models
+*18 November 2026*
+
+### New
+
+- **GPT-6.2 Sol and GPT-6.2 Astra** can now be chosen for any job in the owner console, alongside the older OpenAI models. Sol costs the same as GPT-6.1 Sol, and Astra a little less than GPT-6 Astra. Nothing switches by itself: the models LAA uses stay as they are until you choose otherwise. Try a new one with **Compare before switching** first. [Routing: who does which job →](guide/08-the-owner-console.md#routing-who-does-which-job)
+
+---
+
 ## 0.11: A shelf of spines
 *16 November 2026*
 
