@@ -89,9 +89,10 @@ cd app && npm run typecheck && npx expo lint
 1. **Secrets live only in `.env`**, which is never committed; `.env.example` holds placeholders. This repo is public: anything pushed is published.
 2. **`main` changes only through a pull request**, which the owner merges (`docs/WORKFLOW.md`).
 3. **Model calls go through the LLM gateway, and learner flows through the safety layer.** A test (`ArchitectureTest`) fails if they don't.
-4. **The tutor never hands over the answer.** Rubrics and lesson plans never leave the server.
-5. **Anything people can see** gets a user-guide entry and release notes in the same pull request, in plain words.
-6. **Ask before adding a dependency**, and record it in `docs/PROGRESS.md`.
+4. **Code explains itself:** every class, package and public method has a doc comment in plain sentences, saying what it does and why (`CLAUDE.md`, issue #56).
+5. **The tutor never hands over the answer.** Rubrics and lesson plans never leave the server.
+6. **Anything people can see** gets a user-guide entry and release notes in the same pull request, in plain words.
+7. **Ask before adding a dependency**, and record it in `docs/PROGRESS.md`.
 
 ## Where the work is
 

@@ -77,9 +77,10 @@ A change is ready when the server tests pass, the typecheck and lint are clean, 
 
 ```sh
 git push -u origin 12-health-check
-gh pr create --base main --fill
+gh pr create --base main --fill --assignee @me
 ```
 
+- **Assign it to Daniel** (`--assignee @me` above, when the pull request is opened with his sign-in). GitHub never lists your own pull request under *Review requests*, so the assignment is what puts it under **Pull requests → Assigned to you**.
 - Write **`Closes #12`** in the description. Merging then closes the issue, and its card moves to *Done*.
 - Say what changed, how it was tested, and anything the reviewer should try.
 - **CI (Phase 2)** runs the server tests, the typecheck, lint and a web build on every pull request. Until it exists, the description lists the results of the local runs.
