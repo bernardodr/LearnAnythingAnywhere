@@ -4,7 +4,7 @@ A prototype that turns a learner's *why* into a personal textbook, using the `/t
 
 ## Workflow
 
-- **Changes reach `main` only by pull request, and the user merges.** Branch `<issue>-<few-words>` from `main`, and open the pull request with `Closes #<issue>`, the test results and a summary. Commit and push only when asked. Tasks are GitHub issues on the *LAA production* board; move a card to *In Progress* when you start it. `docs/WORKFLOW.md` has the whole path: tasks, pull requests, deploys and store releases. The `Protect main` ruleset and `.claude/hooks/protect-main.sh` enforce it.
+- **Changes reach `main` only by pull request, and the user merges.** Branch `<issue>-<few-words>` from `main`, and open the pull request assigned to the user (`gh pr create --assignee @me`: GitHub never lists your own pull request as a review request) with `Closes #<issue>`, the test results and a summary. Commit and push only when asked. Tasks are GitHub issues on the *LAA production* board; move a card to *In Progress* when you start it. `docs/WORKFLOW.md` has the whole path: tasks, pull requests, deploys and store releases. The `Protect main` ruleset and `.claude/hooks/protect-main.sh` enforce it.
 - **One milestone at a time** (BRIEF §11). At the end of each one: run the server tests, then the app typecheck and lint, update `docs/PROGRESS.md` and the product docs, summarise, then stop until the user says to go on.
 - **Product docs** (`docs/product/`) explain LAA to its users, not its builders. Every feature a learner, parent or owner can see goes in the user guide (what it is, why it helps, how to use it) and in a new entry at the top of `release-notes.md`, in the same change as the feature. Plain words only: describe what people see and do, never how it works inside (no APIs, models, tables or code).
 - **Dependencies:** before adding one the brief doesn't name, ask. Record approved ones under *Decisions* in `docs/PROGRESS.md`.
@@ -66,6 +66,11 @@ GLOSSARY.md  domain words (safety layer, reader settings, shown text, held back,
 
 ## Conventions and gotchas
 
+- **Comments and Javadoc are written for a developer reading the code for the first time:** plain, full sentences in the words of `GLOSSARY.md`. Every file you create or change meets this; older code catches up one area at a time (issue #56).
+  - **Each class, component and package** (`package-info.java`): what it is, why it exists, who uses it and what it relies on, and anything surprising.
+  - **Each public method:** what it does, its parameters and result, what can go wrong (with the HTTP status), and its side effects (database writes, emails, AI calls, cost).
+  - **Inside a method:** say *why* at each step that isn't obvious, such as why a check comes first or why a row is locked.
+  - **Each app screen** opens with what it shows, the data it loads and where it leads. Document component props and hooks.
 - **Developer docs stay current in the same pull request:** a migration updates `docs/DATABASE.md`, a change to emails or their settings updates `docs/EMAIL.md`, and a new setup step, tool or doc updates `README.md`.
 - **Server:** use `JdbcClient` and Flyway SQL, not JPA. Every table gets a UUID primary key (`gen_random_uuid()`), `created_at` and `updated_at`. Attach the `set_updated_at()` trigger from `V1__baseline.sql`.
 - **Spring Boot 4 modules:** autoconfig is split into separate modules. For example, `RestClient.Builder` isn't a bean without `spring-boot-restclient`. Tests build clients with `RestClient.create(...)`.
