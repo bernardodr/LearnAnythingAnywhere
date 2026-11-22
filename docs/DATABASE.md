@@ -2,7 +2,7 @@
 
 LAA keeps everything in one **PostgreSQL 18** database: 13 tables, built by the Flyway migrations in `server/src/main/resources/db/migration/` (`V1` to `V13`). The server reads and writes it with `JdbcClient` and plain SQL, not JPA. This page is for developers; for the words used here (reader settings, held back, …) see `GLOSSARY.md`.
 
-Read from the local database on 2026-11-17, after `V13`. When a migration changes the structure, update this page in the same pull request.
+Read from the local database on 2026-11-17, after `V13`; `V14` (2026-11-18) is noted where it changes things. When a migration changes the structure, update this page in the same pull request.
 
 ## Conventions
 
@@ -181,7 +181,7 @@ erDiagram
 | Table | What it holds | Rules worth knowing |
 |---|---|---|
 | `textbooks` | A learner's book: title, topic, status, volume number, cover colour, shelf position, the topic gate's verdict, and the mission. | `volume` is unique per user. Arranged books (`shelf_position`) are listed first, then the rest by volume. |
-| `lessons` | A written lesson: title, subtitle, the *win*, the mission link, the blocks the learner reads, a reference sheet. | Only `LessonChecks` can produce a lesson to store. **`rubrics` and `plan` never go to the app.** `seq` is unique per textbook. |
+| `lessons` | A written lesson: title, subtitle, the *win*, the mission link, the blocks the learner reads (an interactive diagram is a block holding its page, text version and caption), a reference sheet. | Only `LessonChecks` can produce a lesson to store. **`rubrics` and `plan` never go to the app.** `seq` is unique per textbook. |
 | `attempts` | Each answer to a practice question, with the grader's verdict and feedback. | Unique per (lesson, block, user, attempt number). |
 | `practice_progress` | Per question and learner: hints shown, whether the answer was shown, when it was met. | One row per (lesson, block, user). |
 | `chat_messages` | The preface interview (`MISSION`) and the tutor chat (`TUTOR`, tied to a lesson). | Saved only after a turn finishes. |
@@ -193,7 +193,7 @@ erDiagram
 | Table | What it holds | Rules worth knowing |
 |---|---|---|
 | `providers` | The AI services, their models, tiers, capabilities and prices. | **Synced from `application.yml` on every start**: change models there, never here. At most one default. |
-| `model_routes` | For each task (interview, lesson writing, grading, safety check, …), which provider and tier, the prompt version, fallbacks and traffic split. | One active route per task. Changed in the owner console. |
+| `model_routes` | For each task (interview, lesson writing, diagrams, grading, safety check, …), which provider and tier, the prompt version, fallbacks and traffic split. | One active route per task. Changed in the owner console. |
 | `model_runs` | Every AI call: task, provider, model, tokens, estimated cost, time taken, outcome, safety flags, and who it was for. | The daily spending caps add up `cost_estimate` since midnight UTC. Kept when a user or book is deleted, without the person. |
 
 ## What deleting does
@@ -239,3 +239,4 @@ Then `\dt` lists the tables, and `\d users` describes one.
 | `V11__email_and_spending` | Email links, confirmed emails, and an index for the spending caps |
 | `V12__adult_accounts` | Accounts are for adults: child accounts and everything on their shelves removed, Parent and Learner merged into one role |
 | `V13__shelf_order` | The arranged shelf order |
+| `V14__diagrams` | `DIAGRAM` allowed as a task; lesson-writing routes still on prompt `v1` moved to `v2` (which can place diagrams) |

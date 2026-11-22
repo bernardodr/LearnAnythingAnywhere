@@ -18,8 +18,8 @@ A prototype that turns a learner's *why* into a personal textbook, using the `/t
 ```
 app/      Expo (React Native + web), Expo Router; screens in app/src/app/, tokens in app/src/theme.ts
   src/lib/        api.ts (fetch + ApiError), session.tsx (token: SecureStore / localStorage), prefs.ts (device preferences),
-                  sse.ts (streamed POST), types.ts
-  src/components/ ui.tsx (Page, Button, Field, Note, Ornament, goBack), Cover, Shelf (covers or spines, drag to arrange), MissionCard, LessonBlocks, Markdown,
+                  sse.ts (streamed POST), diagramShell.ts (the sealed frame's document), types.ts
+  src/components/ ui.tsx (Page, Button, Field, Note, Ornament, goBack), Cover, Shelf (covers or spines, drag to arrange), MissionCard, LessonBlocks, Diagram + DiagramFrame(.web), Markdown,
                   Tutor (practice + tutor's note + hints, tutor chat)
                   Owner (owner console panels; the screen is src/app/owner.tsx, web only)
                   Settings (reader settings form + read-only summary; the screen is src/app/settings.tsx)
@@ -28,7 +28,7 @@ server/   Spring Boot 4 + Spring AI 2, Java 21, Maven wrapper; package com.laa
             routing/ (ModelRouter, capability checks), provider/ (adapters + fake/),
             prompt/, structured/ (schema validation), runs/ (model_runs)
   textbook/ library API + repository             mission/ preface interview (SSE), MissionDraft, MISSION.md
-  lesson/   LessonWriter (plan → write → LessonChecks → rewrite once → save), LessonChecks (links · safety check · LessonRules ·
+  lesson/   LessonWriter (plan → write → LessonChecks → rewrite once → draw diagrams → save), DiagramRules, LessonChecks (links · safety check · LessonRules ·
             final-attempt decisions), contents + lesson API                                     job/ Jobs (SSE progress)
   safety/   SafetyLayer (the only way learner flows reach a model: admit · reply · write), ReaderView (+ advice: the
             links rule on every learner JSON response), SafetyRules + Category (LAA's own rules), Moderation (fails
@@ -46,6 +46,7 @@ README.md  start here for developers (setup, the map, the doc index)
 docs/     BRIEF.md (spec), PROGRESS.md, WORKFLOW.md (dev → PR → deploy → release), DATABASE.md, EMAIL.md, PRODUCTION-PLAN.md, product/ (user guide + release notes, for users),
           research/, reference/ (skills/ is a git-ignored clone of mattpocock/skills)
 scripts/  m1-switch-default.sh (curl demo of the gateway), redteam.sh (red-team topics against real providers)
+e2e/      run.sh (starts a scratch stack), diagrams.mjs, lib/ (cdp.mjs: headless Chrome over DevTools; serve.mjs: web app + canary)
 dev.sh    one-command dev start
 GLOSSARY.md  domain words (safety layer, reader settings, shown text, held back, …)
 ```
@@ -60,6 +61,7 @@ GLOSSARY.md  domain words (safety layer, reader settings, shown text, held back,
 | Server tests (Testcontainers, needs Docker) | `cd server && ./mvnw test` |
 | Server alone | `cd server && ./mvnw spring-boot:run` (needs `.env` exported: `set -a; source ../.env; set +a`, plus `SPRING_MAIL_HOST=localhost SPRING_MAIL_PORT=1025` for Mailpit or `LAA_MAIL_OUTBOX=true`) |
 | App typecheck / lint | `cd app && npm run typecheck && npx expo lint` |
+| Browser walk-through (diagrams: the sealed frame attacked from inside) | `./e2e/run.sh diagrams [screenshot dir]` (scratch database `laa_e2e`, practice mode, no AI keys; needs Chrome) |
 | Add an app package | `cd app && npx expo install <pkg>` (resolves SDK-compatible versions) |
 | Gateway demo (server running) | `./scripts/m1-switch-default.sh [FROM] [TO]` |
 | Owner token by hand (dev sign-in on, as `./dev.sh` sets) | `curl -s -X POST localhost:8080/auth/dev-login -H 'Content-Type: application/json' -d '{"email":"owner@laa.dev"}' \| jq -r .token` |
@@ -83,6 +85,7 @@ GLOSSARY.md  domain words (safety layer, reader settings, shown text, held back,
 - **Streaming endpoints:** validate everything that can fail *before* creating the `SseEmitter`, so those failures are plain JSON errors. Run the turn on the `llmExecutor`, send named events (`token`, …, `done`, or `error`), and save a turn only after it finishes. Clients send `Accept: text/event-stream, application/json`.
 - **Ownership:** load a learner's textbook with `TextbookRepository.requireForUser`. Another user's id is a 404, never a 403.
 - **Lessons:** the model writes `LessonDraft` (one compact block shape). `LessonChecks` is the only path to a stored lesson. `LessonRepository.insert` takes a `CheckedLesson`, which only `LessonChecks` can make. Its `check(draft, FIRST|FINAL, about)` answers `Pass`, `Rewrite` (typed problems) or `Refuse`. Inside, `LessonRules` enforces the quiz rules and citations and moves rubrics and hints into the server-only `rubrics` column. Never send `rubrics` or `plan` to the app. Teaching prompts get their workspace variables from `TeachingContext`.
+- **Interactive diagrams** (issue #60): the lesson writer places at most 2 `DIAGRAM` blocks (a server-only brief plus a caption). After the lesson passes, `LessonWriter` asks `Calls.DIAGRAM` for each (task `DIAGRAM`), redrawing once if `DiagramRules` refuses the page, and `LessonChecks.withDiagrams` has the final say: page rules, links rule, and the safety check on every readable word (`DiagramRules.words`). A diagram that fails or can't be drawn is left out; it never stops a lesson. The app runs the page only inside the sealed frame (`lib/diagramShell.ts` + `DiagramFrame` / `.web`): CSP with no network, a sandboxed iframe or locked web view, and a bridge that accepts only height and error. Never loosen the frame or relax `DiagramRules` to make a page work: fix the prompt instead. `DiagramRules` has page rules (tags, attributes, CSS; any case) and script rules (scripts and `on…=` handlers only, case-sensitive, with strings and comments blanked), so prose never trips a rule. Change the frame only with `./e2e/run.sh diagrams` passing: it attacks the frame from inside (15 request kinds against a canary, storage, cookies, eval, pop-ups, navigation, spoofed messages).
 - **Long-running work** (lesson writing): run it through `Jobs.start` and return the job id; the app follows `GET /jobs/{id}/events`. Save only once the work has passed its checks.
 - **Safety (BRIEF §8) is built to spec: learner flows reach a model only through `SafetyLayer`.** `ArchitectureTest` fails if anything outside `llm..`, `safety..`, `owner..`, `dev..` (or its frozen exception list, today only `LessonWriter`) depends on `LlmGateway`.
   - **`admit(userId, textbookId, typed)`:** checks what the learner typed. Call it before any work starts and before opening a stream.

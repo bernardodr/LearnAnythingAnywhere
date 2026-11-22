@@ -160,4 +160,51 @@ class LessonRulesTest {
         assertThat(result.blocks()).noneMatch(b -> "primary_source".equals(b.get("type")));
         assertThat(result.blocks().get(1).get("citations")).isEqualTo(List.of());
     }
+
+    // ------------------------------------------------------------------ diagrams
+
+    private static Block diagram(String id, String brief, String caption) {
+        return new Block(id, Type.DIAGRAM, "", brief, List.of(), -1, caption, List.of());
+    }
+
+    @Test
+    void aDiagramReachesTheAppWithOnlyItsCaptionAndItsBriefStaysOnTheServer() {
+        var result = LessonRules.apply(draft(lessonBlocks(diagram("d", "Tap the hip, then the feet, to see where the weight goes.",
+                "Tap each part to see where your weight goes.")), RUBRIC), 1, Set.of("r1"), new Random(7), false);
+
+        assertThat(result.ok()).as(result.problems().toString()).isTrue();
+        Map<String, Object> client = result.blocks().getFirst();
+        assertThat(client).containsOnlyKeys("id", "type", "caption").containsEntry("type", "diagram")
+                .containsEntry("caption", "Tap each part to see where your weight goes.");
+        // The brief is kept under the block's new id, for the diagram writer.
+        assertThat(result.diagrams()).containsOnlyKeys((String) client.get("id"));
+        assertThat(result.diagrams().get(client.get("id")).brief()).startsWith("Tap the hip");
+        assertThat(result.diagrams().get(client.get("id")).caption()).isEqualTo("Tap each part to see where your weight goes.");
+    }
+
+    @Test
+    void aDiagramWithoutABriefOrCaptionIsSentBackForARewrite() {
+        var noBrief = LessonRules.apply(draft(lessonBlocks(diagram("d", " ", "A caption.")), RUBRIC), 1, Set.of("r1"), new Random(7), false);
+        assertThat(noBrief.problems()).anyMatch(p -> p.message().contains("brief") && !p.quiz());
+
+        var noCaption = LessonRules.apply(draft(lessonBlocks(diagram("d", "A brief.", "")), RUBRIC), 1, Set.of("r1"), new Random(7), false);
+        assertThat(noCaption.problems()).anyMatch(p -> p.message().contains("caption") && !p.quiz());
+    }
+
+    @Test
+    void aThirdDiagramIsDroppedNotSentBack() {
+        var result = LessonRules.apply(draft(lessonBlocks(diagram("d1", "One.", "First."), diagram("d2", "Two.", "Second."),
+                diagram("d3", "Three.", "Third.")), RUBRIC), 1, Set.of("r1"), new Random(7), false);
+
+        assertThat(result.ok()).as(result.problems().toString()).isTrue();
+        assertThat(result.blocks().stream().filter(b -> b.get("type").equals("diagram"))).hasSize(2);
+        assertThat(result.diagrams().values()).extracting(LessonRules.DiagramBrief::brief).containsExactly("One.", "Two.");
+        assertThat(result.removed()).anyMatch(r -> r.contains("d3") && r.contains("at most 2 diagrams"));
+    }
+
+    @Test
+    void aLessonWithoutDiagramsHasNoBriefs() {
+        var result = LessonRules.apply(draft(lessonBlocks(), RUBRIC), 1, Set.of("r1"), new Random(7), false);
+        assertThat(result.diagrams()).isEmpty();
+    }
 }

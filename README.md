@@ -55,6 +55,7 @@ Check that everything passes before you change anything:
 ```sh
 cd server && ./mvnw test                                  # needs Docker (Testcontainers)
 cd app && npm run typecheck && npx expo lint
+./e2e/run.sh diagrams                                     # the real web app in headless Chrome (needs Google Chrome)
 ```
 
 ## Find your way around

@@ -22,6 +22,11 @@ public class FakeBehaviour {
     private final Map<Provider, FailureMode> modes = new EnumMap<>(Provider.class);
     /** Text containing this is blocked by the fake content check, so tests can trigger a block where they want one. */
     public static final String BLOCK_MARKER = "[fake:block]";
+    /**
+     * Text containing this makes the fake content check answer in the wrong shape, every time, so the check can't run:
+     * tests use it to show that a safety check that's down stops what it was checking, at exactly that check.
+     */
+    public static final String CHECK_DOWN_MARKER = "[fake:check-down]";
 
     private final Map<Call, String> canned = new HashMap<>();
     private final Map<Call, String> cannedText = new HashMap<>();

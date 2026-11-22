@@ -100,7 +100,8 @@ export type Block =
   | { id: string; type: 'free_response'; prompt: string; hintCount: number }
   | { id: string; type: 'primary_source'; resource: string; note: string }
   | { id: string; type: 'ask_tutor'; examples: string[] }
-  | { id: string; type: 'diagram'; source: string };
+  /** An interactive diagram: a sealed HTML page (`html`), its text version (`text`, Markdown) and a caption. */
+  | { id: string; type: 'diagram'; title: string; caption: string; html: string; text: string };
 
 // ---- Tutor (server: com.laa.tutor) ----
 
@@ -160,6 +161,7 @@ export type TaskId =
   | 'RESEARCH'
   | 'LESSON_PLAN'
   | 'LESSON_WRITE'
+  | 'DIAGRAM'
   | 'TUTOR'
   | 'GRADE'
   | 'RECORD_UPDATE'

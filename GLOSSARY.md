@@ -37,6 +37,20 @@ The secret, chosen by whoever sets up LAA's server, that making an owner account
 An account whose holder has opened the link LAA emailed them, proving the address is theirs. Using AI waits for it.
 _Avoid_: verified (fine in code; the guide says confirmed), activated
 
+## Lessons
+
+**Interactive diagram**:
+A picture in a lesson that the learner explores (tapping parts, stepping through, comparing, sliding), drawn by an AI service for that lesson. It always comes with a text version that says the same thing, and it's left out rather than shown if it doesn't pass its checks.
+_Avoid_: widget, figure, visual, applet
+
+**Diagram brief**:
+What a lesson's writer asks a diagram to show and how the learner explores it. It goes to the AI that draws the diagram, never to the learner.
+_Avoid_: diagram prompt
+
+**Sealed frame**:
+Where an interactive diagram runs: it can't go online, open links, or reach the app, the learner's account or the device.
+_Avoid_: sandbox (only one part of it), iframe, web view
+
 ## Safety
 
 **Safety layer**:

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { Diagram } from '@/components/Diagram';
 import { Markdown } from '@/components/Markdown';
 import { Kicker } from '@/components/ui';
 import { type LessonContext, Practice, TutorChat } from '@/components/Tutor';
@@ -73,12 +74,7 @@ export function LessonBlock({ block, sources, heading, ctx, practice }: { block:
     case 'ask_tutor':
       return <TutorChat examples={block.examples} ctx={ctx} />;
     case 'diagram':
-      return (
-        <View style={styles.box}>
-          <Kicker style={styles.boxLabel}>Diagram</Kicker>
-          <Markdown md={'```\n' + block.source + '\n```'} size="small" />
-        </View>
-      );
+      return <Diagram block={block} />;
   }
 }
 

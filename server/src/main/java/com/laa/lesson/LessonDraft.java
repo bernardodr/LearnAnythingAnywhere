@@ -21,13 +21,15 @@ public record LessonDraft(
         @NotNull @Valid ReferenceSheet referenceSheet,
         @NotNull @Size(max = 6) List<@NotNull @Valid Rubric> rubrics) {
 
-    public enum Type { HEADING, TEXT, KEY_IDEA, CALLOUT, QUIZ, STEPS, FREE_RESPONSE, PRIMARY_SOURCE, ASK_TUTOR }
+    public enum Type { HEADING, TEXT, KEY_IDEA, CALLOUT, QUIZ, STEPS, FREE_RESPONSE, PRIMARY_SOURCE, ASK_TUTOR, DIAGRAM }
 
     /**
      * {@code style}: quiz {@code warmup|check}, callout {@code win|note|watch_out}, otherwise empty.
      * {@code text}: heading text, Markdown body, key idea, callout text, quiz question, steps title,
-     * free-response prompt, or primary-source note. {@code items}: quiz options, steps, free-response hints,
-     * or ask-tutor example questions. {@code answer}: the quiz's correct option index, otherwise -1.
+     * free-response prompt, primary-source note, or a diagram's brief (what it shows and how the learner explores it;
+     * the brief goes to the diagram writer, never to the learner). {@code items}: quiz options, steps, free-response
+     * hints, or ask-tutor example questions. {@code answer}: the quiz's correct option index, otherwise -1.
+     * {@code explanation}: why a quiz's answer is right, or a diagram's caption.
      * {@code refs}: citation ids for text blocks, or the one resource id of a primary source.
      */
     public record Block(

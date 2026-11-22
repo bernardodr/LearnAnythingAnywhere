@@ -2,6 +2,7 @@ package com.laa.lesson;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -35,6 +36,11 @@ import com.laa.web.ApiException;
  *       are dropped; then {@link Pass}, or {@link Refuse}: for the reader settings (422) if the header or sheet failed
  *       or the placeholders broke the lesson, otherwise for the rules (502).</li>
  * </ul>
+ *
+ * <p>Diagrams come after: a passed lesson's DIAGRAM blocks hold only a caption until their pages are drawn.
+ * {@link #withDiagrams} judges each drawn page ({@link DiagramRules}, then the links rule and the safety check on its
+ * words) and puts the ones that pass into the lesson. One that fails, or was never drawn, is left out: a lesson is
+ * never refused because of a diagram.
  */
 @Component
 public class LessonChecks {
@@ -57,6 +63,9 @@ public class LessonChecks {
 
     /** Good to save. */
     public record Pass(CheckedLesson lesson) implements Verdict {}
+
+    /** A diagram the writer drew for one DIAGRAM block, and the run that drew it (logged BLOCKED if it fails the check). */
+    public record Drawn(DiagramDraft draft, UUID runId) {}
 
     /** First attempt only: rewrite {@code checked} (the draft with links applied) to fix these. */
     public record Rewrite(List<Problem> problems, LessonDraft checked) implements Verdict {}
@@ -105,6 +114,7 @@ public class LessonChecks {
     private static final String HEADER = "header";
     private static final String SHEET = "sheet";
     private static final String BLOCK = "block-";
+    private static final String DIAGRAM = "diagram-";
 
     private final Moderation moderation;
     private final ReaderView view;
@@ -142,6 +152,66 @@ public class LessonChecks {
         }
         changes.addAll(rules.removed());
         return new Pass(new CheckedLesson(placed, rules, changes));
+    }
+
+    /**
+     * The lesson with its diagrams drawn in. For each DIAGRAM block, in order: no drawing, or a page that breaks
+     * {@link DiagramRules}, and the block is left out; otherwise the learner's links rule goes on its title and text
+     * version, and its words (title, text version, and everything readable on the page) go through the safety check
+     * with the other diagrams, in one batch. A diagram that fails is left out and its run logged BLOCKED.
+     *
+     * @param drawn the drawn diagrams, by the client id of their DIAGRAM block; blocks missing from it are left out
+     * @throws com.laa.safety.Moderation.Unavailable (503) if the safety check can't run: then nothing is saved
+     */
+    public CheckedLesson withDiagrams(CheckedLesson lesson, Map<String, Drawn> drawn, About about) {
+        LessonRules.Result result = lesson.result();
+        if (result.diagrams().isEmpty()) return lesson;
+        List<String> changes = new ArrayList<>(lesson.changes());
+        ReaderView.Reader reader = view.of(about.userId());
+
+        // First the page rules, then one safety check over every diagram still standing.
+        Map<String, DiagramDraft> ready = new LinkedHashMap<>();
+        for (String id : result.diagrams().keySet()) {
+            Drawn d = drawn.get(id);
+            if (d == null) {
+                changes.add("Diagram " + id + ": left out, it couldn't be drawn");
+                continue;
+            }
+            String html = DiagramRules.normalise(d.draft().html());
+            List<String> problems = DiagramRules.problems(html);
+            if (!problems.isEmpty()) {
+                changes.add("Diagram " + id + ": left out, its page broke the rules (" + String.join(" ", problems) + ")");
+                continue;
+            }
+            ready.put(id, new DiagramDraft(reader.apply(d.draft().title()), html, reader.apply(d.draft().textVersion())));
+        }
+        List<Moderation.Item> items = ready.entrySet().stream().map(e -> new Moderation.Item(DIAGRAM + e.getKey(),
+                String.join("\n", e.getValue().title(), e.getValue().textVersion(), DiagramRules.words(e.getValue().html())))).toList();
+        Moderation.Result safety = items.isEmpty() ? null
+                : moderation.check(items, profiles.forUser(about.userId()), Moderation.Kind.OUTPUT, about.userId(), about.textbookId());
+
+        List<Map<String, Object>> blocks = new ArrayList<>();
+        for (Map<String, Object> block : result.blocks()) {
+            String id = (String) block.get("id");
+            if (!result.diagrams().containsKey(id)) {
+                blocks.add(block);
+                continue;
+            }
+            DiagramDraft d = ready.get(id);
+            if (d == null) continue; // already noted in changes
+            if (safety.blocks(DIAGRAM + id)) {
+                moderation.markBlocked(drawn.get(id).runId(), safety.flags());
+                changes.add("Diagram " + id + ": left out, it didn’t fit the reader settings");
+                continue;
+            }
+            Map<String, Object> filled = new LinkedHashMap<>(block);
+            filled.put("title", d.title());
+            filled.put("html", d.html());
+            filled.put("text", d.textVersion());
+            blocks.add(filled);
+        }
+        LessonRules.Result withPages = new LessonRules.Result(blocks, result.marking(), Map.of(), result.problems(), result.removed());
+        return new CheckedLesson(lesson.draft(), withPages, changes);
     }
 
     // ------------------------------------------------------------------ the steps
