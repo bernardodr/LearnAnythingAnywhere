@@ -141,17 +141,18 @@ Each step is one milestone: built, tested, documented in the product docs where 
 
 ### Phase 3: the server on Hetzner
 
-1. **Create the server** (You, following my list):
-   - CX23 (or CAX11, D7) in Germany or Finland, on Ubuntu 24.04, with your SSH key;
+1. ✅ **Create the server** (You, following my list; done 2026-11-22: `laa-prod-1`, a CX23 in Nuremberg on **Ubuntu 26.04**, the console's current image, at `2.28.71.82` / `2a01:4f8:1c1b:dee5::1`):
+   - CX23 (or CAX11, D7) in Germany or Finland, with your SSH key;
    - a **Primary IPv4 kept separate from the server**, so the address survives a rebuild;
-   - backups switched on.
-2. **Cloud Firewall:** ports 80 and 443 open; 22 open but key-only. GitHub's runner addresses change, so SSH can't be limited by address unless we add a private network like Tailscale later.
-3. **`deploy/bootstrap.sh`** (I write it, you run it once):
+   - Hetzner's own backups (a whole-server copy, +20%) are optional, the owner's call: what can't be rebuilt is the database, which the nightly copies off the server (step 5) protect.
+2. ✅ **Cloud Firewall** (done 2026-11-22, tested from outside): ports 80 and 443 open (TCP, plus UDP 443 for HTTP/3); 22 open but key-only. GitHub's runner addresses change, so SSH can't be limited by address unless we add a private network like Tailscale later.
+3. **`deploy/bootstrap.sh`** (I write it, you run it once; how: `docs/DEPLOYING.md`):
    - system updates and automatic security updates;
    - Docker, and fail2ban;
    - SSH password login turned off;
-   - a `deploy` user whose key can only run the deploy script;
-   - `/opt/laa` holding the compose file and a root-only `.env`. **You** type the production secrets into it on the server.
+   - 2 GB of swap, so images can be built on the server beside the running one;
+   - the `deploy` user whose key can only run the deploy script comes with the deploy workflow (Phase 4, #32): until then, deploys are run by hand as root;
+   - `/opt/laa` holding the compose file and a root-only `.env`, with the generated secrets (database password, sign-in secret, owner setup code) already in it. **You** type the rest (AI key, email password, owner email) on the server.
 4. **DNS** (You): A records for `learnanythinganywhere.app` and `api.learnanythinganywhere.app` pointing at the server's IP. Caddy fetches and renews the certificates itself.
 5. **Backups:**
    - a nightly `pg_dump`, keeping 7 days on the server, also copied off the box;

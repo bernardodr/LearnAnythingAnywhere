@@ -49,7 +49,8 @@ scripts/  m1-switch-default.sh (curl demo of the gateway), redteam.sh (red-team 
 e2e/      run.sh (starts a scratch stack), diagrams.mjs, production.sh + production.mjs (the production stack, locally),
           lib/ (cdp.mjs: headless Chrome over DevTools; serve.mjs: web app + canary; lesson.mjs: a textbook with lesson 1)
 deploy/   production (docs/DEPLOYING.md): server.Dockerfile, web.Dockerfile (Caddy + the web export), compose.yml (Caddy,
-          server, Postgres), compose.build.yml, Caddyfile, deploy.sh (back up → switch → check → roll back), .env.example
+          server, Postgres), compose.build.yml, Caddyfile, deploy.sh (back up → switch → check → roll back), .env.example,
+          bootstrap.sh (a fresh Ubuntu server: updates, SSH keys only, fail2ban, swap, Docker, /opt/laa)
 dev.sh    one-command dev start
 GLOSSARY.md  domain words (safety layer, reader settings, shown text, held back, …)
 ```
