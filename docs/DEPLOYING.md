@@ -41,6 +41,28 @@ The two images are built from `deploy/server.Dockerfile` and `deploy/web.Dockerf
 
 `.env` holds everything: the two addresses, the secrets, the AI keys, the email settings and the spending caps. Compose reads it, and the server gets all of it as its environment. Type the secrets on the server itself. `LAA_TAG` (the live version) and `LAA_PREVIOUS_TAG` are written by `deploy.sh`, so leave them alone. The laptop-only switches (`LAA_DEV_LOGIN`, `LAA_DEV_ENDPOINTS`, `LAA_PRACTICE_PROVIDERS`, `LAA_MAIL_OUTBOX`) never go here.
 
+## Setting up a new server
+
+The production server is `laa-prod-1`, a Hetzner CX23 in Nuremberg on Ubuntu 26.04, at `2.28.71.82` and `2a01:4f8:1c1b:dee5::1`. Its Hetzner Cloud Firewall lets in only TCP 22, 80 and 443, UDP 443 and ping. Everything going out is allowed. A new or rebuilt server is set up like this:
+
+1. **Sign in** with the owner's key: `ssh root@2.28.71.82`.
+2. **Run the setup script**, once:
+   ```bash
+   git clone https://github.com/bernardodr/LearnAnythingAnywhere.git /opt/laa/src
+   /opt/laa/src/deploy/bootstrap.sh
+   ```
+   [`deploy/bootstrap.sh`](../deploy/bootstrap.sh) does the following:
+   - installs updates, and installs security updates automatically from then on (restarting at 04:30 UTC when one needs it);
+   - allows SSH with a key only, and adds fail2ban;
+   - adds 2 GB of swap;
+   - installs Docker, with container logs capped;
+   - lays out `/opt/laa`, as described in the next section.
+
+   It generates `.env`'s database password, sign-in secret and owner setup code on the server itself, and never prints them. It's safe to run again.
+3. **Fill in the rest of `.env`** (`nano /opt/laa/.env`). The script lists what's missing: your owner email, the AI key, and the email password. Keep a copy of the whole file in a password manager. If the server is ever lost, that copy and a database backup are all you need to rebuild it.
+4. **Point DNS at the server** (Phase 3, step 4), then **deploy**: `cd /opt/laa && ./deploy.sh build main`.
+5. **Create your owner account** in the web app, using `LAA_OWNER_SETUP_CODE` from `.env`.
+
 ## Putting a version live
 
 Everything goes through `deploy.sh`, as root in `/opt/laa`:
