@@ -1,0 +1,11 @@
+# The nightly database backup (deploy/backup.sh). Started by laa-backup.timer; bootstrap.sh installs both.
+# Run it by hand with `systemctl start laa-backup`, and read what it did with `journalctl -u laa-backup`.
+[Unit]
+Description=LAA nightly database backup
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+Environment=LAA_HOME=/opt/laa
+ExecStart=/usr/local/lib/laa/backup.sh nightly

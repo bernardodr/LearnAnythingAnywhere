@@ -1,0 +1,12 @@
+# Runs laa-backup.service every night at 03:15 UTC: quiet hours, and before the 04:30 restart that security updates
+# may need. Persistent: a run missed while the server was off happens as soon as it's back.
+[Unit]
+Description=LAA nightly database backup, at 03:15 UTC
+
+[Timer]
+OnCalendar=*-*-* 03:15:00 UTC
+Persistent=true
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target
