@@ -1,0 +1,13 @@
+# Added on top of compose.yml when the images are built on this machine (`./deploy.sh build`), not pulled.
+# LAA_SOURCE is a checkout of the repository; deploy.sh sets it (on the server, /opt/laa/src).
+services:
+  server:
+    build:
+      context: ${LAA_SOURCE:?Set LAA_SOURCE to a checkout of the repository}
+      dockerfile: deploy/server.Dockerfile
+  web:
+    build:
+      context: ${LAA_SOURCE}
+      dockerfile: deploy/web.Dockerfile
+      args:
+        EXPO_PUBLIC_API_URL: ${LAA_API_URL}

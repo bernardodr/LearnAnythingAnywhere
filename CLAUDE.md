@@ -43,10 +43,13 @@ server/   Spring Boot 4 + Spring AI 2, Java 21, Maven wrapper; package com.laa
   owner/    owner API + compare     dev/  /dev smoke endpoints
   security/ SecretRedactor + log converters      web/    ApiException, problem responses, Sse (chat streaming)
 README.md  start here for developers (setup, the map, the doc index)
-docs/     BRIEF.md (spec), PROGRESS.md, WORKFLOW.md (dev → PR → deploy → release), DATABASE.md, EMAIL.md, PRODUCTION-PLAN.md, product/ (user guide + release notes, for users),
+docs/     BRIEF.md (spec), PROGRESS.md, WORKFLOW.md (dev → PR → deploy → release), DEPLOYING.md, DATABASE.md, EMAIL.md, PRODUCTION-PLAN.md, product/ (user guide + release notes, for users),
           research/, reference/ (skills/ is a git-ignored clone of mattpocock/skills)
 scripts/  m1-switch-default.sh (curl demo of the gateway), redteam.sh (red-team topics against real providers)
-e2e/      run.sh (starts a scratch stack), diagrams.mjs, lib/ (cdp.mjs: headless Chrome over DevTools; serve.mjs: web app + canary)
+e2e/      run.sh (starts a scratch stack), diagrams.mjs, production.sh + production.mjs (the production stack, locally),
+          lib/ (cdp.mjs: headless Chrome over DevTools; serve.mjs: web app + canary; lesson.mjs: a textbook with lesson 1)
+deploy/   production (docs/DEPLOYING.md): server.Dockerfile, web.Dockerfile (Caddy + the web export), compose.yml (Caddy,
+          server, Postgres), compose.build.yml, Caddyfile, deploy.sh (back up → switch → check → roll back), .env.example
 dev.sh    one-command dev start
 GLOSSARY.md  domain words (safety layer, reader settings, shown text, held back, …)
 ```
@@ -62,6 +65,7 @@ GLOSSARY.md  domain words (safety layer, reader settings, shown text, held back,
 | Server alone | `cd server && ./mvnw spring-boot:run` (needs `.env` exported: `set -a; source ../.env; set +a`, plus `SPRING_MAIL_HOST=localhost SPRING_MAIL_PORT=1025` for Mailpit or `LAA_MAIL_OUTBOX=true`) |
 | App typecheck / lint | `cd app && npm run typecheck && npx expo lint` |
 | Browser walk-through (diagrams: the sealed frame attacked from inside) | `./e2e/run.sh diagrams [screenshot dir]` (scratch database `laa_e2e`, practice mode, no AI keys; needs Chrome) |
+| Production stack, locally (after changing `deploy/`) | `./e2e/production.sh [screenshot dir]` (builds both images, deploys with the real `deploy.sh`, checks it in Chrome, then a backup, a broken deploy that rolls back, and a restore) |
 | Add an app package | `cd app && npx expo install <pkg>` (resolves SDK-compatible versions) |
 | Gateway demo (server running) | `./scripts/m1-switch-default.sh [FROM] [TO]` |
 | Owner token by hand (dev sign-in on, as `./dev.sh` sets) | `curl -s -X POST localhost:8080/auth/dev-login -H 'Content-Type: application/json' -d '{"email":"owner@laa.dev"}' \| jq -r .token` |
@@ -73,7 +77,7 @@ GLOSSARY.md  domain words (safety layer, reader settings, shown text, held back,
   - **Each public method:** what it does, its parameters and result, what can go wrong (with the HTTP status), and its side effects (database writes, emails, AI calls, cost).
   - **Inside a method:** say *why* at each step that isn't obvious, such as why a check comes first or why a row is locked.
   - **Each app screen** opens with what it shows, the data it loads and where it leads. Document component props and hooks.
-- **Developer docs stay current in the same pull request:** a migration updates `docs/DATABASE.md`, a change to emails or their settings updates `docs/EMAIL.md`, and a new setup step, tool or doc updates `README.md`.
+- **Developer docs stay current in the same pull request:** a migration updates `docs/DATABASE.md`, a change to emails or their settings updates `docs/EMAIL.md`, a new production setting goes in `deploy/.env.example` (and `docs/DEPLOYING.md` if it changes how deploys work), and a new setup step, tool or doc updates `README.md`.
 - **Server:** use `JdbcClient` and Flyway SQL, not JPA. Every table gets a UUID primary key (`gen_random_uuid()`), `created_at` and `updated_at`. Attach the `set_updated_at()` trigger from `V1__baseline.sql`.
 - **Spring Boot 4 modules:** autoconfig is split into separate modules. For example, `RestClient.Builder` isn't a bean without `spring-boot-restclient`. Tests build clients with `RestClient.create(...)`.
 - **LLM calls** go through `LlmGateway` only. Code outside `llm/provider/` never touches a `ChatClient` or provider SDK, so routing, fallbacks, metering and safety stay in one place.

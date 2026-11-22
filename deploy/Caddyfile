@@ -1,0 +1,53 @@
+# Caddy, the server's front door (it runs in the laa-web image). Two sites:
+# - LAA_WEB_URL (https://learnanythinganywhere.app): the exported web app, as plain files;
+# - LAA_API_URL (https://api.learnanythinganywhere.app): passed on to laa-server on the private Docker network.
+#
+# For an https:// address Caddy fetches the certificate from Let's Encrypt on first start (so the DNS records must
+# already point here), renews it on its own, and redirects http:// to https://. The local trial
+# (e2e/production.sh) uses plain http://localhost addresses instead, which need no certificate.
+#
+# Caddy keeps no access log, so visitors' addresses aren't written to disk here.
+
+{$LAA_WEB_URL} {
+	root * /srv
+	encode zstd gzip
+
+	header {
+		# Browsers come back over HTTPS only (ignored on http://, so harmless in the local trial).
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		# No other site may put LAA in a frame. (A diagram's own sealed frame is written by the app itself, so this
+		# doesn't touch it.)
+		X-Frame-Options "DENY"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+		-Server
+	}
+
+	# The export's scripts have their content's hash in the name, so a new version gets new names and old ones can be
+	# kept for a year. Everything else (index.html above all) is checked again on each visit, so a deploy shows at once.
+	@hashed path /_expo/static/*
+	header @hashed Cache-Control "public, max-age=31536000, immutable"
+	@other not path /_expo/static/*
+	header @other Cache-Control "no-cache"
+
+	# The app is a single page that routes in the browser: any address that isn't a file is the app's own page
+	# (a bookmarked /textbooks/… link, or a reload).
+	try_files {path} /index.html
+	file_server
+}
+
+{$LAA_API_URL} {
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		-Server
+	}
+	# The server turns away bodies over 256 KB itself; this stops anything far bigger at the door.
+	request_body {
+		max_size 1MB
+	}
+	# Caddy adds the visitor's address to X-Forwarded-For (replacing any the visitor sent), and the server trusts that
+	# header only from this private network. Streamed replies (text/event-stream) are passed on as they arrive.
+	reverse_proxy server:8080
+}

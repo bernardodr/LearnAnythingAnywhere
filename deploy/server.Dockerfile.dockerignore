@@ -1,0 +1,6 @@
+# What the laa-server build may see: an allowlist, so .env, keys and everything else stay out of the image.
+*
+!server/mvnw
+!server/.mvn
+!server/pom.xml
+!server/src/main

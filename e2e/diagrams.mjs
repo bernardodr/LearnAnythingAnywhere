@@ -12,32 +12,19 @@
 import assert from 'node:assert/strict';
 
 import { connect } from './lib/cdp.mjs';
+import { textbookWithLesson } from './lib/lesson.mjs';
 
 const API = process.env.API ?? 'http://localhost:8090';
 const APP = process.env.APP ?? 'http://localhost:8099/';
 const CANARY = new URL('/__canary/', APP).href;
 const OUT = process.argv[2];
 const EMAIL = `diagram-${Date.now()}@laa.dev`;
+const json = (r) => r.json();
 const ok = (s) => console.log('✓ ' + s);
 
 // ---- A textbook with lesson 1 (written in practice mode, which always draws one diagram), through the API.
-const json = (r) => r.json();
-const token = (await fetch(`${API}/auth/dev-login`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ email: EMAIL }) }).then(json)).token;
-const call = (method, path, body, accept = 'application/json') => fetch(API + path, { method,
-  headers: { Authorization: `Bearer ${token}`, Accept: accept, ...(body ? { 'Content-Type': 'application/json' } : {}) },
-  body: body ? JSON.stringify(body) : undefined });
-const stream = (path, body) => call('POST', path, body, 'text/event-stream, application/json').then((r) => r.text());
-const id = (await call('POST', '/textbooks', { topic: 'Bouldering' }).then(json)).textbook.id;
-await stream(`/textbooks/${id}/mission/messages`);
-await stream(`/textbooks/${id}/mission/messages`, { content: 'I want to climb a V3 with my friends by spring.' });
-await stream(`/textbooks/${id}/mission/messages`, { content: 'Twice a week at my local gym.' });
-const draft = (await call('GET', `/textbooks/${id}/mission`).then(json)).draft;
-await call('POST', `/textbooks/${id}/mission/confirm`, { draft });
-const job = (await call('POST', `/textbooks/${id}/lessons/next`).then(json)).jobId;
-const events = await call('GET', `/jobs/${job}/events`, null, 'text/event-stream').then((r) => r.text());
+const { id, events } = await textbookWithLesson(API, EMAIL);
 assert.match(events, /"stage":"draw"/, 'the lesson job draws its diagrams');
-assert.match(events, /event:done/, 'the lesson job finishes');
 const lessonUrl = `${APP}textbooks/${id}/lessons/1`;
 ok('lesson 1 written with a diagram');
 

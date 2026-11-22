@@ -128,6 +128,7 @@ sequenceDiagram
     end
 ```
 
+- **Until this workflow exists** (Phase 4), Daniel deploys by hand on the server: `./deploy.sh build main` builds both images there from `main` and rolls them out with the same checks and roll back. What runs and how: [`DEPLOYING.md`](DEPLOYING.md).
 - **Production secrets live only on the server**, in `/opt/laa/.env`, which only root can read. GitHub holds just the deploy key, the server's address and `EXPO_TOKEN`.
 - **Rolling back by hand:** run the *Roll back* workflow in GitHub Actions and pick an earlier version (Phase 4).
 
