@@ -108,11 +108,12 @@ Each step is one milestone: built, tested, documented in the product docs where 
    - a real icon and splash screen (you supply or approve the artwork);
    - version 1.0.0;
    - `eas.json` with `preview` and `production` profiles, each with its API address.
-8. **Production packaging:**
+8. ✅ **Production packaging** (done 2026-11-22; `docs/DEPLOYING.md`):
    - a `Dockerfile` for the server (Java 21 runtime, non-root, memory limits);
    - `deploy/compose.yml` (Caddy, server, Postgres 18) and a `Caddyfile`;
    - `deploy/deploy.sh`: back up the database, pull, restart, wait for `/health`, and roll back if it fails.
-   - All of it is tried end to end on my machine first.
+   - All of it is tried end to end on my machine first (`./e2e/production.sh`).
+   - Until the deploy workflow exists (Phase 4), `deploy.sh build main` builds the images on the server itself, so the web beta doesn't wait for Phases 2 and 4.
 
 **Done when:** all of the above is merged, with the server suite, app typecheck and lint green, and a local run of the production compose file passing a browser walk-through.
 
@@ -225,6 +226,22 @@ Each step is one milestone: built, tested, documented in the product docs where 
   3. Phases 3 and 4;
   4. Phase 5, which starts Google's clock;
   5. Phase 6, finishing around two weeks later.
+
+### The web beta first (decided 2026-11-22)
+
+The user asked for the web app in testers' hands before the stores. That needs only part of the plan, worked as a checklist in this order:
+
+0. ✅ Merge interactive diagrams (#61).
+1. ✅ Production packaging (Phase 1, step 8; #18).
+2. Create the server and its firewall (Phase 3, steps 1–2; #24, #25).
+3. The server setup script (Phase 3, step 3; #26).
+4. DNS records (Phase 3, step 4; #27).
+5. Email sending (Phase 3, step 6; #29).
+6. AI keys and spending limits (Phase 0; #7).
+7. Nightly backups (Phase 3, step 5; #28).
+8. A short privacy page (part of Phase 1, step 6; #16).
+
+The first deploys use `deploy.sh build main` on the server. CI (Phase 2) and the deploy workflow (Phase 4) follow. Until *Delete your account* (#14) is built, a tester who wants their account deleted emails support, and it's done by hand. The beta is for adults until #9 is settled.
 
 ## Without a domain
 

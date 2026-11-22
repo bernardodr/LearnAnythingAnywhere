@@ -21,7 +21,62 @@
 | Arrange your shelf: drag books with light physics (user request) | ✅ Done (2026-11-16) |
 | A shelf of spines: a compact view with the same physics (user request) | ✅ Done (2026-11-16) |
 | A firmer shelf: a solid board, snappy physics, no bounce (user feedback) | ✅ Done (2026-11-16) |
-| Production: GitHub Actions pipeline, Hetzner server, web, App Store, Google Play (user request) | 🚧 Phase 1 in progress (steps 1–3 done): `docs/PRODUCTION-PLAN.md` (2026-11-17). Tasks are GitHub issues on the *LAA production* board; the process is `docs/WORKFLOW.md` |
+| Production: GitHub Actions pipeline, Hetzner server, web, App Store, Google Play (user request) | 🚧 Phase 1 steps 1–3 and 8 done; working through the web-beta checklist (`docs/PRODUCTION-PLAN.md`, *The web beta first*). Tasks are GitHub issues on the *LAA production* board; the process is `docs/WORKFLOW.md` |
+
+## Production 1.8: production packaging (done 2026-11-22)
+
+Phase 1, step 8 of `docs/PRODUCTION-PLAN.md` (GitHub issue #18), and item 1 of the web-beta checklist. The user: "How can I get my application deployed on hetzner cloud so I can get the web app in people's hands… For beta testing purposes", then "Lets go through this list 1 by 1 like a check list". Nothing a learner sees changes, so there are no product docs.
+
+**Done**
+- **Two images**, built from the repository root:
+  - `deploy/server.Dockerfile`: the jar, built in a JDK stage and split into Spring Boot's layers. It runs on `eclipse-temurin:21-jre-noble` as an unprivileged user, sized from its memory limit (75% heap), and exits on running out of memory, so Docker restarts it.
+  - `deploy/web.Dockerfile`: `npx expo export --platform web` with the API's address as a build argument, then served by `caddy:2.11-alpine`.
+  - Each has an allowlist `.dockerignore`, so `.env` can't reach an image (checked: no `.env*` file in either).
+- **`deploy/compose.yml`**: Caddy (`web`), `server` and `postgres:18`.
+  - Postgres is on an internal network with no route out.
+  - The server runs on a read-only file system with all capabilities dropped. Its health check is `/health`.
+  - Memory limits: 1.5 GB server, 768 MB Postgres, 256 MB Caddy, on the 4 GB server.
+  - Database address and credentials, CORS and the email link address all follow from `.env`.
+- **`deploy/Caddyfile`**:
+  - automatic HTTPS for both addresses;
+  - security headers (HSTS, nosniff, `X-Frame-Options: DENY`, a referrer policy, a permissions policy, no `Server`);
+  - a year's caching for hashed scripts and `no-cache` for the page;
+  - any unknown path gets the app's page;
+  - bodies capped at 1 MB at the door;
+  - no access log.
+- **`deploy/deploy.sh`**:
+  - `build [ref]`, `<tag>`, `rollback` and `status`;
+  - a lock so only one deploy runs at a time;
+  - a `pg_dump` before every change (the last 10 kept);
+  - `docker compose up --wait`, then both sites must answer through this server's own Caddy (`curl --connect-to`), whatever DNS says;
+  - on failure, it prints the logs and goes back to the previous version by itself;
+  - after a success, older images are removed.
+  - It runs on macOS's bash 3, so the local trial uses this exact script.
+- **`deploy/.env.example`**: the production settings, with the beta's caps of $1 per learner and $5 in total per day. The laptop-only switches are listed as never to set.
+- **`e2e/production.sh` + `e2e/production.mjs`**: the local trial (below). `e2e/lib/lesson.mjs` now holds the setup it shares with `diagrams.mjs`.
+- **Docs:** `docs/DEPLOYING.md` (new: what runs, the server's layout, deploying, rolling back, restoring a backup, troubleshooting), `README.md`, `CLAUDE.md`, `docs/WORKFLOW.md` (deploying by hand until Phase 4), and `docs/PRODUCTION-PLAN.md` (step 8 done, and the web-beta checklist).
+
+**Verified**
+- **`./e2e/production.sh`: passes** (about 45 seconds once the image layers are cached), with the real images, `compose.yml` and `deploy.sh`:
+  1. a first deploy from the working copy;
+  2. `production.mjs`, from outside:
+     - `/health` and its headers through Caddy;
+     - streamed replies (the preface interview and the lesson job) pass through the proxy;
+     - the page's headers and caching, and the hashed scripts compressed, cached for a year and built for this API;
+     - an app address gets the app;
+     - in Chrome, a learner signs in, reloads a lesson by its address, and its diagram runs, with no console errors;
+     - 20 failed sign-ins, each claiming a different `X-Forwarded-For`, and the 21st is still paused (429);
+  3. a second deploy takes a backup that `pg_restore --list` reads, with the textbooks in it;
+  4. a broken server image fails its checks, the logs are shown, and the previous version is live again;
+  5. `rollback` goes back one version, keeping the data;
+  6. with the textbooks deleted, the restore commands in `DEPLOYING.md` bring them back, and the server is healthy on them.
+- **The trial found two bugs in `deploy.sh`, now fixed:**
+  - its image clean-up stopped the script when there was nothing to remove (a `grep` with no match, under `pipefail`);
+  - the clean-up also matched images outside `LAA_IMAGES`.
+- `./e2e/run.sh diagrams` still passes after moving its setup into `lib/lesson.mjs`.
+- No server or app code changed. Server tests, typecheck and lint: see the pull request.
+
+**Not covered yet:** the real server, with a real certificate from Let's Encrypt, real DNS and the Hetzner firewall (checklist items 2–4).
 
 ## Interactive diagrams in lessons (done 2026-11-18)
 
@@ -1077,3 +1132,6 @@ From the architecture review (card 1, "Deepen learner-facing generation"): M6 ha
 | 2026-11-18 | **Code comments are written for a newcomer** (standard in `CLAUDE.md`; catch-up in issue #56, one area per pull request, in between the Phase 1 steps). **Pull requests are assigned to the user.** | The user: "I still don't see good explainer comments in the code or good javadoc", and wants new developers up to speed quickly. Their own pull requests never appear under *Review requests*. |
 | 2026-11-18 | **GPT-6.2 Sol ($2/$10 per 1M tokens) and GPT-6.2 Astra ($8/$40) added**, after the older OpenAI models so the LARGE default stays GPT-6.1 Sol | The user asked for them (issue #58); both are available to their key. Prices and capabilities from OpenAI's model pages on 2026-11-18. They're reasoning models, and LAA sets no reasoning effort, so OpenAI's default applies. |
 | 2026-11-18 | **Interactive diagrams: AI-written HTML in a sealed frame**, as their own AI call (task `DIAGRAM`), at most 2 per lesson; **`react-native-webview` 14.0.1** (Expo's supported version) for phones | The user chose the HTML style over diagrams drawn from data. A diagram can't stop a lesson, and every readable word is checked. A frame with no network, no app access and no navigation keeps an AI-written page harmless. |
+| 2026-11-22 | **Web beta first:** packaging, the server, DNS, email, AI limits, backups and a privacy page, before CI, the deploy workflow and the stores | The user: "so I can get the web app in people's hands… for beta testing purposes". None of the store work is needed for the web. |
+| 2026-11-22 | **Until the deploy workflow exists, images are built on the server** (`deploy.sh build main`) rather than pushed from the laptop | The laptop is ARM and the server x86, so building on the laptop means slow emulation. The public repository needs no credentials to clone. Later the workflow builds and pushes to GitHub's registry, and `deploy.sh <tag>` pulls. |
+| 2026-11-22 | **Base images:** `eclipse-temurin:21-jre-noble` (build: `21-jdk-noble`), `node:24-bookworm-slim` (the export only), `caddy:2.11-alpine`, `postgres:18`, each pinned to a major or minor version | Official images, current on 2026-11-22. Pinning to a version line gets security patches when an image is rebuilt, without surprise upgrades. Node 24 matches local development. |

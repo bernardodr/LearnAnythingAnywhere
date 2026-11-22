@@ -1,0 +1,9 @@
+# What the laa-web build may see: an allowlist, so .env, keys and everything else stay out of the image.
+*
+!app/package.json
+!app/package-lock.json
+!app/app.json
+!app/tsconfig.json
+!app/src
+!app/assets
+!deploy/Caddyfile

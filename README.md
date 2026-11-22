@@ -26,7 +26,7 @@ flowchart LR
 
 - **The app** (`app/`) is one Expo codebase for all three platforms: React Native, Expo Router and TanStack Query.
 - **The server** (`server/`) owns all the data and every AI call. A learner's request reaches a model only through the **safety layer**, and every model call goes through the **LLM gateway**. Which model does which job, and what it costs, is set in the owner console.
-- **In production**, Caddy sits in front on one Hetzner server, serving the web app and passing API calls to the server (`docs/PRODUCTION-PLAN.md`).
+- **In production**, Caddy sits in front on one Hetzner server, serving the web app and passing API calls to the server, with Postgres beside them in Docker Compose (`deploy/`, explained in `docs/DEPLOYING.md`).
 
 ## Your first hour
 
@@ -56,6 +56,7 @@ Check that everything passes before you change anything:
 cd server && ./mvnw test                                  # needs Docker (Testcontainers)
 cd app && npm run typecheck && npx expo lint
 ./e2e/run.sh diagrams                                     # the real web app in headless Chrome (needs Google Chrome)
+./e2e/production.sh                                       # the production containers, deployed and checked locally (after changing deploy/)
 ```
 
 ## Find your way around
@@ -70,6 +71,8 @@ cd app && npm run typecheck && npx expo lint
 | `server/.../mission/`, `lesson/`, `tutor/` | The preface interview, lesson writing (with checks), practice and the tutor chat |
 | `server/.../auth/`, `profile/`, `mail/` | Sign-in, passwords, the parent PIN, reader settings, email |
 | `server/src/main/resources/` | `application.yml` (settings, AI models and prices), prompts, database migrations |
+| `deploy/` | Production: the two images, the Compose file, Caddy's config, `deploy.sh` and the production `.env.example` |
+| `e2e/` | Browser walk-throughs: the diagrams' sealed frame, and the production stack |
 
 ## The developer docs
 
@@ -77,6 +80,7 @@ cd app && npm run typecheck && npx expo lint
 |---|---|
 | [`docs/WORKFLOW.md`](docs/WORKFLOW.md) | **How work gets done:** tasks, branches, pull requests, deploys and store releases, with diagrams |
 | [`docs/DATABASE.md`](docs/DATABASE.md) | The tables, how they relate, what deleting does, and how to change the database |
+| [`docs/DEPLOYING.md`](docs/DEPLOYING.md) | What runs on the server, putting a version live, rolling back, restoring a backup |
 | [`docs/EMAIL.md`](docs/EMAIL.md) | The emails LAA sends, the link flows, limits, and the email setup in each environment |
 | [`docs/BRIEF.md`](docs/BRIEF.md) | **The spec:** what LAA is meant to be. Read its section before starting a milestone. |
 | [`GLOSSARY.md`](GLOSSARY.md) | The domain words (safety layer, reader settings, shown text, held back, …). Use them in code and docs. |

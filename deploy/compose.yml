@@ -1,0 +1,95 @@
+# LAA in production: Caddy (the laa-web image), the server (laa-server) and Postgres 18, on one machine.
+#
+# On the Hetzner server this file lives in /opt/laa beside deploy.sh and .env (root only, from deploy/.env.example).
+# Docker Compose reads .env for the ${…} values below, and the server gets the whole file as its environment.
+# Run it through deploy.sh, which backs up, switches versions and checks health:
+#   ./deploy.sh build main     build the images on this machine from the repository, then roll them out
+#   ./deploy.sh <tag>          roll out images already built (the deploy workflow's), pulling them if needed
+#   ./deploy.sh rollback       go back to the version before
+# Everyday look-ups work directly: `docker compose ps`, `docker compose logs -f server`.
+#
+# Only Caddy is reachable from outside (ports 80 and 443). Postgres sits on a network with no way out at all, and the
+# server, which needs the internet for AI providers and email, is reached only through Caddy.
+
+name: laa
+
+services:
+  postgres:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: laa
+      POSTGRES_USER: laa
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      # PostgreSQL 18 images keep data under /var/lib/postgresql/<major>/
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U laa -d laa"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    shm_size: 128mb
+    mem_limit: 768m
+    networks: [data]
+
+  server:
+    image: ${LAA_IMAGES:-ghcr.io/bernardodr}/laa-server:${LAA_TAG:?Set LAA_TAG (deploy.sh does this)}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # These follow from the rest, so they're set here rather than typed twice in .env.
+      DATABASE_URL: jdbc:postgresql://postgres:5432/laa
+      DATABASE_USER: laa
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      CORS_ALLOWED_ORIGINS: ${LAA_WEB_URL:?Set LAA_WEB_URL in .env}
+      LAA_APP_URL: ${LAA_WEB_URL}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      # /health answers 503 while the database can't be reached.
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 6
+      start_period: 90s
+    mem_limit: 1536m
+    # The server writes nothing to disk except Tomcat's scratch files, so everything else is read-only.
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    networks: [data, edge]
+
+  web:
+    image: ${LAA_IMAGES:-ghcr.io/bernardodr}/laa-web:${LAA_TAG}
+    restart: unless-stopped
+    environment:
+      LAA_WEB_URL: ${LAA_WEB_URL}
+      LAA_API_URL: ${LAA_API_URL:?Set LAA_API_URL in .env}
+    ports:
+      # The local trial moves these (LAA_HTTP_PORT, LAA_HTTPS_PORT) off the ports a laptop may already use.
+      - "${LAA_HTTP_PORT:-80}:${LAA_HTTP_PORT:-80}"
+      - "${LAA_HTTPS_PORT:-443}:443"
+      - "${LAA_HTTPS_PORT:-443}:443/udp"   # HTTP/3
+    volumes:
+      # Certificates and Caddy's own state: kept across deploys, so certificates aren't fetched again each time.
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [server]
+    mem_limit: 256m
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: ["no-new-privileges:true"]
+    networks: [edge]
+
+networks:
+  data:
+    internal: true    # no way in or out except to the other containers on it
+  edge: {}
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
