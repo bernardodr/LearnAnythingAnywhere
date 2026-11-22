@@ -155,8 +155,8 @@ Each step is one milestone: built, tested, documented in the product docs where 
    - `/opt/laa` holding the compose file and a root-only `.env`, with the generated secrets (database password, sign-in secret, owner setup code) already in it. **You** type the rest (AI key, email password, owner email) on the server.
 4. **DNS** (You): A records for `learnanythinganywhere.app` and `api.learnanythinganywhere.app` pointing at the server's IP. Caddy fetches and renews the certificates itself.
 5. **Backups:**
-   - a nightly `pg_dump`, keeping 7 days on the server, also copied off the box;
-   - a restore drill into a scratch database before launch.
+   - a nightly `pg_dump`, keeping 7 days on the server, also copied off the box: **to the owner's Mac for now** (decided 2026-11-22), fetched daily with a key that can only fetch backups; a storage service (Hetzner Storage Box or Cloudflare R2) can replace it later;
+   - a restore drill into a scratch database before launch (`scripts/restore-drill.sh`).
 6. **Email** (D8, You): verify the domain with the provider (SPF, DKIM and DMARC records), then put the SMTP settings in the server's `.env`.
 
 **Done when:** `https://api.learnanythinganywhere.app/health` answers 200 with a valid certificate, a test email arrives in a real inbox (not spam), and the restore drill has worked.

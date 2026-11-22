@@ -80,7 +80,7 @@ cd app && npm run typecheck && npx expo lint
 |---|---|
 | [`docs/WORKFLOW.md`](docs/WORKFLOW.md) | **How work gets done:** tasks, branches, pull requests, deploys and store releases, with diagrams |
 | [`docs/DATABASE.md`](docs/DATABASE.md) | The tables, how they relate, what deleting does, and how to change the database |
-| [`docs/DEPLOYING.md`](docs/DEPLOYING.md) | What runs on the server, putting a version live, rolling back, restoring a backup |
+| [`docs/DEPLOYING.md`](docs/DEPLOYING.md) | What runs on the server, setting one up, putting a version live, rolling back, nightly backups and restoring one |
 | [`docs/EMAIL.md`](docs/EMAIL.md) | The emails LAA sends, the link flows, limits, and the email setup in each environment |
 | [`docs/BRIEF.md`](docs/BRIEF.md) | **The spec:** what LAA is meant to be. Read its section before starting a milestone. |
 | [`GLOSSARY.md`](GLOSSARY.md) | The domain words (safety layer, reader settings, shown text, held back, …). Use them in code and docs. |

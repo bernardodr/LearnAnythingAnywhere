@@ -16,6 +16,8 @@
 #   5. installs Docker from Docker's own repository, with container logs capped at 100 MB each;
 #   6. lays out /opt/laa: the deploy files, a backups folder, and .env from deploy/.env.example with the database
 #      password, the sign-in secret and the owner setup code generated here. They're never printed or sent anywhere.
+#   7. installs the nightly database backup (deploy/backup.sh and its timer, 03:15 UTC, 7 kept in /var/backups/laa)
+#      and the laabackup user, whose only use is letting the owner's Mac fetch those backups (scripts/mac-backup.sh).
 #
 # Then you add what only you have to .env (your owner email, the AI key, the email password; the script lists them),
 # and deploy: docs/DEPLOYING.md, "Setting up a new server".
@@ -34,7 +36,7 @@ fail() { printf '✗ %s\n' "$*" >&2; exit 1; }
 [ -d "$SRC/.git" ] || fail "Clone the repository to $SRC first (see the top of this script)."
 
 # ---- 1. Updates, now and from now on.
-say "1/6 Installing updates…"
+say "1/7 Installing updates…"
 apt-get update -q
 # --force-confold keeps any configuration file already on the server rather than stopping to ask.
 apt-get -q -y -o Dpkg::Options::=--force-confold upgrade
@@ -51,7 +53,7 @@ Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
 EOF
 
 # ---- 2. SSH: keys only.
-say "2/6 SSH: keys only…"
+say "2/7 SSH: keys only…"
 # Without a key for root, turning passwords off would lock everyone out.
 grep -q -E '^(ssh-|ecdsa-)' /root/.ssh/authorized_keys 2>/dev/null \
   || fail "root has no SSH key in /root/.ssh/authorized_keys, so password sign-in stays on. Add a key and run this again."
@@ -69,7 +71,7 @@ sshd -t || { rm -f /etc/ssh/sshd_config.d/00-laa.conf; fail "The SSH configurati
 systemctl try-reload-or-restart ssh.service
 
 # ---- 3. fail2ban for SSH.
-say "3/6 fail2ban…"
+say "3/7 fail2ban…"
 cat >/etc/fail2ban/jail.d/laa.conf <<'EOF'
 # LAA (deploy/bootstrap.sh): ban an address for an hour after 5 failed SSH sign-ins in 10 minutes.
 [sshd]
@@ -83,7 +85,7 @@ systemctl enable -q fail2ban
 systemctl restart fail2ban
 
 # ---- 4. Swap, for building images beside the running server.
-say "4/6 Swap…"
+say "4/7 Swap…"
 if ! swapon --show=NAME --noheadings | grep -q '^/swapfile$'; then
   fallocate -l 2G /swapfile
   chmod 600 /swapfile
@@ -96,7 +98,7 @@ echo 'vm.swappiness = 10' >/etc/sysctl.d/90-laa-swap.conf
 sysctl -q -p /etc/sysctl.d/90-laa-swap.conf
 
 # ---- 5. Docker, from Docker's own repository (https://docs.docker.com/engine/install/ubuntu/).
-say "5/6 Docker…"
+say "5/7 Docker…"
 if ! command -v docker >/dev/null; then
   install -m 0755 -d /etc/apt/keyrings
   curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
@@ -120,7 +122,7 @@ fi
 systemctl enable -q docker
 
 # ---- 6. /opt/laa.
-say "6/6 /opt/laa…"
+say "6/7 /opt/laa…"
 chmod 750 "$LAA"
 install -m 640 "$SRC/deploy/compose.yml" "$SRC/deploy/compose.build.yml" "$LAA/"
 install -m 750 "$SRC/deploy/deploy.sh" "$LAA/"
@@ -141,6 +143,23 @@ if [ ! -f "$LAA/.env" ]; then
 else
   echo "$LAA/.env already exists, so it was left as it is."
 fi
+
+# ---- 7. Nightly backups, and the user the owner's Mac fetches them as.
+say "7/7 Nightly backups…"
+if ! id laabackup >/dev/null 2>&1; then
+  useradd --system --home-dir /var/lib/laabackup --create-home --shell /bin/sh laabackup
+fi
+# '*' means "no password", which isn't the same as a locked account: sshd still accepts the user's key.
+usermod -p '*' laabackup
+install -d -m 700 -o laabackup -g laabackup /var/lib/laabackup/.ssh
+[ -f /var/lib/laabackup/.ssh/authorized_keys ] || install -m 600 -o laabackup -g laabackup /dev/null /var/lib/laabackup/.ssh/authorized_keys
+install -d -m 750 -o root -g laabackup /var/backups/laa
+# Root's and read-only to everyone else: the backup key's forced command runs this file.
+install -d -m 755 /usr/local/lib/laa
+install -m 755 "$SRC/deploy/backup.sh" /usr/local/lib/laa/backup.sh
+install -m 644 "$SRC/deploy/laa-backup.service" "$SRC/deploy/laa-backup.timer" /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable -q --now laa-backup.timer
 
 # ---- What's left for you.
 missing=""

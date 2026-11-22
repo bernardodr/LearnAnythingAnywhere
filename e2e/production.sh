@@ -9,7 +9,9 @@
 #   3. deploys a second version: a backup is taken first, and it must be a readable Postgres dump;
 #   4. deploys a broken version: it must fail its checks and roll itself back to the working one;
 #   5. rolls back by hand, and the learner's textbook must still be there;
-#   6. loses the data and restores it from the backup, with the commands in docs/DEPLOYING.md.
+#   6. loses the data and restores it from the backup, with the commands in docs/DEPLOYING.md;
+#   7. takes a nightly backup, fetches it through the backup key's forced command with the Mac's script (a stand-in
+#      for ssh runs the forced command, as sshd would), and restores the copy with scripts/restore-drill.sh.
 # Everything it started (containers, volumes, images, Chrome) is removed at the end. Needs Docker and Google Chrome
 # (set CHROME if it isn't in the usual macOS place). Uses ports 8180, 8543 and 9333.
 set -euo pipefail
@@ -107,5 +109,36 @@ curl -fsS "http://api.localhost:$HTTP_PORT/health" >/dev/null || { echo "✗ the
 BOOKS="$(trial exec -T postgres psql -U laa -d laa -tAc 'SELECT count(*) FROM textbooks')"
 [ "$BOOKS" -ge 1 ] || { echo "✗ the restore didn't bring the textbook back" >&2; exit 1; }
 check "the backup restored the lost textbook, and the server is healthy on it"
+
+step "7. The nightly backup, fetched by the Mac's script, and restored"
+NIGHTLY="$WORK/nightly"
+LAA_HOME="$WORK" LAA_NIGHTLY_DIR="$NIGHTLY" deploy/backup.sh nightly
+serve() { SSH_ORIGINAL_COMMAND="$1" LAA_NIGHTLY_DIR="$NIGHTLY" deploy/backup.sh serve; }
+NAME="$(serve latest)"
+serve "get $NAME" | cmp -s - "$NIGHTLY/$NAME" || { echo "✗ 'get' didn't send the backup as it is" >&2; exit 1; }
+# The backup key's forced command answers its two requests and nothing else.
+for bad in "get ../.env" "get $NAME; cat $WORK/.env" "get ../$NAME" "cat $WORK/.env" "get laa-20990101T000000Z.dump" "bash" ""; do
+  if serve "$bad" >/dev/null 2>&1; then echo "✗ the forced command answered: $bad" >&2; exit 1; fi
+done
+KEYS="$WORK/authorized_keys"
+GOOD_KEY="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGtrialkeyonlyfortheproductiontrial0000000 laa-backup@trial"
+LAA_BACKUP_KEYS="$KEYS" deploy/backup.sh allow "$GOOD_KEY" >/dev/null
+LAA_BACKUP_KEYS="$KEYS" deploy/backup.sh allow "$GOOD_KEY" >/dev/null
+[ "$(wc -l <"$KEYS" | tr -d ' ')" = 1 ] && grep -q -F "restrict,command=\"/usr/local/lib/laa/backup.sh serve\" $GOOD_KEY" "$KEYS" \
+  || { echo "✗ allow didn't write exactly one restricted line" >&2; exit 1; }
+for bad in "ssh-rsa AAAAB3Nza trial" 'ssh-ed25519 AAAA x" ,command="sh' "$(printf 'ssh-ed25519 AAAA a\nssh-ed25519 BBBB b')"; do
+  if LAA_BACKUP_KEYS="$KEYS" deploy/backup.sh allow "$bad" >/dev/null 2>&1; then echo "✗ allow took: $bad" >&2; exit 1; fi
+done
+# The Mac's side, with a stand-in for ssh that does what sshd does with the key: run the forced command.
+printf '#!/bin/bash\nfor last; do :; done\nSSH_ORIGINAL_COMMAND="$last" LAA_NIGHTLY_DIR="%s" exec "%s/deploy/backup.sh" serve\n' \
+  "$NIGHTLY" "$ROOT" >"$WORK/fake-ssh"
+chmod +x "$WORK/fake-ssh"
+mac() { LAA_BACKUP_SSH="$WORK/fake-ssh" LAA_BACKUP_HOST=laabackup@trial LAA_BACKUP_DIR="$WORK/mac" scripts/mac-backup.sh fetch; }
+mac >/dev/null
+cmp -s "$WORK/mac/$NAME" "$NIGHTLY/$NAME" || { echo "✗ the Mac's copy differs from the server's" >&2; exit 1; }
+mac | grep -q "Already have $NAME" || { echo "✗ a second fetch should keep the copy it has" >&2; exit 1; }
+scripts/restore-drill.sh "$WORK/mac/$NAME" | tee "$WORK/drill.log"
+grep -E '^ *textbooks *\| *[1-9]' "$WORK/drill.log" >/dev/null || { echo "✗ the restored backup has no textbooks" >&2; exit 1; }
+check "the nightly backup reads back; its key fetches backups and nothing else; the Mac's copy matches and restores"
 
 printf '\n✓ The production stack works end to end. Screenshots: %s\n' "$OUT"

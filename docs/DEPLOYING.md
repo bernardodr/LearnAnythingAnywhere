@@ -104,7 +104,29 @@ docker compose start server
 
 `--clean` replaces what's there, and `--single-transaction` means a restore that fails changes nothing. Everything written since that backup is lost. If the code that's live is newer than the backup, roll back to the version the backup was taken under, too: the backup's name says which version came *after* it.
 
-The nightly backups, kept off the server, are Phase 3, step 5 (issue #28).
+## Nightly backups
+
+```mermaid
+flowchart LR
+    T["laa-backup.timer<br/>03:15 UTC"] --> B["backup.sh nightly<br/>pg_dump, check it reads back"]
+    B --> N[("/var/backups/laa<br/>newest 7")]
+    M["Your Mac, 09:00<br/>(or when it wakes)<br/>scripts/mac-backup.sh"] -->|"SSH as laabackup:<br/>'latest', 'get <name>' only"| N
+    M --> L[("~/LAA-backups<br/>newest 30")]
+```
+
+- **On the server**, `laa-backup.timer` runs `/usr/local/lib/laa/backup.sh nightly` at 03:15 UTC (a run missed while the server was off happens when it's back). It dumps the database, checks that Postgres can read the dump back, and keeps the newest 7 in `/var/backups/laa`. Run one by hand with `systemctl start laa-backup`, and see what happened with `journalctl -u laa-backup`.
+- **On your Mac**, `scripts/mac-backup.sh` fetches the newest one every day at 09:00, or as soon as the Mac wakes if it was asleep. It keeps the newest 30 in `~/LAA-backups`, and shows a notification if a fetch fails. `./scripts/mac-backup.sh status` lists the copies and the last runs.
+- **The backup key can only fetch backups.** The Mac signs in as `laabackup` with its own key (`~/.ssh/laa_backup`), and the server runs `backup.sh serve` whatever the Mac asks for. That answers exactly two requests, `latest` and `get <backup name>`, with no shell, no other files and no port forwarding (`restrict`). The key has no passphrase, because nobody is there at 09:00 to type one.
+- **The copies hold everything** (accounts, password hashes, books, chats). The folder is private to your user; keep FileVault on.
+- **A restore drill** loads a copy into a scratch database on your Mac and counts what's in it: `./scripts/restore-drill.sh [file]` (default: the newest). Run it now and then: a backup that has never been restored isn't known to work.
+
+**Setting it up** (once; the setup script installs the server half):
+
+1. On the Mac: `./scripts/mac-backup.sh setup`. It makes the key, schedules the daily fetch, and prints one command.
+2. On the server, as root: run that command (`/usr/local/lib/laa/backup.sh allow 'ssh-ed25519 …'`).
+3. On the server: `systemctl start laa-backup` for a first backup. Then on the Mac: `./scripts/mac-backup.sh fetch` and `./scripts/restore-drill.sh`.
+
+**Losing the server:** set up a new one (above), deploy, then restore the newest copy from `~/LAA-backups` with the commands in *Restoring a backup*, after copying it up: `scp ~/LAA-backups/<file> root@<server>:/opt/laa/backups/`.
 
 ## Trying it locally first
 
@@ -119,7 +141,8 @@ This runs the production setup on your laptop, using the real `compose.yml` and 
 3. deploys a second version, which must take a readable backup first;
 4. deploys a broken version, which must roll itself back;
 5. rolls back by hand, keeping the data;
-6. loses the data and restores it from the backup, with the commands above.
+6. loses the data and restores it from the backup, with the commands above;
+7. takes a nightly backup, checks the backup key's forced command refuses everything but its two requests, fetches the backup with the Mac's script, and restores it with the restore drill.
 
 Then it removes everything it started. Run it after any change to `deploy/`.
 

@@ -21,7 +21,49 @@
 | Arrange your shelf: drag books with light physics (user request) | ✅ Done (2026-11-16) |
 | A shelf of spines: a compact view with the same physics (user request) | ✅ Done (2026-11-16) |
 | A firmer shelf: a solid board, snappy physics, no bounce (user feedback) | ✅ Done (2026-11-16) |
-| Production: GitHub Actions pipeline, Hetzner server, web, App Store, Google Play (user request) | 🚧 Phase 1 steps 1–3 and 8 done; working through the web-beta checklist (`docs/PRODUCTION-PLAN.md`, *The web beta first*). Tasks are GitHub issues on the *LAA production* board; the process is `docs/WORKFLOW.md` |
+| Production: GitHub Actions pipeline, Hetzner server, web, App Store, Google Play (user request) | 🚧 Phase 1 steps 1–3 and 8 and Phase 3 done; **live at https://learnanythinganywhere.app** (2026-11-22); working through the web-beta checklist (`docs/PRODUCTION-PLAN.md`, *The web beta first*). Tasks are GitHub issues on the *LAA production* board; the process is `docs/WORKFLOW.md` |
+
+## Production: the server, its setup, and nightly backups (done 2026-11-22)
+
+Web-beta checklist items 2–7 (GitHub issues #24–#29, #7). Items 2–6 were mostly done by the owner, with step-by-step lists; this records what was built and checked.
+
+**Done**
+- **The server** (#24, #25): `laa-prod-1`, a Hetzner CX23 in Nuremberg, on Ubuntu 26.04, at `2.28.71.82` / `2a01:4f8:1c1b:dee5::1`. Its Cloud Firewall lets in only TCP 22, 80 and 443, UDP 443 and ping. Hetzner's own backups are optional (the owner's call).
+- **`deploy/bootstrap.sh`** (#26, PR #63; fix in #64):
+  - updates and automatic security updates, restarting at 04:30 UTC when needed;
+  - SSH keys only, fail2ban and 2 GB of swap;
+  - Docker with capped logs;
+  - `/opt/laa`, with `.env`'s secrets generated on the server;
+  - and now **step 7, nightly backups** (below).
+- **DNS** (#27): A and AAAA records for the apex and `api.`, *DNS only*. Cloudflare's proxy is #65, before opening to new users.
+- **Email** (#29): the server has its own Cloudflare token, with only *Email Sending: Edit*.
+- **AI** (#7): an OpenAI project `LAA production` with its own key, funded by the owner's ChatGPT Pro API credits benefit.
+- **First deploy:** `./deploy.sh build main`, run by the owner. HTTPS certificates came from Let's Encrypt.
+- **Nightly backups** (#28):
+  - **On the server:** `deploy/backup.sh nightly`, run by `laa-backup.timer` at 03:15 UTC, dumps the database, checks that the dump reads back, and keeps 7 in `/var/backups/laa`.
+  - **The fetch:** `backup.sh serve` is the forced command of a `laabackup` user's key. It answers only `latest` and `get <name>`, with a strict name pattern, and its key line is `restrict`. `backup.sh allow` adds a key line.
+  - **On the Mac:** `scripts/mac-backup.sh` (`setup`, `fetch`, `status`) uses a launchd agent to fetch at 09:00, or when the Mac wakes. It keeps 30 copies in `~/LAA-backups` and shows a notification on failure.
+  - **The restore drill:** `scripts/restore-drill.sh` restores a copy into a scratch database and counts what's in it.
+- **Docs:** `docs/DEPLOYING.md` (setting up a new server, nightly backups), `docs/PRODUCTION-PLAN.md`, `CLAUDE.md` and `README.md`. The architecture diagram for the owner is a private page on claude.ai.
+
+**Verified**
+- **Firewall, from outside:** 80 and 443 answer through temporary listeners. 8080 is dropped even with something listening, and 3000 and 5432 never reach the server (watched with tcpdump).
+- **`bootstrap.sh` on the real server:**
+  - password logins are refused, and `sshd -T` confirms it;
+  - fail2ban counted two deliberate failed logins (sshd 10 logs as `sshd-session`, and the jail matches it);
+  - swap is 2 GB, Docker 29.10.0 runs `hello-world`, and `.env` is 600 with its generated secrets in place (checked by length only).
+- **Email:** a test from the server passed SPF, DKIM and DMARC at Outlook, but landed in Junk (SCL 5: a new domain's reputation). Sign-up confirmations work in production.
+- **AI:** the key reaches all six of LAA's OpenAI models. A first lesson cost about $0.064: 5 interview turns, a plan, a write plus one rewrite, and 11 safety checks.
+- **`./e2e/production.sh` step 7 (new):**
+  - the nightly backup reads back;
+  - `serve` sends it byte for byte, and refuses `get ../.env`, a `;` after a name, a path, an unknown name, other commands and an empty request;
+  - `allow` writes exactly one restricted line however often it's run, and refuses other key types and quote tricks;
+  - the Mac's script fetches through a stand-in for ssh that runs the forced command, the copy matches byte for byte, and a second fetch keeps it;
+  - the restore drill restores it (1 account, 1 textbook, 1 lesson, migration 14).
+- **The trial found a bug, now fixed:** `allow` checked the key line by line, so a value with two lines passed on its first line. It now refuses anything with a line break.
+- ShellCheck (warnings and above): no findings in any of the scripts.
+
+**Not covered yet:** the real `sshd` forced command, the systemd timer and the launchd agent. They run when the owner sets backups up on the server and the Mac.
 
 ## Production 1.8: production packaging (done 2026-11-22)
 
@@ -1134,4 +1176,5 @@ From the architecture review (card 1, "Deepen learner-facing generation"): M6 ha
 | 2026-11-18 | **Interactive diagrams: AI-written HTML in a sealed frame**, as their own AI call (task `DIAGRAM`), at most 2 per lesson; **`react-native-webview` 14.0.1** (Expo's supported version) for phones | The user chose the HTML style over diagrams drawn from data. A diagram can't stop a lesson, and every readable word is checked. A frame with no network, no app access and no navigation keeps an AI-written page harmless. |
 | 2026-11-22 | **Web beta first:** packaging, the server, DNS, email, AI limits, backups and a privacy page, before CI, the deploy workflow and the stores | The user: "so I can get the web app in people's hands… for beta testing purposes". None of the store work is needed for the web. |
 | 2026-11-22 | **Until the deploy workflow exists, images are built on the server** (`deploy.sh build main`) rather than pushed from the laptop | The laptop is ARM and the server x86, so building on the laptop means slow emulation. The public repository needs no credentials to clone. Later the workflow builds and pushes to GitHub's registry, and `deploy.sh <tag>` pulls. |
+| 2026-11-22 | **Nightly backups go to the owner's Mac for now**, fetched daily by a key that can only fetch backups (forced command, `restrict`), with 7 copies on the server and 30 on the Mac | The owner's choice over a Hetzner Storage Box or Cloudflare R2: free, and enough for a beta. The catch is that copies arrive only while the Mac is on. A storage service can replace the Mac without changing the server's half. |
 | 2026-11-22 | **Base images:** `eclipse-temurin:21-jre-noble` (build: `21-jdk-noble`), `node:24-bookworm-slim` (the export only), `caddy:2.11-alpine`, `postgres:18`, each pinned to a major or minor version | Official images, current on 2026-11-22. Pinning to a version line gets security patches when an image is rebuilt, without surprise upgrades. Node 24 matches local development. |
