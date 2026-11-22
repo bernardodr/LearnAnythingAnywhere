@@ -64,7 +64,9 @@ KbdInteractiveAuthentication no
 PermitRootLogin prohibit-password
 EOF
 sshd -t || { rm -f /etc/ssh/sshd_config.d/00-laa.conf; fail "The SSH configuration didn't pass sshd's own check, so it was taken back out."; }
-systemctl reload ssh
+# Ubuntu starts sshd only when a connection arrives (ssh.socket), so it may not be running to reload. If it isn't,
+# the next connection starts it with this configuration anyway.
+systemctl try-reload-or-restart ssh.service
 
 # ---- 3. fail2ban for SSH.
 say "3/6 fail2ban…"
