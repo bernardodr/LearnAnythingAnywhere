@@ -24,7 +24,8 @@ export function MissionCard({
   const [current, setCurrent] = useState<MissionDraft>(draft);
   const [form, setForm] = useState<Form>(() => toForm(draft));
   const [editing, setEditing] = useState(false);
-  const edited = fromForm(form);
+  // The motif isn't on the form: it rides along as the AI picked it (the server keeps its own copy anyway).
+  const edited = { ...fromForm(form), motif: draft.motif };
   const valid = edited.headline !== '' && edited.why !== '' && edited.successLooksLike.length > 0;
   const set = (key: keyof Form) => (text: string) => setForm({ ...form, [key]: text });
 
@@ -62,7 +63,7 @@ export function MissionCard({
       <Text style={styles.headline} accessibilityRole="header">
         {current.headline}
       </Text>
-      <Ornament width={160} />
+      <Ornament />
       <Text style={styles.why}>{current.why}</Text>
       <Section label="Success looks like" items={current.successLooksLike} />
       <Section label="Limits" items={current.constraints} />
@@ -135,7 +136,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.rule,
     borderRadius: 4,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.field,
     padding: 24,
     marginTop: 28,
   },

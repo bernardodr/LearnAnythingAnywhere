@@ -21,6 +21,7 @@ import com.laa.llm.runs.Origin;
 import com.laa.safety.SafetyLayer;
 import com.laa.safety.TopicVerdict;
 import com.laa.textbook.Textbook;
+import com.laa.textbook.Motif;
 import com.laa.textbook.TextbookRepository;
 import com.laa.web.ApiException;
 import com.laa.workspace.WorkspaceFiles;
@@ -149,7 +150,11 @@ public class MissionInterview {
         return draft.value();
     }
 
-    /** Writes MISSION.md (as the learner confirmed or edited it) and opens the textbook. */
+    /**
+     * Writes MISSION.md (as the learner confirmed or edited it) and opens the textbook, with its cover motif: the
+     * AI's pick from the draft the server kept (whatever the app sent back), or one matched from the title for a
+     * draft from before motifs existed.
+     */
     @Transactional
     public WorkspaceFile confirm(Textbook tb, MissionDraft confirmed) {
         if (tb.status() != Textbook.Status.INTERVIEW) {
@@ -159,7 +164,8 @@ public class MissionInterview {
             throw new ApiException(HttpStatus.CONFLICT, "Finish the interview before confirming a mission.");
         }
         WorkspaceFile file = workspace.write(tb.id(), WorkspaceFiles.MISSION, MissionMarkdown.render(tb.title(), confirmed));
-        if (!textbooks.activate(tb.id(), confirmed)) {
+        Motif motif = tb.missionDraft().motif() != null ? tb.missionDraft().motif() : Motif.guess(tb.title() + " " + tb.topic());
+        if (!textbooks.activate(tb.id(), confirmed, motif)) {
             throw new ApiException(HttpStatus.CONFLICT, "This textbook’s mission is already confirmed.");
         }
         return file;

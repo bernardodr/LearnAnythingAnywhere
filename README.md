@@ -56,6 +56,7 @@ Check that everything passes before you change anything:
 cd server && ./mvnw test                                  # needs Docker (Testcontainers)
 cd app && npm run typecheck && npx expo lint
 ./e2e/run.sh diagrams                                     # the real web app in headless Chrome (needs Google Chrome)
+./e2e/run.sh library                                      # the library: covers, motifs, spines, arranging (with screenshots)
 ./e2e/production.sh                                       # the production containers, deployed and checked locally (after changing deploy/)
 ```
 
@@ -64,7 +65,7 @@ cd app && npm run typecheck && npx expo lint
 | Where | What's there |
 |---|---|
 | `app/src/app/` | The screens (Expo Router: the file name is the route) |
-| `app/src/components/` | The shelf, covers, lesson blocks, tutor, settings, owner console panels |
+| `app/src/components/` | The library grid, book covers and their motifs, lesson blocks, tutor, settings, owner console panels; `ui.tsx` holds the shared buttons, fields and icons |
 | `app/src/lib/` | The API client, the session (sign-in token), streamed replies |
 | `server/.../llm/` | The LLM gateway: every model call, registered in `Calls`, plus routing, providers and the run log |
 | `server/.../safety/` | The safety layer: topic gate, content checks, links policy, leak checks |
@@ -72,12 +73,13 @@ cd app && npm run typecheck && npx expo lint
 | `server/.../auth/`, `profile/`, `mail/` | Sign-in, passwords, the parent PIN, reader settings, email |
 | `server/src/main/resources/` | `application.yml` (settings, AI models and prices), prompts, database migrations |
 | `deploy/` | Production: the two images, the Compose file, Caddy's config, `deploy.sh` and the production `.env.example` |
-| `e2e/` | Browser walk-throughs: the diagrams' sealed frame, and the production stack |
+| `e2e/` | Browser walk-throughs: the diagrams' sealed frame, the library, and the production stack |
 
 ## The developer docs
 
 | Document | Read it for |
 |---|---|
+| [`docs/DESIGN.md`](docs/DESIGN.md) | **The look:** the owner's design brief (Warm Editorial Minimalism), the colours, type, books and screens. Read it before touching a screen. |
 | [`docs/WORKFLOW.md`](docs/WORKFLOW.md) | **How work gets done:** tasks, branches, pull requests, deploys and store releases, with diagrams |
 | [`docs/DATABASE.md`](docs/DATABASE.md) | The tables, how they relate, what deleting does, and how to change the database |
 | [`docs/DEPLOYING.md`](docs/DEPLOYING.md) | What runs on the server, setting one up, putting a version live, rolling back, nightly backups and restoring one |

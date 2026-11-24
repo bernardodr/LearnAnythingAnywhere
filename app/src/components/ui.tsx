@@ -15,24 +15,29 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Svg, { Circle, Path } from 'react-native-svg';
 
-import { colors, fonts, minTouch, type } from '@/theme';
+import { colors, fonts, minTouch, radius, type } from '@/theme';
 
 /**
- * A page of the book: paper background, one readable column. `stickToBottom` keeps the newest content in view
- * as it grows (a streaming conversation).
+ * A screen (`docs/DESIGN.md`): an even ivory background and one readable column with generous space. `stickToBottom`
+ * keeps the newest content in view as it grows (a streaming conversation). `footer` pins the screen's one dominant
+ * action to the bottom, above the scrolling page, the way the library's "Create a textbook" sits.
  */
 export function Page({
   children,
   center = false,
   stickToBottom = false,
   wide = false,
+  footer,
 }: {
   children: ReactNode;
   center?: boolean;
   stickToBottom?: boolean;
-  /** A wide working page (the owner console) instead of the book's reading column. */
+  /** A wide working page (the owner console) instead of the reading column. */
   wide?: boolean;
+  /** The screen's main action, pinned to the bottom (usually one primary `Button`). */
+  footer?: ReactNode;
 }) {
   const scroll = useRef<ScrollViewInstance>(null);
   return (
@@ -45,6 +50,11 @@ export function Page({
           keyboardShouldPersistTaps="handled">
           <View style={[styles.column, wide && styles.wide]}>{children}</View>
         </ScrollView>
+        {footer ? (
+          <View style={styles.footer}>
+            <View style={[styles.column, wide && styles.wide]}>{footer}</View>
+          </View>
+        ) : null}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -87,7 +97,7 @@ export function Select<T extends string>({
         <Text style={styles.selectText} numberOfLines={1}>
           {current}
         </Text>
-        <Text style={styles.selectCaret}>{open ? '▴' : '▾'}</Text>
+        <Icon name={open ? 'chevronUp' : 'chevronDown'} size={18} color={colors.muted} />
       </Pressable>
       {open ? (
         <View style={styles.menu} accessibilityRole="menu">
@@ -102,7 +112,7 @@ export function Select<T extends string>({
                 if (o.value !== value) onChange(o.value);
               }}
               style={({ pressed }) => [styles.menuItem, o.value === value && styles.menuItemOn, pressed && { opacity: 0.7 }]}>
-              <Text style={[styles.selectText, o.value === value && { color: colors.accent }]}>{o.label}</Text>
+              <Text style={[styles.selectText, o.value === value && styles.selectTextOn]}>{o.label}</Text>
             </Pressable>
           ))}
         </View>
@@ -111,20 +121,81 @@ export function Select<T extends string>({
   );
 }
 
-/** Back, or to the shelf when there's no history (a reloaded page on web, a deep link). */
+/** Back, or to the library when there's no history (a reloaded page on web, a deep link). */
 export function goBack() {
   if (router.canGoBack()) router.back();
   else router.replace('/library');
 }
 
-export function Ornament({ width = 200 }: { width?: number }) {
+/**
+ * The small ornament under a title on openings (the title page, a chapter opening, the mission card): two dots each
+ * side of a four-pointed star, in forest green. Decorative, so screen readers skip it.
+ */
+export function Ornament() {
   return (
-    <View style={[styles.ornament, { width }]} accessible={false} importantForAccessibility="no-hide-descendants">
-      <View style={styles.rule} />
-      <Text style={styles.fleuron}>❦</Text>
-      <View style={styles.rule} />
+    <View style={styles.ornament} accessible={false} importantForAccessibility="no-hide-descendants">
+      <Svg width={96} height={20} viewBox="0 0 96 20" aria-hidden>
+        <Circle cx={18} cy={10} r={1.6} fill={colors.accent} />
+        <Circle cx={30} cy={10} r={1.6} fill={colors.accent} />
+        <Path d="M48 2 Q48 10 56 10 Q48 10 48 18 Q48 10 40 10 Q48 10 48 2 Z" fill={colors.accent} />
+        <Circle cx={66} cy={10} r={1.6} fill={colors.accent} />
+        <Circle cx={78} cy={10} r={1.6} fill={colors.accent} />
+      </Svg>
     </View>
   );
+}
+
+/** The line icons the app uses (DESIGN.md: clear icons). */
+export type IconName = 'back' | 'settings' | 'more' | 'close' | 'chevronRight' | 'chevronDown' | 'chevronUp' | 'plus';
+
+/**
+ * A simple line icon in a 24 × 24 box. Decorative on its own: put it in an `IconButton` (or next to text) so it has a
+ * label.
+ */
+export function Icon({ name, size = 24, color = colors.ink }: { name: IconName; size?: number; color?: string }) {
+  const line = { stroke: color, strokeWidth: 1.6, fill: 'none', strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+  const paths: Record<IconName, ReactNode> = {
+    back: <Path d="M20 12 H4 M10 6 L4 12 L10 18" {...line} />,
+    settings: (
+      <>
+        <Path d="M4 7 H20 M4 17 H20" {...line} />
+        <Circle cx={9} cy={7} r={2.4} {...line} fill={colors.paper} />
+        <Circle cx={15} cy={17} r={2.4} {...line} fill={colors.paper} />
+      </>
+    ),
+    more: (
+      <>
+        <Circle cx={5} cy={12} r={1.4} fill={color} />
+        <Circle cx={12} cy={12} r={1.4} fill={color} />
+        <Circle cx={19} cy={12} r={1.4} fill={color} />
+      </>
+    ),
+    close: <Path d="M6 6 L18 18 M18 6 L6 18" {...line} />,
+    chevronRight: <Path d="M9 5 L16 12 L9 19" {...line} />,
+    chevronDown: <Path d="M6 9 L12 15 L18 9" {...line} />,
+    chevronUp: <Path d="M6 15 L12 9 L18 15" {...line} />,
+    plus: <Path d="M12 5 V19 M5 12 H19" {...line} />,
+  };
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" accessible={false} importantForAccessibility="no-hide-descendants" aria-hidden>
+      {paths[name]}
+    </Svg>
+  );
+}
+
+/** An icon-only button: 44 × 44 to tap, with the label screen readers say (required, as there's no visible text). */
+export function IconButton({ icon, label, onPress, color }: { icon: IconName; label: string; onPress: () => void; color?: string }) {
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} hitSlop={4}
+      style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
+      <Icon name={icon} color={color} />
+    </Pressable>
+  );
+}
+
+/** A fine horizontal divider. */
+export function Divider({ style }: { style?: ViewStyle }) {
+  return <View style={[styles.divider, style]} accessible={false} />;
 }
 
 export function Kicker({ children, style }: { children: ReactNode; style?: object }) {
@@ -141,6 +212,11 @@ type ButtonProps = {
   style?: ViewStyle;
 };
 
+/**
+ * A button (DESIGN.md: modestly rounded, a small number of prominent controls). `primary` is the screen's one dominant
+ * action: forest green, full width in the column. `secondary` is outlined and `quiet` is green text, for everything
+ * else.
+ */
 export function Button({ label, onPress, variant = 'primary', disabled, busy, accessibilityLabel, style }: ButtonProps) {
   const inactive = disabled || busy;
   return (
@@ -162,7 +238,9 @@ export function Button({ label, onPress, variant = 'primary', disabled, busy, ac
       {busy ? (
         <ActivityIndicator color={variant === 'primary' ? colors.paper : colors.accent} />
       ) : (
-        <Text style={[styles.buttonText, variant !== 'primary' && styles.buttonTextAlt]}>{label}</Text>
+        <Text style={[styles.buttonText, variant === 'secondary' && styles.buttonTextSecondary, variant === 'quiet' && styles.buttonTextQuiet]}>
+          {label}
+        </Text>
       )}
     </Pressable>
   );
@@ -247,10 +325,11 @@ export function Note({ children, tone = 'note' }: { children: ReactNode; tone?: 
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.paper },
-  page: { flexGrow: 1, alignItems: 'center', paddingHorizontal: 24, paddingVertical: 32 },
+  page: { flexGrow: 1, alignItems: 'center', paddingHorizontal: 24, paddingTop: 20, paddingBottom: 40 },
   pageCenter: { justifyContent: 'center' },
   column: { maxWidth: 560, width: '100%' },
   wide: { maxWidth: 1100 },
+  footer: { alignItems: 'center', paddingHorizontal: 24, paddingTop: 12, paddingBottom: 16, backgroundColor: colors.paper },
   selectCompact: { minWidth: 150 },
   select: {
     minHeight: minTouch,
@@ -259,55 +338,56 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     borderWidth: 1,
     borderColor: colors.rule,
-    borderRadius: 4,
-    paddingHorizontal: 12,
-    backgroundColor: '#FFFFFF',
+    borderRadius: radius,
+    paddingHorizontal: 14,
+    backgroundColor: colors.field,
     gap: 8,
   },
-  selectText: { fontFamily: fonts.sans, fontSize: 14, color: colors.ink, flexShrink: 1 },
-  selectCaret: { fontFamily: fonts.sans, fontSize: 12, color: colors.muted },
-  menu: { borderWidth: 1, borderColor: colors.rule, borderRadius: 4, backgroundColor: '#FFFFFF', marginTop: 4 },
-  menuItem: { minHeight: minTouch, justifyContent: 'center', paddingHorizontal: 12 },
+  selectText: { ...type.ui, flexShrink: 1 },
+  selectTextOn: { color: colors.accent, fontFamily: fonts.sansSemiBold },
+  menu: { borderWidth: 1, borderColor: colors.rule, borderRadius: radius, backgroundColor: colors.field, marginTop: 6, overflow: 'hidden' },
+  menuItem: { minHeight: minTouch, justifyContent: 'center', paddingHorizontal: 14 },
   menuItemOn: { backgroundColor: colors.noteFill },
-  ornament: { flexDirection: 'row', alignItems: 'center', alignSelf: 'center', marginVertical: 24 },
-  rule: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: colors.rule },
-  fleuron: { fontFamily: fonts.serif, fontSize: 18, color: colors.accent, marginHorizontal: 12 },
+  ornament: { alignSelf: 'center', marginVertical: 20 },
+  iconButton: { width: minTouch, height: minTouch, justifyContent: 'center', alignItems: 'center', borderRadius: radius },
+  divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.rule, alignSelf: 'stretch' },
   button: {
     minHeight: minTouch,
     minWidth: minTouch,
     paddingHorizontal: 22,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 4,
+    borderRadius: radius,
   },
-  primary: { backgroundColor: colors.accent },
-  secondary: { borderWidth: 1, borderColor: colors.accent, backgroundColor: colors.paper },
-  quiet: { backgroundColor: 'transparent', paddingHorizontal: 8 },
-  inactive: { opacity: 0.55 },
+  primary: { backgroundColor: colors.accent, minHeight: 52 },
+  secondary: { borderWidth: 1, borderColor: colors.rule, backgroundColor: colors.field },
+  quiet: { backgroundColor: 'transparent', paddingHorizontal: 10 },
+  inactive: { opacity: 0.5 },
   pressed: { opacity: 0.8 },
-  buttonText: { fontFamily: fonts.sansSemiBold, fontSize: 15, color: colors.paper, letterSpacing: 0.4 },
-  buttonTextAlt: { color: colors.accent },
-  field: { marginBottom: 18 },
-  label: { ...type.kicker, marginBottom: 8 },
+  buttonText: { fontFamily: fonts.sansSemiBold, fontSize: 16, color: colors.paper, letterSpacing: 0.2 },
+  buttonTextSecondary: { color: colors.ink },
+  buttonTextQuiet: { color: colors.accent, fontSize: 15 },
+  field: { marginBottom: 20 },
+  label: { fontFamily: fonts.sansMedium, fontSize: 14, lineHeight: 20, color: colors.ink, marginBottom: 8 },
   input: {
-    minHeight: minTouch,
+    minHeight: 48,
     borderWidth: 1,
     borderColor: colors.rule,
-    borderRadius: 4,
+    borderRadius: radius,
     paddingHorizontal: 14,
-    paddingVertical: 10,
-    backgroundColor: '#FFFFFF',
+    paddingVertical: 11,
+    backgroundColor: colors.field,
     fontFamily: fonts.serif,
     fontSize: 17,
     color: colors.ink,
   },
-  inputMulti: { minHeight: 96, textAlignVertical: 'top' },
+  inputMulti: { minHeight: 104, textAlignVertical: 'top' },
   passwordRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   passwordInput: { flex: 1 },
   reveal: { minHeight: minTouch, minWidth: minTouch + 12, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 8 },
   revealText: { fontFamily: fonts.sansSemiBold, fontSize: 14, color: colors.accent },
-  hint: { fontFamily: fonts.sans, fontSize: 13, color: colors.muted, marginTop: 6 },
-  note: { backgroundColor: colors.noteFill, borderRadius: 4, padding: 16, marginVertical: 12 },
-  noteError: { borderLeftWidth: 3, borderLeftColor: colors.accent },
-  noteText: { ...type.body, fontSize: 16, lineHeight: 16 * 1.5 },
+  hint: { ...type.meta, marginTop: 6 },
+  note: { backgroundColor: colors.noteFill, borderRadius: radius, padding: 16, marginVertical: 12 },
+  noteError: { backgroundColor: colors.paper, borderWidth: 1, borderColor: colors.rule, borderLeftWidth: 3, borderLeftColor: colors.danger },
+  noteText: { ...type.small },
 });

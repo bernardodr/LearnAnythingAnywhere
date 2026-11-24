@@ -12,6 +12,7 @@ import com.laa.llm.ChatMessage;
 import com.laa.llm.TextCall;
 import com.laa.llm.provider.ProviderRequest;
 import com.laa.mission.MissionInterview;
+import com.laa.textbook.Motif;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -265,12 +266,19 @@ final class FakeScripts {
         }
         String first = answers.isEmpty() ? "learn this well" : answers.getFirst();
         String second = answers.size() > 1 ? answers.get(1) : first;
+        // The cover motif, picked the way a real model would, from the subject: here by matching words in the
+        // textbook's title (the prompt names it in bold) and then the learner's answers, so practice mode shows
+        // sensible covers.
+        var named = java.util.regex.Pattern.compile("about \\*\\*(.+?)\\*\\*").matcher(request.system() == null ? "" : request.system());
+        String title = named.find() ? named.group(1) : "";
+        String everything = title + " " + String.join(" ", answers);
         return json(Map.of(
                 "headline", tag + clip(words(first, 8), 80),
                 "why", tag + clip(first, 500),
                 "successLooksLike", List.of(tag + clip(second, 180)),
                 "constraints", List.of(),
-                "outOfScope", List.of()));
+                "outOfScope", List.of(),
+                "motif", (Motif.guess(title) != Motif.ORNAMENT ? Motif.guess(title) : Motif.guess(everything)).name()));
     }
 
 

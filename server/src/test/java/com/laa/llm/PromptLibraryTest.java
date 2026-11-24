@@ -23,12 +23,24 @@ class PromptLibraryTest {
 
     @Test
     void aNewRouteStartsOnTheNewestCompleteVersion() {
-        // Lesson writing has v2 (it can place diagrams); everything else is still on v1.
+        // Lesson writing has v2 (it can place diagrams) and the preface v2 (its draft picks the cover motif);
+        // everything else is still on v1.
         assertThat(prompts.latest(Task.LESSON_WRITE)).isEqualTo("v2");
+        assertThat(prompts.latest(Task.MISSION_INTERVIEW)).isEqualTo("v2");
         assertThat(prompts.latest(Task.DIAGRAM)).isEqualTo("v1");
         assertThat(prompts.latest(Task.SAFETY_CHECK)).isEqualTo("v1");
         assertThat(prompts.render(Calls.LESSON_WRITE, "v2", java.util.Map.of())).contains("DIAGRAM", "brief", "caption");
         assertThat(prompts.render(Calls.LESSON_WRITE, "v1", java.util.Map.of())).doesNotContain("DIAGRAM");
+    }
+
+    @Test
+    void thePrefaceDraftV2AsksForAMotifFromEveryOneInTheSet() {
+        String draft = prompts.render(Calls.MISSION_DRAFT, "v2", java.util.Map.of("title", "Bouldering"));
+        for (com.laa.textbook.Motif m : com.laa.textbook.Motif.values()) assertThat(draft).contains(m.name());
+        assertThat(prompts.render(Calls.MISSION_DRAFT, "v1", java.util.Map.of("title", "Bouldering"))).doesNotContain("motif");
+        // The interview itself is unchanged: v2 only exists so the task's two prompts share a version.
+        String v1 = prompts.render(Calls.INTERVIEW_TURN, "v1", java.util.Map.of("title", "Bouldering"));
+        assertThat(prompts.render(Calls.INTERVIEW_TURN, "v2", java.util.Map.of("title", "Bouldering"))).isEqualTo(v1);
     }
 
     @Test

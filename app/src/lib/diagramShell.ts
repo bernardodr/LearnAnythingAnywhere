@@ -69,13 +69,15 @@ const BRIDGE = `
 })();
 `;
 
-// LAA's design tokens (theme.ts), as the CSS variables the diagram prompt names. Fonts are system ones: the page
-// can't load LAA's own (no network), and these sit closest to Newsreader and Inter.
+// LAA's design tokens (theme.ts), as the CSS variables the diagram prompt names. The older names (--slate, --olive,
+// --navy) stay, because diagrams already written use them; they now draw in DESIGN.md's palette. Fonts are system
+// ones: the page can't load LAA's own (no network), and these sit closest to Source Serif 4 and Inter.
 const STYLE = `
 :root {
   --paper: ${colors.paper}; --ink: ${colors.ink}; --muted: ${colors.muted}; --rule: ${colors.rule};
   --note: ${colors.noteFill}; --accent: ${colors.accent}; --ribbon: ${colors.ribbon};
-  --slate: ${colors.covers.slate}; --olive: ${colors.covers.olive}; --terracotta: ${colors.covers.terracotta}; --navy: ${colors.covers.navy};
+  --forest: ${colors.covers.forest}; --ochre: ${colors.covers.ochre}; --blue: ${colors.covers.blue}; --terracotta: ${colors.covers.terracotta};
+  --slate: ${colors.covers.blue}; --olive: ${colors.covers.forest}; --navy: ${colors.covers.blue};
   --serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
   --sans: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
@@ -84,7 +86,7 @@ html, body { margin: 0; padding: 0; background: var(--paper); color: var(--ink);
 body { font: 16px/1.5 var(--serif); padding: 4px 2px 8px; overflow-wrap: anywhere; -webkit-text-size-adjust: 100%; }
 svg { max-width: 100%; height: auto; }
 .laa-button {
-  min-height: 44px; min-width: 44px; padding: 8px 16px; border-radius: 22px; cursor: pointer;
+  min-height: 44px; min-width: 44px; padding: 8px 16px; border-radius: 10px; cursor: pointer;
   font: 600 15px var(--sans); color: var(--accent); background: var(--paper); border: 1.5px solid var(--accent);
 }
 .laa-button[aria-pressed="true"], .laa-button:active { color: var(--paper); background: var(--accent); }

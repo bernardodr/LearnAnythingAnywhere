@@ -46,7 +46,7 @@ class ReaderViewTest extends IntegrationTest {
         fakes.setCannedText(Calls.INTERVIEW_TURN, "Tell me more: https://" + PLANT + "/interview " + MARKER);
         fakes.setCanned(Calls.MISSION_DRAFT, json(Map.of("headline", "Climb a V3, see https://" + PLANT + "/headline",
                 "why", "Because https://" + PLANT + "/why says so.", "successLooksLike", List.of("A clean V3 https://" + PLANT + "/success"),
-                "constraints", List.of(), "outOfScope", List.of())));
+                "constraints", List.of(), "outOfScope", List.of(), "motif", "MOUNTAIN")));
         String mission = "/textbooks/" + id + "/mission";
         ok(sse(mission + "/messages", learner, null));
         ok(sse(mission + "/messages", learner, Map.of("content", "Like https://" + PLANT + "/my-answer")));

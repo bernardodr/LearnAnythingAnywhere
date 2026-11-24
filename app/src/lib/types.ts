@@ -29,6 +29,8 @@ export type Textbook = {
   topic: string;
   status: TextbookStatus;
   coverColor: string;
+  /** The cover's subject motif (`Motif.tsx`), picked by the AI when the preface ends; null until then. */
+  coverMotif: string | null;
   volume: number;
   missionHeadline: string | null;
   /** The topic gate's note when the topic was reframed. */
@@ -44,6 +46,8 @@ export type CreateTextbookResponse = {
 
 export type MissionDraft = {
   headline: string;
+  /** The AI's pick of cover motif; the card leaves it as it is when the learner edits the rest. */
+  motif?: string | null;
   why: string;
   successLooksLike: string[];
   constraints: string[];

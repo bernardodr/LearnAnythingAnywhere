@@ -30,11 +30,14 @@ class TextbookApiTest extends IntegrationTest {
         assertThat(book.get("status").asString()).isEqualTo("INTERVIEW");
         assertThat(book.get("volume").asInt()).isEqualTo(1);
         assertThat(book.get("coverColor").asString()).isEqualTo(Textbook.COVER_COLORS.get(0));
+        // Until the preface picks one, the cover's motif is matched from the title.
+        assertThat(book.get("coverMotif").asString()).isEqualTo("mountain");
         assertThat(book.get("gateNote").isNull()).isTrue();
 
         Resp second = post("/textbooks", learner, Map.of("topic", "Sourdough"));
         assertThat(second.body().get("textbook").get("volume").asInt()).isEqualTo(2);
         assertThat(second.body().get("textbook").get("coverColor").asString()).isEqualTo(Textbook.COVER_COLORS.get(1));
+        assertThat(second.body().get("textbook").get("coverMotif").asString()).isEqualTo("wheat");
 
         Resp shelf = get("/textbooks", learner);
         assertThat(shelf.body().size()).isEqualTo(2);

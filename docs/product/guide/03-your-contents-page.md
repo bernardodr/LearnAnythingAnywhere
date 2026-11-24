@@ -2,7 +2,7 @@
 
 [← Starting a textbook](02-starting-a-textbook.md) · [Guide home](../README.md) · Next: [Reading a lesson →](04-reading-a-lesson.md)
 
-Every textbook has a contents page, just like a printed book. Open it by tapping the textbook's cover on your shelf.
+Every textbook has a contents page, just like a printed book. Open it by tapping the textbook's cover in your library.
 
 ## At the top: your title and mission
 

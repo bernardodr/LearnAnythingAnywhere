@@ -6,6 +6,29 @@ What's new in each release of Learn Anything Anywhere, newest first. Each featur
 
 ---
 
+## 0.14: A fresh look, beginning with your library
+*24 November 2026*
+
+LAA has a new look: warm ivory pages, dark ink, forest green for the thing to do next, and an elegant serif for everything you read. It starts with your library. The rest of the app follows in the next releases.
+
+### New
+
+- **Your shelf is now your library.** Your books sit two to a row on a calm ivory page, with **Create a textbook** waiting at the bottom. [Your library →](guide/01-getting-started.md#your-library)
+- **Books look like books.** Each cover is cloth in forest green, ochre, dusty blue or terracotta, with a fine weave, a hint of its spine, a soft shadow, and its title in large type.
+- **A drawing for every subject.** Each cover carries one small drawing of what the book is about: stars for the night sky, a leaf for plants, a mountain for climbing, and more. LAA chooses it when you finish a book's preface. Your existing books already have one, chosen from their titles. [Your library →](guide/01-getting-started.md#your-library)
+- **Settings, in one place.** The settings icon at the top right of your library opens your settings, which now also hold **Sign out** (and, for the owner on a computer, **Owner console**). [Your library →](guide/01-getting-started.md#your-library)
+
+### Changed
+
+- **Spines stand on a fine line** instead of wooden shelves, in the new colours. [Covers or spines →](guide/01-getting-started.md#covers-or-spines)
+- **Your mission** now shows on each book's contents page rather than under its cover, so the library stays quiet.
+
+### Fixed
+
+- On a computer, moving the first book in your library with its **›** button saved the new order but didn't show it until you did something else. The arrow buttons now work the same for every book.
+
+---
+
 ## 0.13: Interactive diagrams
 *18 November 2026*
 
@@ -32,9 +55,9 @@ What's new in each release of Learn Anything Anywhere, newest first. Each featur
 ### New
 
 - **Spines.** Choose **Spines** above your books to see them standing on the shelf with their spines out, like a real bookcase, so many more fit on the screen. Books differ a little in thickness and height, and one you haven't finished starting has a red ribbon bookmark. Choose **Covers** to go back. LAA remembers your choice on each device. [Covers or spines →](guide/01-getting-started.md#covers-or-spines)
-- **Arrange spines by hand, too.** Pick a spine up and it lifts off the shelf. The others close the gap, and when you let go it drops straight into its place with a small knock against its neighbours. [Arranging your shelf →](guide/01-getting-started.md#arranging-your-shelf)
+- **Arrange spines by hand, too.** Pick a spine up and it lifts off the shelf. The others close the gap, and when you let go it drops straight into its place with a small knock against its neighbours. [Arranging your shelf →](guide/01-getting-started.md#arranging-your-library)
 - **Arranging without dragging** on spines: tap **Arrange**, tap a book to choose it, then **‹ Earlier** or **Later ›**.
-- **Sturdier shelves.** The shelves are thicker wooden planks that stay put, and books move quickly and land firmly, without bouncing or wobbling. [Arranging your shelf →](guide/01-getting-started.md#arranging-your-shelf)
+- **Sturdier shelves.** The shelves are thicker wooden planks that stay put, and books move quickly and land firmly, without bouncing or wobbling. [Arranging your shelf →](guide/01-getting-started.md#arranging-your-library)
 
 ---
 
@@ -45,7 +68,7 @@ Your shelf is now yours to arrange.
 
 ### New
 
-- **Move your books by hand.** Drag a book to a new place (on a phone or tablet, press and hold it first). It lifts off the shelf and leans a little as you move it, the other books slide aside to make room, and when you let go it drops into place with a small knock against its neighbours. [Arranging your shelf →](guide/01-getting-started.md#arranging-your-shelf)
+- **Move your books by hand.** Drag a book to a new place (on a phone or tablet, press and hold it first). It lifts off the shelf and leans a little as you move it, the other books slide aside to make room, and when you let go it drops into place with a small knock against its neighbours. [Arranging your shelf →](guide/01-getting-started.md#arranging-your-library)
 - **Your order is kept**, the same on every device. New textbooks go at the end.
 - **No dragging needed:** tap **Arrange** for buttons that move each book earlier or later. Screen readers get *Move earlier* and *Move later* actions too.
 
@@ -272,7 +295,7 @@ You can now sign in, see your shelf of textbooks, and start a new one. Every tex
 ### New
 
 - **Sign in** with your email. LAA remembers you on each device. [Signing in →](guide/01-getting-started.md#signing-in)
-- **Your shelf.** Your textbooks as cloth-bound covers, each with its mission underneath, plus suggestions to get you started. [Your shelf →](guide/01-getting-started.md#your-shelf)
+- **Your shelf.** Your textbooks as cloth-bound covers, each with its mission underneath, plus suggestions to get you started. [Your library →](guide/01-getting-started.md#your-library)
 - **Start a textbook on anything.** Tap **+**, name a topic, and begin. [Choose a topic →](guide/02-starting-a-textbook.md#1-choose-a-topic)
 - **A topic check.** Every topic is checked first. Almost all go straight ahead; a few are approached in a different way or kindly declined. [The topic check →](guide/02-starting-a-textbook.md#2-the-topic-check)
 - **The preface.** A short conversation with your tutor about what you want to be able to do, with replies that appear as they're written. [The preface →](guide/02-starting-a-textbook.md#3-the-preface-why-do-you-want-to-learn-this)

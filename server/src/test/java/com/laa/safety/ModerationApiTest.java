@@ -168,7 +168,7 @@ class ModerationApiTest extends IntegrationTest {
         String learner = login("links-draft@test.dev");
         fakes.setCanned(Calls.MISSION_DRAFT, json(Map.of("headline", "Climb a V3, like on https://climbing.example.com",
                 "why", "To climb with my friends.", "successLooksLike", List.of("A clean V3"), "constraints", List.of(),
-                "outOfScope", List.of())));
+                "outOfScope", List.of(), "motif", "MOUNTAIN")));
         String id = post("/textbooks", learner, Map.of("topic", "Bouldering")).body().get("textbook").get("id").asString();
         String base = "/textbooks/" + id + "/mission";
         ok(sse(base + "/messages", learner, null));

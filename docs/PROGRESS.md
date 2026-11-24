@@ -22,6 +22,79 @@
 | A shelf of spines: a compact view with the same physics (user request) | ✅ Done (2026-11-16) |
 | A firmer shelf: a solid board, snappy physics, no bounce (user feedback) | ✅ Done (2026-11-16) |
 | Production: GitHub Actions pipeline, Hetzner server, web, App Store, Google Play (user request) | 🚧 Phase 1 steps 1–3 and 8 and Phase 3 done; **live at https://learnanythinganywhere.app** (2026-11-22); working through the web-beta checklist (`docs/PRODUCTION-PLAN.md`, *The web beta first*). Tasks are GitHub issues on the *LAA production* board; the process is `docs/WORKFLOW.md` |
+| A fresh look: Warm Editorial Minimalism, the owner's design brief (user request; `docs/DESIGN.md`, issue #67) | 🚧 Milestone 1 of 5 done (2026-11-24): foundation, covers with motifs, the library. Next: the book page, starting a book, the preface (#69) |
+
+## Facelift 1: foundation, covers with motifs, and the library (done 2026-11-24)
+
+The owner: "I need you to do a major face lift to the app here is the design brief. And some reference images. Make sure you uses this design brief when touching the ui… rework all the screens." Decisions (asked first):
+- Source Serif 4 and `react-native-svg` (new dependencies);
+- the library as a grid on ivory, keeping arranging and spines;
+- the AI picks each cover's motif from a hand-drawn set;
+- notes and highlights included (whole passages, milestone 4);
+- search, bookmarks and reading time later (#73–#75).
+
+Five milestones under #67; this is #68. Then: "Make sure to update the product documentation and developer documentation when you are done."
+
+**Done**
+- **`docs/DESIGN.md`:** the brief word for word, the mockups (`docs/design/`), and how LAA applies it: colour tokens with contrast ratios, the type scale, space and shape, books, screens and voice. `CLAUDE.md` makes it the rule for any screen change, and BRIEF §9 now points to it for the look.
+- **Tokens** (`theme.ts`):
+  - colours: ivory `#F7F4EC`, ink `#292823`, forest `#384E41` as the accent, a `field` fill, `danger`, and cover cloths in forest, ochre, dusty blue and terracotta (every text pair checked at 4.5:1 or more);
+  - Source Serif 4 and Inter (adding Inter Medium);
+  - a type scale (display, h1–h3, body 18/30, small, ui, meta, kicker), and `radius` 10.
+  - Newsreader is removed. Raw `#FFFFFF` fills became `colors.field`, so every screen takes the new palette now, ahead of its own milestone.
+- **`ui.tsx`:**
+  - `Page` gains a pinned `footer` for the screen's one dominant action;
+  - buttons are modestly rounded (the primary 52 tall, secondary outlined, quiet green text);
+  - fields are sentence-case labels on a lighter fill;
+  - new `Icon` and `IconButton` (line icons), and `Divider`;
+  - the ornament is now dots and a four-pointed star.
+- **Covers** (`Cover.tsx`): `BookFace` draws a physical book:
+  - cloth with an SVG weave, light from the top left, and spine depth (a hinge band and crease);
+  - a soft two-layer shadow;
+  - the title top left in ink or ivory, whichever contrasts with the cloth, sized so no word breaks;
+  - one motif, and a terracotta ribbon on a preface in progress.
+- **Motifs** (`Motif.tsx`): 21 hand-drawn line drawings in a 100-unit box: stars, moon, leaf, wheat, mountain, wave, gear, dots, shapes, brush, note, flask, atom, globe, quill, column, bars, pulse, pawn, speech, plus the neutral ornament.
+- **The library** (`library.tsx`, `Shelf.tsx`):
+  - the mockup's page: a centred masthead, "Your library" with its line, a settings icon in place of three header buttons, and **Create a textbook** pinned at the bottom;
+  - covers two to a row, with no wooden shelves; spines on a fine ledge;
+  - Covers/Spines as quiet underlined choices;
+  - the hint shown only while arranging;
+  - an empty library shows a dotted outline and the starter topics.
+- **Settings** now holds **Sign out** and, for the owner on the web, **Owner console** (they lived in the library's header). The back button is an icon.
+- **Diagrams' frame:** the CSS variables take the new palette. The old names (`--slate`, `--olive`, `--navy`) still work for diagrams already written, and buttons are radius 10.
+- **Server:**
+  - `Motif` (enum, `key()`, `fromKey`, and `guess`, which matches words from the title, with whole-word matching for short words);
+  - `MissionDraft.motif` (offered to the model as an enum), and the confirmed draft's motif saved as `textbooks.cover_motif` (V15);
+  - `TextbookView.coverMotif`, always set (the pick, or `guess` of the title);
+  - cover colours in the new palette, with V15 moving the four old colours by volume;
+  - preface prompt v2: the interview is unchanged, and the draft gains the motif list. V15 moves routes still on `v1`.
+  - Practice mode's fake draft picks a motif from the book's title.
+- **Docs:**
+  - product: the guide's *Your library* (renamed from *Your shelf*), every mention of the shelf, the settings icon and signing out, release notes 0.14, and old links fixed;
+  - developer: `DESIGN.md`, `DATABASE.md` (V15), `CLAUDE.md` (layout, the cover-motif rule, the library walk-through), `README.md`, and `GLOSSARY.md` (*Library*, *Cover motif*).
+
+**Verified**
+- **`./e2e/run.sh library` (new), in Chrome at phone size:**
+  - four books with finished prefaces get stars, shapes, dots and leaf; a preface in progress gets wheat, from its title;
+  - the page shows the masthead, the title, the settings icon and Create a textbook, with the title in Source Serif 4 and controls in Inter;
+  - all five covers are drawn (cloth and motif), two to a row, and no title word is split across lines;
+  - spines, and back to covers;
+  - the arrows move a book and the server keeps the order;
+  - the settings icon opens settings with Sign out, and signing out works;
+  - a new learner's empty library invites a first topic;
+  - no console errors or warnings.
+- **The walk-through found a real bug, now fixed:** on the web, the first book's **›** saved the new order but the book didn't move on screen. A press on an arrow inside the book's drag area left the book "held". The arrows now sit under the book, outside the drag area.
+- **It also found title type that split long words** ("Computer / s Think"): titles are now sized so the longest word fits.
+- **Server tests:**
+  - `MotifTest` (20): titles to motifs; whole-word matching ("art" isn't "artificial", "star" isn't "start"); keys round-trip; the app's `MOTIFS` match the enum; the draft's schema offers every motif;
+  - `CoversMigrationTest` (2): V15 recolours the old four by volume, leaves other colours, allows only lower-case motifs, and moves preface routes on `v1` but keeps one the owner chose;
+  - `MissionInterviewTest`: the draft carries MOUNTAIN, and the confirm keeps it even when the app sends STARS;
+  - `TextbookApiTest`: a new book's `coverMotif` is matched from its title;
+  - `PromptLibraryTest`: the preface is on v2, the draft lists every motif, and the interview text is unchanged.
+  - Two safety tests' pretend drafts gained a motif, since the schema now requires one. Full suite: see the pull request.
+- `./e2e/run.sh diagrams` still passes in the new palette.
+
+**Not covered:** iPhone and Android (the covers and icons use `react-native-svg`, which Expo supports on both, but nothing here ran on a phone). The other screens have the new palette and fonts but not yet their new layouts (milestones 2–5).
 
 ## Production: the server, its setup, and nightly backups (done 2026-11-22)
 
@@ -1176,5 +1249,8 @@ From the architecture review (card 1, "Deepen learner-facing generation"): M6 ha
 | 2026-11-18 | **Interactive diagrams: AI-written HTML in a sealed frame**, as their own AI call (task `DIAGRAM`), at most 2 per lesson; **`react-native-webview` 14.0.1** (Expo's supported version) for phones | The user chose the HTML style over diagrams drawn from data. A diagram can't stop a lesson, and every readable word is checked. A frame with no network, no app access and no navigation keeps an AI-written page harmless. |
 | 2026-11-22 | **Web beta first:** packaging, the server, DNS, email, AI limits, backups and a privacy page, before CI, the deploy workflow and the stores | The user: "so I can get the web app in people's hands… for beta testing purposes". None of the store work is needed for the web. |
 | 2026-11-22 | **Until the deploy workflow exists, images are built on the server** (`deploy.sh build main`) rather than pushed from the laptop | The laptop is ARM and the server x86, so building on the laptop means slow emulation. The public repository needs no credentials to clone. Later the workflow builds and pushes to GitHub's registry, and `deploy.sh <tag>` pulls. |
+| 2026-11-24 | **The look is Warm Editorial Minimalism** (`docs/DESIGN.md`), replacing BRIEF §9's rust textbook look. **Source Serif 4** (`@expo-google-fonts/source-serif-4`) replaces Newsreader, and **`react-native-svg` 15.16.0** (Expo SDK 58's version) draws covers, motifs and icons | The owner's design brief and mockups. Both packages were approved before they were added. |
+| 2026-11-24 | **The library is a grid of covers on ivory** with no wooden shelves; **arranging and spines stay**. **Each cover's motif is picked by the AI** in the preface's mission draft, from a fixed set of 21, at no extra AI call; until then it's matched from the title | The owner's choices over a fixed grid, keeping the shelf, matching titles only, or an AI-drawn motif per book. The motif is part of the draft's schema (an enum), and the confirm keeps the server's stored pick. |
+| 2026-11-24 | **Notes and highlights are in the facelift** (milestone 4), on whole passages; search, bookmarks and reading time are later (#73–#75) | The owner's choices. Phones can't reliably report which words inside a paragraph were selected, so passages work the same everywhere. |
 | 2026-11-22 | **Nightly backups go to the owner's Mac for now**, fetched daily by a key that can only fetch backups (forced command, `restrict`), with 7 copies on the server and 30 on the Mac | The owner's choice over a Hetzner Storage Box or Cloudflare R2: free, and enough for a beta. The catch is that copies arrive only while the Mac is on. A storage service can replace the Mac without changing the server's half. |
 | 2026-11-22 | **Base images:** `eclipse-temurin:21-jre-noble` (build: `21-jdk-noble`), `node:24-bookworm-slim` (the export only), `caddy:2.11-alpine`, `postgres:18`, each pinned to a major or minor version | Official images, current on 2026-11-22. Pinning to a version line gets security patches when an image is rebuilt, without surprise upgrades. Node 24 matches local development. |

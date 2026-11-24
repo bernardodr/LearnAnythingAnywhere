@@ -14,28 +14,26 @@ import Animated, {
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
-import { bookLabel, Cover, type CoverMove, MOVE_ACTIONS, volumeNumeral } from '@/components/Cover';
+import { bookLabel, Cover, COVER_RATIO, type CoverMove, MOVE_ACTIONS, titleColorOn, volumeNumeral } from '@/components/Cover';
 import { Button } from '@/components/ui';
 import type { Textbook } from '@/lib/types';
-import { colors, fonts, minTouch, type } from '@/theme';
+import { colors, fonts, minTouch, radius, type } from '@/theme';
 
-/** Covers: the full cloth covers in a grid. Spines: books standing on the shelf, spine out. */
+/** Covers: the full covers in a grid. Spines: books standing side by side, spine out, on a fine ledge. */
 export type ShelfView = 'covers' | 'spines';
 
 // Covers
-const GAP = 20;
-/** The caption under a cover: its top margin plus three lines. */
-const CAPTION_H = 73;
-const BOARD_GAP = 12;
+const GAP = 24;
+/** The one-line caption under a cover: its top margin plus a line. */
+const CAPTION_H = 33;
 const ROW_GAP = 28;
 // Spines
-const BOOKEND_W = 14;
-const BOOKEND_H = 70;
-const SPINE_START = BOOKEND_W + 6;
+const SPINE_START = 0;
 const SPINE_GAP = 3;
 const SPINE_MAX_H = 190;
 const SPINE_ROW_GAP = 30;
-const BOARD_H = 14;
+/** The ledge the spines stand on: a fine line with room for its shadow. */
+const BOARD_H = 6;
 
 // The feel of it: quick and firm, on a solid shelf. Neighbours snap aside; a held book lifts off the shelf and leans a
 // little with your hand; a dropped one lands in its place and stops dead, and the books beside it give a small knock.
@@ -167,8 +165,8 @@ export function Shelf({
   const ids = key ? key.split(',') : [];
   const perRow = width >= 480 ? 3 : 2;
   const coverW = (width - (perRow - 1) * GAP) / perRow;
-  const clothH = coverW * 1.38;
-  const rowH = clothH + CAPTION_H + BOARD_GAP + BOARD_H + ROW_GAP;
+  const clothH = coverW * COVER_RATIO;
+  const rowH = clothH + CAPTION_H + ROW_GAP;
   const spineRowH = SPINE_MAX_H + BOARD_H + SPINE_ROW_GAP;
   const sizes: Record<string, Size> = {};
   for (const id of ids) sizes[id] = spineSize(id);
@@ -221,13 +219,12 @@ export function Shelf({
   const chosen = books.find((b) => b.id === selected) ?? null;
   const at = chosen ? ids.indexOf(chosen.id) : -1;
 
-  const hint = arranging
-    ? view === 'spines'
-      ? 'Tap a book, then move it with the buttons. Or drag it.'
-      : 'Use the arrows, or drag a book to its place.'
+  // Shown while arranging; dragging works any time, and says so here.
+  const hint = view === 'spines'
+    ? 'Tap a book, then move it with the buttons. Or drag it.'
     : Platform.OS === 'web'
-      ? 'Drag a book to move it.'
-      : 'Press and hold a book to move it.';
+      ? 'Use the arrows, or drag a book to its place.'
+      : 'Use the arrows, or press and hold a book and drag it.';
 
   return (
     <View>
@@ -236,8 +233,9 @@ export function Shelf({
           {(['covers', 'spines'] as const).map((v) => (
             <Pressable key={v} accessibilityRole="radio" accessibilityState={{ checked: view === v }} aria-checked={view === v}
               accessibilityLabel={v === 'covers' ? 'Covers' : 'Spines'} onPress={() => onView(v)}
-              style={[styles.viewOption, view === v && styles.viewOn]}>
+              style={({ pressed }) => [styles.viewOption, pressed && styles.pressed]}>
               <Text style={[styles.viewText, view === v && styles.viewTextOn]}>{v === 'covers' ? 'Covers' : 'Spines'}</Text>
+              <View style={[styles.viewMark, view === v && styles.viewMarkOn]} />
             </Pressable>
           ))}
         </View>
@@ -247,10 +245,10 @@ export function Shelf({
               setArranging(!arranging);
               setSelected(null);
             }}
-            accessibilityLabel={arranging ? 'Done arranging' : 'Arrange your shelf'} />
+            accessibilityLabel={arranging ? 'Done arranging' : 'Arrange your library'} />
         ) : null}
       </View>
-      {books.length > 1 ? <Text style={styles.hint}>{hint}</Text> : <View style={{ height: 14 }} />}
+      {arranging ? <Text style={styles.hint}>{hint}</Text> : <View style={{ height: 20 }} />}
       {arranging && view === 'spines' ? (
         <View style={styles.spineMoves}>
           <Button label="‹ Earlier" variant="secondary" disabled={!chosen || at === 0} onPress={() => chosen && move(chosen.id, 'earlier')}
@@ -263,10 +261,7 @@ export function Shelf({
       ) : null}
 
       <View style={{ height: view === 'covers' ? rows * rowH - ROW_GAP : rows * spineRowH - SPINE_ROW_GAP }}>
-        {Array.from({ length: rows }, (_, r) => (
-          <Board key={`${view}-${r}`} view={view}
-            top={view === 'covers' ? r * rowH + clothH + CAPTION_H + BOARD_GAP : r * spineRowH + SPINE_MAX_H} />
-        ))}
+        {view === 'spines' ? Array.from({ length: rows }, (_, r) => <Ledge key={r} top={r * spineRowH + SPINE_MAX_H} />) : null}
         {books.map((book) => (
           <ShelfBook key={book.id} book={book} home={place(book.id, ids, now)} view={view} coverW={coverW} clothH={clothH}
             size={sizes[book.id]} shared={shared} reduced={reduced} arranging={arranging} selected={selected === book.id}
@@ -278,14 +273,9 @@ export function Shelf({
   );
 }
 
-/** A solid plank: it never moves. Spines lean on a bookend at the start of each shelf. */
-function Board({ view, top }: { view: ShelfView; top: number }) {
-  return (
-    <>
-      {view === 'spines' ? <View style={[styles.bookend, { top: top - BOOKEND_H }]} accessible={false} /> : null}
-      <View style={[styles.board, { top }]} accessible={false} />
-    </>
-  );
+/** The fine ledge a row of spines stands on: a hairline with a soft shadow under it. It never moves. */
+function Ledge({ top }: { top: number }) {
+  return <View style={[styles.ledge, { top }]} accessible={false} />;
 }
 
 function ShelfBook({
@@ -462,20 +452,23 @@ function ShelfBook({
     </View>
   ) : undefined;
 
+  // Only the book itself can be picked up. The arrow buttons sit under it, outside the drag area, so pressing one is
+  // never the start of a drag (on the web it could be, and the book then stayed "held" where it was).
   return (
-    <GestureDetector gesture={gesture} userSelect="none" touchAction="pan-y">
-      <Animated.View style={[styles.book, { width: spines ? size.w : coverW, transformOrigin: spines ? '50% 0%' : '50% 50%' }, style]}>
+    <Animated.View style={[styles.book, { width: spines ? size.w : coverW, transformOrigin: spines ? '50% 0%' : '50% 50%' }, style]}>
+      <GestureDetector gesture={gesture} userSelect="none" touchAction="pan-y">
         <Animated.View style={[{ transformOrigin: '50% 100%' }, knock]}>
           <Animated.View pointerEvents="none"
             style={[styles.liftShadow, { height: spines ? size.h : clothH, borderRadius: spines ? 2 : 3 }, shadow]} />
           {spines ? (
             <Spine book={book} size={size} selected={selected} onPress={onPress} onMove={onMove} />
           ) : (
-            <Cover book={book} width={coverW} onPress={onPress} onMove={onMove} footer={footer} dimOnPress={false} />
+            <Cover book={book} width={coverW} onPress={onPress} onMove={onMove} footer={footer ? null : undefined} dimOnPress={false} />
           )}
         </Animated.View>
-      </Animated.View>
-    </GestureDetector>
+      </GestureDetector>
+      {footer ?? null}
+    </Animated.View>
   );
 }
 
@@ -490,13 +483,14 @@ function spineType(title: string, length: number) {
   return { fontSize: 12, lineHeight: 14, lines: 2 };
 }
 
-/** A book standing on the shelf, spine out: cloth colour, rounded edges, bands, the title down the spine, the volume. */
+/** A book standing in the library, spine out: cloth colour, rounded edges, bands, the title down the spine, the volume. */
 function Spine({ book, size, selected, onPress, onMove }: {
   book: Textbook; size: Size; selected: boolean; onPress: () => void; onMove: (to: CoverMove) => void;
 }) {
   const { label, hint } = bookLabel(book);
   const titleLength = size.h - 58;
   const set = spineType(book.title, titleLength);
+  const ink = titleColorOn(book.coverColor);
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} accessibilityHint={hint}
       accessibilityState={{ selected }} accessibilityActions={MOVE_ACTIONS}
@@ -509,49 +503,36 @@ function Spine({ book, size, selected, onPress, onMove }: {
         <View style={[styles.band, { top: 12 }]} />
         <View style={[styles.band, { top: 16 }]} />
         <View style={[styles.spineTitleBox, { width: titleLength, height: size.w, left: (size.w - titleLength) / 2, top: (size.h - size.w) / 2 - 10 }]}>
-          <Text style={[styles.spineTitle, { fontSize: set.fontSize, lineHeight: set.lineHeight }]} numberOfLines={set.lines}>
+          <Text style={[styles.spineTitle, { color: ink, fontSize: set.fontSize, lineHeight: set.lineHeight }]} numberOfLines={set.lines}>
             {book.title}
           </Text>
         </View>
         <View style={[styles.band, { bottom: 30 }]} />
-        <Text style={styles.spineVolume}>{volumeNumeral(book.volume)}</Text>
+        <Text style={[styles.spineVolume, { color: ink }]}>{volumeNumeral(book.volume)}</Text>
       </View>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  bar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: -12 },
-  views: { flexDirection: 'row', borderWidth: 1, borderColor: colors.rule, borderRadius: 4, overflow: 'hidden' },
-  viewOption: { minHeight: minTouch, minWidth: 84, paddingHorizontal: 14, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFFFFF' },
-  viewOn: { backgroundColor: colors.noteFill },
-  viewText: { fontFamily: fonts.sans, fontSize: 14, color: colors.ink },
-  viewTextOn: { fontFamily: fonts.sansSemiBold, color: colors.accent },
-  hint: { ...type.body, fontSize: 14, color: colors.muted, marginTop: 6, marginBottom: 14 },
+  bar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  views: { flexDirection: 'row', gap: 4 },
+  viewOption: { minHeight: minTouch, minWidth: minTouch, paddingHorizontal: 10, justifyContent: 'center', alignItems: 'center' },
+  viewText: { ...type.meta, fontFamily: fonts.sansMedium, fontSize: 14 },
+  viewTextOn: { color: colors.ink, fontFamily: fonts.sansSemiBold },
+  // The current view is underlined with a short green line, the way a contents page marks where you are.
+  viewMark: { height: 2, width: 18, marginTop: 4, borderRadius: 1, backgroundColor: 'transparent' },
+  viewMarkOn: { backgroundColor: colors.accent },
+  hint: { ...type.meta, marginTop: 4, marginBottom: 16 },
   spineMoves: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
-  chosen: { ...type.body, fontSize: 15, flex: 1, textAlign: 'center' },
-  // A thick plank seen a little from above: its lit top, its front edge, and the shadow it casts on the wall.
-  board: {
+  chosen: { ...type.small, flex: 1, textAlign: 'center' },
+  ledge: {
     position: 'absolute',
     left: 0,
     right: 0,
-    height: BOARD_H,
-    backgroundColor: colors.shelf.front,
-    borderTopWidth: 4,
-    borderTopColor: colors.shelf.top,
-    borderRadius: 2,
-    boxShadow: '0px 6px 8px -4px rgba(31, 27, 22, 0.35)',
-  },
-  bookend: {
-    position: 'absolute',
-    left: 0,
-    width: BOOKEND_W,
-    height: BOOKEND_H,
-    backgroundColor: colors.shelf.end,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.shelf.top,
-    borderTopLeftRadius: 3,
-    borderTopRightRadius: 3,
+    height: 1,
+    backgroundColor: colors.control,
+    boxShadow: '0px 3px 6px rgba(41, 40, 35, 0.18)',
   },
   book: { position: 'absolute', left: 0, top: 0 },
   liftShadow: {
@@ -559,30 +540,30 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     top: 0,
-    boxShadow: '0px 18px 28px rgba(31, 27, 22, 0.32)',
+    boxShadow: '0px 18px 28px rgba(41, 40, 35, 0.3)',
   },
   moves: { flexDirection: 'row', justifyContent: 'center', gap: 12, marginTop: 10 },
   move: {
     width: minTouch,
     height: minTouch,
-    borderRadius: minTouch / 2,
+    borderRadius: radius,
     borderWidth: 1,
-    borderColor: colors.accent,
-    backgroundColor: colors.paper,
+    borderColor: colors.rule,
+    backgroundColor: colors.field,
     justifyContent: 'center',
     alignItems: 'center',
   },
   moveOff: { opacity: 0.35 },
   pressed: { opacity: 0.75 },
   moveText: { fontFamily: fonts.sansSemiBold, fontSize: 22, lineHeight: 26, color: colors.accent },
-  spine: { flex: 1, borderRadius: 2, boxShadow: '1px 2px 4px rgba(31, 27, 22, 0.2)' },
+  spine: { flex: 1, borderRadius: 2, boxShadow: '1px 2px 4px rgba(41, 40, 35, 0.22)' },
   spineSelected: { outlineWidth: 2, outlineColor: colors.accent, outlineStyle: 'solid', outlineOffset: 2 },
   // A little light on one edge and shade on the other, so the spine reads as rounded.
-  edgeLight: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, backgroundColor: 'rgba(255,253,247,0.12)' },
-  edgeShade: { position: 'absolute', right: 0, top: 0, bottom: 0, width: 5, backgroundColor: 'rgba(31,27,22,0.18)' },
-  band: { position: 'absolute', left: 4, right: 5, height: 1, backgroundColor: 'rgba(255,253,247,0.55)' },
+  edgeLight: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, backgroundColor: 'rgba(255,255,255,0.12)' },
+  edgeShade: { position: 'absolute', right: 0, top: 0, bottom: 0, width: 5, backgroundColor: 'rgba(0,0,0,0.18)' },
+  band: { position: 'absolute', left: 4, right: 5, height: 1, backgroundColor: 'rgba(247,244,236,0.5)' },
   spineTitleBox: { position: 'absolute', justifyContent: 'center', transform: [{ rotate: '90deg' }] },
-  spineTitle: { fontFamily: fonts.serifSemiBold, color: colors.paper, textAlign: 'center' },
+  spineTitle: { fontFamily: fonts.serifSemiBold, textAlign: 'center' },
   spineVolume: {
     position: 'absolute',
     bottom: 9,
@@ -592,8 +573,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sansSemiBold,
     fontSize: 10,
     letterSpacing: 1,
-    color: colors.paper,
   },
   // A preface still in progress: a ribbon bookmark poking out of the top.
-  ribbon: { position: 'absolute', top: -10, right: 12, width: 7, height: 22, backgroundColor: colors.accent, borderRadius: 1 },
+  ribbon: { position: 'absolute', top: -10, right: 12, width: 7, height: 22, backgroundColor: colors.ribbon, borderRadius: 1 },
 });

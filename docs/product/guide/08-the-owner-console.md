@@ -11,7 +11,7 @@ LAA uses AI services to interview learners, write lessons, tutor and check safet
 The console works in a **web browser** (on a phone it shows a note asking you to use a computer).
 
 1. Sign in with an owner email address.
-2. On your shelf, tap **Owner console** at the top.
+2. In your library, open your settings (the settings icon at the top right) and tap **Owner console** near the bottom.
 
 Only owner accounts can open it.
 

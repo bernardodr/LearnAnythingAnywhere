@@ -61,6 +61,7 @@ class MissionInterviewTest extends IntegrationTest {
         assertThat(last.raw()).doesNotContain(MissionInterview.MARKER);
         var draft = last.named("draft").getFirst().data();
         assertThat(draft.get("why").asString()).contains("climb V3 with my friends"); // built from the learner's answers
+        assertThat(draft.get("motif").asString()).isEqualTo("MOUNTAIN"); // the cover motif, picked with the mission
         assertThat(last.named("done").getFirst().data().get("interviewComplete").asBoolean()).isTrue();
         // Events arrive in order: text, then the card, then done.
         assertThat(last.events().getLast().name()).isEqualTo("done");
@@ -75,8 +76,11 @@ class MissionInterviewTest extends IntegrationTest {
         // Once the card is up, edits happen on the card, not in the chat.
         assertThat(sse(base + "/messages", learner, Map.of("content", "one more thing")).status()).isEqualTo(409);
 
-        // "Write my textbook" with the learner's edits.
-        Resp confirmed = post(base + "/confirm", learner, Map.of("draft", EDITED));
+        // "Write my textbook" with the learner's edits. The app sends a different motif back; the cover keeps the
+        // one the draft picked, which the server kept.
+        Map<String, Object> editedWithOtherMotif = new java.util.HashMap<>(EDITED);
+        editedWithOtherMotif.put("motif", "STARS");
+        Resp confirmed = post(base + "/confirm", learner, Map.of("draft", editedWithOtherMotif));
         ok(confirmed);
         assertThat(confirmed.body().get("content").asString()).isEqualTo(EXPECTED_MISSION_MD);
         assertThat(confirmed.body().get("version").asInt()).isEqualTo(1);
@@ -87,6 +91,9 @@ class MissionInterviewTest extends IntegrationTest {
         Resp book = get("/textbooks/" + id, learner);
         assertThat(book.body().get("status").asString()).isEqualTo("ACTIVE");
         assertThat(book.body().get("missionHeadline").asString()).isEqualTo("Climb a V3 by spring");
+        assertThat(book.body().get("coverMotif").asString()).isEqualTo("mountain");
+        assertThat(jdbc.sql("SELECT cover_motif FROM textbooks WHERE id = :id::uuid").param("id", id).query(String.class).single())
+                .isEqualTo("mountain");
         assertThat(jdbc.sql("SELECT count(*) FROM workspace_file_versions WHERE path = 'MISSION.md'")
                 .query(Integer.class).single()).isEqualTo(1);
 

@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
   noSources: { fontFamily: fonts.sans, fontSize: 13, lineHeight: 19, color: colors.muted, marginTop: 16 },
   sheet: { marginTop: 16 },
   sheetToggle: { alignSelf: 'flex-start', marginLeft: -8 },
-  sheetBody: { borderWidth: 1, borderColor: colors.rule, borderRadius: 4, padding: 16, backgroundColor: '#FFFFFF' },
+  sheetBody: { borderWidth: 1, borderColor: colors.rule, borderRadius: 4, padding: 16, backgroundColor: colors.field },
   sheetLabel: { marginBottom: 8 },
   done: { fontFamily: fonts.sans, fontSize: 14, color: colors.muted, textAlign: 'center' },
   nav: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 24 },

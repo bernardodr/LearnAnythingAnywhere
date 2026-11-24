@@ -37,6 +37,16 @@ The secret, chosen by whoever sets up LAA's server, that making an owner account
 An account whose holder has opened the link LAA emailed them, proving the address is theirs. Using AI waits for it.
 _Avoid_: verified (fine in code; the guide says confirmed), activated
 
+## Books
+
+**Library**:
+Where a learner's textbooks are: their covers (or spines), in the order the learner arranged them.
+_Avoid_: shelf (the old name; the code's `Shelf` component and `shelf_position` column still use it), bookcase, dashboard
+
+**Cover motif**:
+The one small drawing of a book's subject on its cover (stars, a leaf, a mountain…), from a fixed hand-drawn set. The AI chooses it when the preface ends.
+_Avoid_: icon, illustration, cover art, logo
+
 ## Lessons
 
 **Interactive diagram**:
