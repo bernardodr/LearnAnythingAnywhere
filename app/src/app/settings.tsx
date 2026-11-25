@@ -1,10 +1,10 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Redirect } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 
 import { SettingsForm } from '@/components/Settings';
-import { Button, Field, goBack, Kicker, Note, Ornament, Page, PasswordField, passwordLength } from '@/components/ui';
+import { Button, Divider, Field, goBack, IconButton, Kicker, Note, Ornament, Page, PasswordField, passwordLength } from '@/components/ui';
 import { ApiError, apiGet, apiPost, apiPut, api } from '@/lib/api';
 import { useSession } from '@/lib/session';
 import type { Profile, ProfileSettings, SignInResponse } from '@/lib/types';
@@ -21,7 +21,7 @@ const digits = (t: string) => t.replace(/\D/g, '');
  * replaced with the account password.
  */
 export default function SettingsScreen() {
-  const { ready, user, token } = useSession();
+  const { ready, user, token, signOut } = useSession();
   const queryClient = useQueryClient();
   const me = useQuery({
     queryKey: ['profile', 'me'],
@@ -46,7 +46,7 @@ export default function SettingsScreen() {
   return (
     <Page>
       <View style={styles.header}>
-        <Button label="‹ Your shelf" variant="quiet" onPress={goBack} accessibilityLabel="Back to your shelf" />
+        <IconButton icon="back" label="Back to your library" onPress={goBack} />
       </View>
       <Kicker>Reader settings</Kicker>
       <Text style={styles.title} accessibilityRole="header">
@@ -73,6 +73,18 @@ export default function SettingsScreen() {
         Your password
       </Text>
       <YourPassword pinSet={pinSet} />
+
+      {/* The account: signing out, and for the owner on the web, the owner console. (They lived in the library's
+          header before the facelift, which gives the library a single settings icon instead.) */}
+      <Divider style={styles.accountRule} />
+      <Text style={styles.signedIn}>Signed in as {user.email}</Text>
+      <View style={styles.actions}>
+        {user.role === 'OWNER' && Platform.OS === 'web' ? (
+          <Button label="Owner console" variant="secondary" onPress={() => router.push('/owner')} />
+        ) : null}
+        <Button label="Sign out" variant="quiet" onPress={() => void signOut().then(() => router.replace('/'))}
+          accessibilityLabel={`Sign out ${user.email}`} />
+      </View>
     </Page>
   );
 }
@@ -208,8 +220,10 @@ const styles = StyleSheet.create({
   h2: { ...type.h2, marginBottom: 12 },
   intro: { ...type.body, color: colors.muted, marginBottom: 16 },
   small: { fontFamily: fonts.sans, fontSize: 13, lineHeight: 18, color: colors.muted },
-  card: { borderWidth: 1, borderColor: colors.rule, borderRadius: 4, padding: 16, marginBottom: 14, backgroundColor: '#FFFFFF' },
+  card: { borderWidth: 1, borderColor: colors.rule, borderRadius: 4, padding: 16, marginBottom: 14, backgroundColor: colors.field },
   actions: { flexDirection: 'row', gap: 12, alignItems: 'center', flexWrap: 'wrap' },
   forgot: { alignSelf: 'flex-start', marginTop: 8, marginLeft: -8 },
   button: { alignSelf: 'flex-start' },
+  accountRule: { marginTop: 40, marginBottom: 20 },
+  signedIn: { ...type.meta, marginBottom: 8 },
 });

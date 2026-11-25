@@ -23,7 +23,7 @@ import tools.jackson.databind.json.JsonMapper;
 public class TextbookRepository {
 
     private static final TypeReference<Map<String, Object>> MAP = new TypeReference<>() {};
-    private static final String COLUMNS = "id, user_id, title, topic, status, cover_color, volume, topic_gate, "
+    private static final String COLUMNS = "id, user_id, title, topic, status, cover_color, cover_motif, volume, topic_gate, "
             + "mission_draft, mission_headline, created_at";
 
     private final JdbcClient jdbc;
@@ -81,11 +81,15 @@ public class TextbookRepository {
                 .param("d", json.writeValueAsString(draft)).param("id", id).update();
     }
 
-    /** INTERVIEW → ACTIVE, once. Returns false if the textbook wasn't in its interview any more. */
-    public boolean activate(UUID id, MissionDraft confirmed) {
-        return jdbc.sql("UPDATE textbooks SET status = 'ACTIVE', mission_draft = :d::jsonb, mission_headline = :h "
-                        + "WHERE id = :id AND status = 'INTERVIEW'")
-                .param("d", json.writeValueAsString(confirmed)).param("h", confirmed.headline()).param("id", id)
+    /**
+     * INTERVIEW → ACTIVE, once, keeping the confirmed mission and the cover's motif. Returns false if the textbook
+     * wasn't in its interview any more.
+     */
+    public boolean activate(UUID id, MissionDraft confirmed, Motif motif) {
+        return jdbc.sql("UPDATE textbooks SET status = 'ACTIVE', mission_draft = :d::jsonb, mission_headline = :h, "
+                        + "cover_motif = :m WHERE id = :id AND status = 'INTERVIEW'")
+                .param("d", json.writeValueAsString(confirmed)).param("h", confirmed.headline()).param("m", motif.key())
+                .param("id", id)
                 .update() == 1;
     }
 
@@ -98,6 +102,7 @@ public class TextbookRepository {
                 rs.getString("topic"),
                 Status.valueOf(rs.getString("status")),
                 rs.getString("cover_color"),
+                Motif.fromKey(rs.getString("cover_motif")),
                 rs.getInt("volume"),
                 json.readValue(rs.getString("topic_gate"), MAP),
                 draft == null ? null : json.readValue(draft, MissionDraft.class),

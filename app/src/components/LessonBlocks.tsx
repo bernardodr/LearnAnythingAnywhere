@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
   gap: { marginBottom: 8 },
   h2: { ...type.h2, marginTop: 20, marginBottom: 10 },
   small: { ...type.body, fontSize: 15, lineHeight: 15 * 1.5 },
-  box: { borderWidth: 1, borderColor: colors.rule, borderRadius: 4, padding: 16, marginVertical: 12, backgroundColor: '#FFFFFF' },
+  box: { borderWidth: 1, borderColor: colors.rule, borderRadius: 4, padding: 16, marginVertical: 12, backgroundColor: colors.field },
   boxLabel: { marginBottom: 8 },
   keyIdea: { borderLeftWidth: 3, borderLeftColor: colors.accent, paddingLeft: 16, paddingVertical: 4, marginVertical: 16 },
   keyIdeaText: { ...type.body, fontFamily: fonts.serifSemiBold, fontSize: 19, lineHeight: 19 * 1.45 },
@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
   step: { flexDirection: 'row', marginBottom: 8 },
   stepNo: { ...type.body, fontFamily: fonts.serifSemiBold, width: 24, color: colors.accent },
   stepText: { ...type.body, flex: 1, fontSize: 16, lineHeight: 16 * 1.5 },
-  quizCard: { borderWidth: 1, borderColor: colors.rule, borderRadius: 6, padding: 16, backgroundColor: '#FFFFFF', marginVertical: 8 },
+  quizCard: { borderWidth: 1, borderColor: colors.rule, borderRadius: 6, padding: 16, backgroundColor: colors.field, marginVertical: 8 },
   question: { fontFamily: fonts.sansSemiBold, fontSize: 16, lineHeight: 22, color: colors.ink, marginBottom: 12 },
   option: {
     minHeight: minTouch,

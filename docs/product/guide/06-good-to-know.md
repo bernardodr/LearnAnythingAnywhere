@@ -22,7 +22,7 @@ LAA is careful never to lose your work. If something fails, you'll see a short m
 | *"Let's keep this about learning, in a way that fits your reader settings."* | Put your message another way. Nothing was saved. |
 | *"This lesson didn't fit your reader settings, so it wasn't saved."* | Tap **Write lesson** again on the contents page. |
 | *"This part was left out because it didn't fit your reader settings."* | Nothing to do: part of a lesson or a reply was held back. See [How LAA keeps things safe](07-reader-settings.md#how-laa-keeps-things-safe). |
-| *"Confirm your email address first…"* | Open the link in the email LAA sent you, or tap **Send the link again** on your shelf. See [Creating your account](01-getting-started.md#creating-your-account). |
+| *"Confirm your email address first…"* | Open the link in the email LAA sent you, or tap **Send the link again** in your library. See [Creating your account](01-getting-started.md#creating-your-account). |
 | *"You've used today's AI allowance."* | Come back tomorrow: each learner has a daily allowance for AI, which starts again at midnight UTC. See [Daily allowance](#daily-allowance). |
 | *"LAA has reached today's limit for AI use…"* | Come back tomorrow: everything that uses AI pauses for everyone until midnight UTC. Nothing was saved. |
 | *"That request is too large."* | Make what you typed shorter. |
@@ -34,7 +34,7 @@ Nothing half-finished is ever saved: an answer is kept together with the reply t
 
 AI costs money each time it writes, so LAA has two daily limits, set by the people who run it:
 
-- **Each learner** has a daily allowance for AI: about five lessons a day on the largest AI models, and far more on smaller ones. Reading what's already written, and your shelf, never count.
+- **Each learner** has a daily allowance for AI: about five lessons a day on the largest AI models, and far more on smaller ones. Reading what's already written, and your library, never count.
 - **All of LAA together** has a daily limit too. If it's reached, everything that uses AI pauses for everyone until the next day.
 
 Both start again at **midnight UTC**. The allowance is for the account, so a child using a parent's account shares it.

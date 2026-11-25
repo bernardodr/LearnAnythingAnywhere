@@ -1,24 +1,29 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Redirect, router } from 'expo-router';
 import { useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { ConfirmEmail } from '@/components/ConfirmEmail';
 import { Shelf, type ShelfView } from '@/components/Shelf';
-import { Button, Kicker, Note, Page } from '@/components/ui';
+import { Button, IconButton, Kicker, Note, Page } from '@/components/ui';
 import { apiGet, apiPut } from '@/lib/api';
 import { getPref, setPref } from '@/lib/prefs';
 import { useSession } from '@/lib/session';
 import type { Textbook } from '@/lib/types';
-import { colors, fonts, minTouch, type } from '@/theme';
+import { colors, fonts, minTouch, radius, type } from '@/theme';
 
 const SHELF_VIEW = 'laa.shelfView';
 
 const STARTERS = ['Bouldering', 'Sourdough bread', 'Chess openings', 'Spanish for travel', 'Watercolour painting', 'Python'];
 
-/** Screen 2: the library. Covers on shelves, arranged by hand, or an empty shelf with "Start with" chips. */
+/**
+ * Screen 2: the library (`docs/DESIGN.md`, the approved mockup). A quiet, curated grid of the learner's books, in the
+ * order they arranged (or as spines), with "Create a textbook" pinned as the one dominant action. Settings and
+ * signing out are behind the settings icon. With no books yet, it invites a first topic. Loads `/textbooks`; leads to
+ * a book's page (or its preface, if that's still in progress), to settings, and to `/new`.
+ */
 export default function Library() {
-  const { ready, user, token, signOut } = useSession();
+  const { ready, user, token } = useSession();
   const { width } = useWindowDimensions();
   const queryClient = useQueryClient();
   const books = useQuery({
@@ -57,31 +62,25 @@ export default function Library() {
       : router.push({ pathname: '/textbooks/[id]', params: { id: book.id } });
 
   return (
-    <Page>
-      <View style={styles.header}>
-        <Kicker>Learn Anything Anywhere</Kicker>
-        <View style={styles.headerActions}>
-          {user.role === 'OWNER' && Platform.OS === 'web' ? (
-            <Button label="Owner console" variant="quiet" onPress={() => router.push('/owner')} />
-          ) : null}
-          <Button label="Settings" variant="quiet" onPress={() => router.push('/settings')} accessibilityLabel="Reader settings" />
-          <Button label="Sign out" variant="quiet" onPress={() => void signOut().then(() => router.replace('/'))}
-            accessibilityLabel={`Sign out ${user.email}`} />
+    <Page footer={<Button label="+  Create a textbook" onPress={() => router.push('/new')} accessibilityLabel="Create a textbook" />}>
+      <Kicker style={styles.masthead}>Learn Anything Anywhere</Kicker>
+      <View style={styles.titleRow}>
+        <View style={styles.titleText}>
+          <Text style={styles.title} accessibilityRole="header">
+            Your library
+          </Text>
+          <Text style={styles.subtitle}>A little more curious, every day.</Text>
         </View>
+        <IconButton icon="settings" label="Settings and account" onPress={() => router.push('/settings')} />
       </View>
-      <Text style={styles.title} accessibilityRole="header">
-        Your shelf
-      </Text>
 
       <ConfirmEmail />
       {books.isError ? <Note tone="error">{books.error.message}</Note> : null}
 
       {books.isSuccess && shelved.length === 0 ? (
-        <View>
-          <View style={styles.emptyShelf} accessible={false}>
-            <View style={styles.bookend} />
-          </View>
-          <Text style={styles.empty}>Nothing on your shelf yet. What are you curious about?</Text>
+        <View style={styles.emptyBlock}>
+          <View style={styles.emptyBook} accessible={false} />
+          <Text style={styles.empty}>Your library is waiting for its first book. What are you curious about?</Text>
           <Kicker style={styles.startWith}>Start with</Kicker>
           <View style={styles.chips}>
             {STARTERS.map((topic) => (
@@ -98,7 +97,7 @@ export default function Library() {
         </View>
       ) : null}
 
-      {arrangeError ? <Note tone="error">Your shelf’s new order couldn’t be saved, so it’s back as it was. Please try again.</Note> : null}
+      {arrangeError ? <Note tone="error">Your library’s new order couldn’t be saved, so it’s back as it was. Please try again.</Note> : null}
       {shelved.length > 0 && shelfView.data ? (
         <Shelf books={shelved} width={column} view={shelfView.data} onOpen={open} onArrange={arrange}
           onView={(view) => {
@@ -106,54 +105,38 @@ export default function Library() {
             void setPref(SHELF_VIEW, view);
           }} />
       ) : null}
-
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Start a new textbook"
-        onPress={() => router.push('/new')}
-        style={({ pressed }) => [styles.plus, pressed && { opacity: 0.85 }]}>
-        <Text style={styles.plusText}>+</Text>
-      </Pressable>
     </Page>
   );
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  headerActions: { flexDirection: 'row', alignItems: 'center' },
-  title: { ...type.h1, marginTop: 8, marginBottom: 24 },
-  emptyShelf: {
-    height: 120,
-    borderBottomWidth: 10,
-    borderBottomColor: '#C8B89A',
-    borderRadius: 2,
-    justifyContent: 'flex-end',
-    paddingLeft: 16,
+  masthead: { color: colors.ink, textAlign: 'center', letterSpacing: 3, marginTop: 4, marginBottom: 28 },
+  titleRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 20 },
+  titleText: { flex: 1 },
+  title: { ...type.display },
+  subtitle: { ...type.ui, fontSize: 16, color: colors.muted, marginTop: 6 },
+  emptyBlock: { marginTop: 12 },
+  // An empty place where the first book will stand: a cover's outline, dashed.
+  emptyBook: {
+    width: 132,
+    height: 132 * 1.36,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: colors.control,
+    alignSelf: 'flex-start',
   },
-  bookend: { width: 14, height: 70, backgroundColor: colors.rule, borderTopLeftRadius: 3, borderTopRightRadius: 3 },
-  empty: { ...type.body, color: colors.muted, marginTop: 20 },
-  startWith: { marginTop: 24, marginBottom: 12 },
+  empty: { ...type.body, marginTop: 24 },
+  startWith: { marginTop: 28, marginBottom: 12 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   chip: {
     minHeight: minTouch,
     paddingHorizontal: 16,
     justifyContent: 'center',
-    borderRadius: 22,
+    borderRadius: radius,
     borderWidth: 1,
     borderColor: colors.rule,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.field,
   },
   chipText: { fontFamily: fonts.sans, fontSize: 15, color: colors.ink },
-  plus: {
-    alignSelf: 'center',
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: colors.accent,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 32,
-    boxShadow: '0px 3px 8px rgba(31, 27, 22, 0.2)',
-  },
-  plusText: { fontFamily: fonts.sans, fontSize: 34, lineHeight: 38, color: colors.paper },
 });

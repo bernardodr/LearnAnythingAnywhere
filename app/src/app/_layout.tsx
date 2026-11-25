@@ -1,10 +1,11 @@
-import { Inter_400Regular, Inter_600SemiBold } from '@expo-google-fonts/inter';
+import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from '@expo-google-fonts/inter';
 import {
-  Newsreader_400Regular,
-  Newsreader_400Regular_Italic,
-  Newsreader_600SemiBold,
+  SourceSerif4_400Regular,
+  SourceSerif4_400Regular_Italic,
+  SourceSerif4_600SemiBold,
+  SourceSerif4_600SemiBold_Italic,
   useFonts,
-} from '@expo-google-fonts/newsreader';
+} from '@expo-google-fonts/source-serif-4';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -20,10 +21,13 @@ SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
   const [queryClient] = useState(() => new QueryClient());
   const [fontsLoaded, fontError] = useFonts({
-    Newsreader_400Regular,
-    Newsreader_400Regular_Italic,
-    Newsreader_600SemiBold,
+    // The fonts DESIGN.md names, under the names theme.ts uses.
+    SourceSerif4_400Regular,
+    SourceSerif4_400Regular_Italic,
+    SourceSerif4_600SemiBold,
+    SourceSerif4_600SemiBold_Italic,
     Inter_400Regular,
+    Inter_500Medium,
     Inter_600SemiBold,
   });
 

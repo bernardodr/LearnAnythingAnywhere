@@ -15,7 +15,7 @@ class MissionMarkdownTest {
                 "You want to run a half marathon with your sister in October.",
                 List.of("Run 21 km without stopping", "Follow a 12-week plan"),
                 List.of("Four runs a week, mornings only"),
-                List.of("Trail running", "Nutrition plans"));
+                List.of("Trail running", "Nutrition plans"), null);
 
         assertThat(MissionMarkdown.render("Running", draft)).isEqualTo("""
                 # Mission: Running
@@ -38,7 +38,7 @@ class MissionMarkdownTest {
 
     @Test
     void emptyListsStillGetABullet() {
-        var draft = new MissionDraft("h", "Why.", List.of("Do it"), List.of(), List.of());
+        var draft = new MissionDraft("h", "Why.", List.of("Do it"), List.of(), List.of(), null);
         String md = MissionMarkdown.render("Chess", draft);
         assertThat(md).contains("## Constraints\n- " + MissionMarkdown.NONE + "\n\n## Out of scope\n- " + MissionMarkdown.NONE + "\n");
     }
@@ -46,7 +46,7 @@ class MissionMarkdownTest {
     @Test
     void whatTheLearnerTypedCantBreakTheStructure() {
         var draft = new MissionDraft("h", "Line one\n\n## Fake heading\nline two",
-                List.of("- already a bullet", "# heading?", "  spaced   out  ", "\n"), List.of("> quoted"), List.of());
+                List.of("- already a bullet", "# heading?", "  spaced   out  ", "\n"), List.of("> quoted"), List.of(), null);
         String md = MissionMarkdown.render("Topic\n# Injected", draft);
 
         assertThat(md).startsWith("# Mission: Topic # Injected\n\n## Why\nLine one ## Fake heading line two\n\n");

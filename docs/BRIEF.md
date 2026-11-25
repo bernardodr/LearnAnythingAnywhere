@@ -263,6 +263,8 @@ Safety is enforced in LAA's own layer, so **switching provider never turns it of
 
 ## 9. App screens and design
 
+> **The look is now `docs/DESIGN.md`** (Warm Editorial Minimalism, the owner's design brief of 2026-11-24). It replaces the design tokens and the rust textbook look below. The screens' **content** (what each one shows and does) still comes from this section.
+
 The look is a **textbook**: warm paper, serif reading type, a rust accent, quiet callout boxes and generous whitespace. Match the structure of the lessons in `docs/reference/lessons/`.
 
 **Design tokens**

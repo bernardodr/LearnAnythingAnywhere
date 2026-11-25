@@ -6,7 +6,7 @@ Every textbook starts the same way: you name a topic, LAA checks it, and then a 
 
 ## 1. Choose a topic
 
-Tap **+** on your shelf (or one of the **Start with** suggestions). On **What would you like to learn?**, type your topic in the **Topic** box (a skill, a subject or a hobby) and tap **Begin the preface**.
+Tap **Create a textbook** at the bottom of your library (or one of the **Start with** suggestions). On **What would you like to learn?**, type your topic in the **Topic** box (a skill, a subject or a hobby) and tap **Begin the preface**.
 
 Keep it simple: *bouldering*, *watercolour painting*, *Python*, *how bread rises*. You'll get to say exactly what you want out of it in a moment.
 
@@ -46,7 +46,7 @@ You can leave and come back. Your answers are saved, and the preface picks up wh
 
 When the tutor has enough, it thanks you and shows **Your mission**:
 
-- **The headline:** your goal in one line. It's what appears under the cover on your shelf.
+- **The headline:** your goal in one line. It appears on your book's contents page, under the title.
 - **Why:** the real-world reason you're learning this.
 - **Success looks like:** the things you'll be able to do.
 - **Limits:** your time, budget or other constraints.

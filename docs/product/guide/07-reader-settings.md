@@ -4,7 +4,7 @@
 
 **Reader settings** decide how your textbooks are written: how hard the reading is, what's left out, whether lessons may include links, and whether your tutor can ever show you the answer. They apply to everything LAA writes for you (lessons, tutor replies and the tutor's notes), whichever AI service is doing the writing.
 
-To open them, tap **Settings** at the top of your shelf.
+To open them, tap the settings icon (two small sliders) at the top right of your library.
 
 ## Your settings
 
@@ -31,7 +31,7 @@ Tap **Save settings** when you're done. New lessons and replies follow your sett
 
 ## Letting a child use your account
 
-Accounts are for adults, so children don't have their own. A child uses a parent's account, on the parent's shelf, with reader settings the parent chooses for them.
+Accounts are for adults, so children don't have their own. A child uses a parent's account, with the parent's library, with reader settings the parent chooses for them.
 
 1. Open **Settings** and set the **Age** to your child's, so lessons are written at their reading level.
 2. Leave **Child-safe mode** on (or switch it on), and choose anything else to leave out.
@@ -40,7 +40,7 @@ Accounts are for adults, so children don't have their own. A child uses a parent
 
 **Why it helps:** your child gets lessons pitched at their level, with anything unsuitable left out, and only you can change that.
 
-**Good to know:** the settings belong to the account, so everyone who uses it shares them, and one shelf. The daily AI allowance is for the account too. If more than one person uses your account, set the settings for the youngest.
+**Good to know:** the settings belong to the account, so everyone who uses it shares them, and one library. The daily AI allowance is for the account too. If more than one person uses your account, set the settings for the youngest.
 
 ### The parent PIN
 
@@ -69,6 +69,6 @@ LAA checks what it writes, and what's typed into it, against the reader's settin
 - **Your mission card, and what you've learned** (the notes at the back of the book and the glossary) are checked too. A note that doesn't fit isn't written.
 - **While a lesson is being written**, the progress line shows only *Writing lesson 2* and the like, never words from the lesson itself, which hasn't been checked yet.
 - **What you type** (interview answers, practice answers and questions for your tutor) is checked too. If a message isn't about learning, or doesn't fit the reader's settings, you'll see *"Let's keep this about learning, in a way that fits your reader settings. Try putting it another way."* Nothing is saved, so just rephrase it.
-- **Links** follow your links setting everywhere you read: lessons and their titles, the tutor's notes, hints, your conversations, your mission, the back of the book and your shelf. That includes text written before you changed the setting, and anything that slips into the writing. With links **Off**, that includes web addresses you typed yourself.
+- **Links** follow your links setting everywhere you read: lessons and their titles, the tutor's notes, hints, your conversations, your mission, the back of the book and your library. That includes text written before you changed the setting, and anything that slips into the writing. With links **Off**, that includes web addresses you typed yourself.
 
 If the safety check itself can't run for a moment, LAA doesn't take the risk: nothing is saved or shown, and you'll see *"We couldn't run the safety check just now, so nothing was saved or sent. Please try again."*
