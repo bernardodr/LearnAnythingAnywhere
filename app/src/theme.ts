@@ -23,7 +23,10 @@ export const colors = {
   danger: '#9A3B26',
   /** The ribbon bookmark on a book whose preface is still in progress. */
   ribbon: '#A9533A',
-  /** Cover cloths (DESIGN.md "Books"). `ochre` takes an ink title; the rest take ivory. */
+  /**
+   * Cover cloths (DESIGN.md "Books"). `ochre` takes an ink title; the rest take ivory. Keep this order: books get them in
+   * turn by volume, as the server's `Textbook.COVER_COLORS` does (`CoverColorsTest` checks the two lists match).
+   */
   covers: {
     forest: '#2F4A3B',
     ochre: '#D4A548',

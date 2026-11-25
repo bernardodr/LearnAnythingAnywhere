@@ -16,11 +16,11 @@ LAA is careful never to lose your work. If something fails, you'll see a short m
 |---|---|
 | *"…couldn't reply just now. Your answer wasn't lost: send it again."* | Tap **Send** again. Your answer is still in the box. |
 | *"We couldn't check this topic just now, so nothing was created."* | Wait a moment, then try your topic again. |
-| *"The lesson didn't pass its checks, so it wasn't saved."* | Tap **Write lesson** again on the contents page. |
+| *"The lesson didn't pass its checks, so it wasn't saved."* | Tap **Write lesson** again on your book's page. |
 | *"Your tutor couldn't read your answer just now. Nothing was lost."* | Tap **Send to your tutor** again. |
 | *"We couldn't run the safety check just now, so nothing was saved or sent."* | Wait a moment, then try again. LAA never skips its safety check. |
 | *"Let's keep this about learning, in a way that fits your reader settings."* | Put your message another way. Nothing was saved. |
-| *"This lesson didn't fit your reader settings, so it wasn't saved."* | Tap **Write lesson** again on the contents page. |
+| *"This lesson didn't fit your reader settings, so it wasn't saved."* | Tap **Write lesson** again on your book's page. |
 | *"This part was left out because it didn't fit your reader settings."* | Nothing to do: part of a lesson or a reply was held back. See [How LAA keeps things safe](07-reader-settings.md#how-laa-keeps-things-safe). |
 | *"Confirm your email address first…"* | Open the link in the email LAA sent you, or tap **Send the link again** in your library. See [Creating your account](01-getting-started.md#creating-your-account). |
 | *"You've used today's AI allowance."* | Come back tomorrow: each learner has a daily allowance for AI, which starts again at midnight UTC. See [Daily allowance](#daily-allowance). |

@@ -57,6 +57,7 @@ cd server && ./mvnw test                                  # needs Docker (Testco
 cd app && npm run typecheck && npx expo lint
 ./e2e/run.sh diagrams                                     # the real web app in headless Chrome (needs Google Chrome)
 ./e2e/run.sh library                                      # the library: covers, motifs, spines, arranging (with screenshots)
+./e2e/run.sh book                                         # starting a book, the preface, the book page, reading (with screenshots)
 ./e2e/production.sh                                       # the production containers, deployed and checked locally (after changing deploy/)
 ```
 
@@ -73,7 +74,7 @@ cd app && npm run typecheck && npx expo lint
 | `server/.../auth/`, `profile/`, `mail/` | Sign-in, passwords, the parent PIN, reader settings, email |
 | `server/src/main/resources/` | `application.yml` (settings, AI models and prices), prompts, database migrations |
 | `deploy/` | Production: the two images, the Compose file, Caddy's config, `deploy.sh` and the production `.env.example` |
-| `e2e/` | Browser walk-throughs: the diagrams' sealed frame, the library, and the production stack |
+| `e2e/` | Browser walk-throughs: the diagrams' sealed frame, the library, a book from start to its second lesson, and the production stack |
 
 ## The developer docs
 

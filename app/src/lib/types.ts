@@ -74,10 +74,15 @@ export type Source = { id: string; title: string; url: string | null; note: stri
 
 export type LessonSummary = { id: string; seq: number; title: string; subtitle: string; read: boolean };
 
+/** A book's page (`GET /textbooks/{id}/contents`): its cover, title and mission, the lessons, and the back of the book. */
 export type Contents = {
   id: string;
   title: string;
   status: TextbookStatus;
+  /** The cover's cloth and its motif key, as on the library's cover. */
+  coverColor: string;
+  coverMotif: string;
+  volume: number;
   missionHeadline: string | null;
   missionWhy: string | null;
   lessons: LessonSummary[];

@@ -43,6 +43,10 @@ _Avoid_: verified (fine in code; the guide says confirmed), activated
 Where a learner's textbooks are: their covers (or spines), in the order the learner arranged them.
 _Avoid_: shelf (the old name; the code's `Shelf` component and `shelf_position` column still use it), bookcase, dashboard
 
+**Book page**:
+A book's own page, set out like the front of a printed book: its cover, title and goal, the contents (its lessons, in order), the why of its mission, and the back of the book.
+_Avoid_: contents page (only the list of lessons on it), book details, dashboard
+
 **Cover motif**:
 The one small drawing of a book's subject on its cover (stars, a leaf, a mountain…), from a fixed hand-drawn set. The AI chooses it when the preface ends.
 _Avoid_: icon, illustration, cover art, logo

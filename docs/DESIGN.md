@@ -75,19 +75,24 @@ All in `colors` (`app/src/theme.ts`). Contrast was checked against the backgroun
 
 ## Books
 
-`BookCover` in `app/src/components/Cover.tsx`, with motifs in `app/src/components/Motif.tsx`.
+`BookFace` in `app/src/components/Cover.tsx`, with motifs in `app/src/components/Motif.tsx`.
 
 - **Proportions:** 1 : 1.36 everywhere: grid, book page and thumbnails.
 - **The cloth:** the cover colour, a fine woven texture, a soft light from the top left, a hint of spine depth down the left edge (a darker hinge band and a light crease), and a soft natural shadow underneath.
 - **The face:** the title in Source Serif 4 semibold, set top-left, large, with ivory or ink to contrast with the cloth. Lower down sits one restrained **motif** in the same colour.
 - **Motifs** are a fixed, hand-drawn set of line drawings: stars, moon, leaf, wheat, mountain, wave, gear, dots, shapes, brush, note, flask, atom, globe, quill, column, bars, pulse, pawn, speech, plus a neutral ornament. The AI picks one when the preface ends. Until then (a preface in progress, or a book from before motifs), the server matches one from the title.
 - **A ribbon** (terracotta, at the top) marks a book whose preface is still in progress.
+- **A new book's preview:** while a topic is typed, its cover is drawn with the topic as the title (tidied as the server will title it) in the cloth of its volume (`coverForVolume`, which must match the server's order), and the plain ornament. The motif is the AI's to choose at the end of the preface, so the preview never guesses it.
 
 ## Screens
 
-- **Outlines read like contents pages:** numbered entries, fine dividers, the current entry marked quietly.
-- **Chapter openings read like book openings:** a kicker ("CHAPTER ONE"), a large centred serif title, a small ornament, then the text.
-- **Reflection prompts read like notes in the margin:** a fine vertical rule on the left, a small green kicker, and serif text, with no box.
+- **The top bar** (`TopBar` in `ui.tsx`): a back arrow at the top left, labelled for screen readers ("Back to your library"), and an optional centred kicker saying where you are ("Your library" on a book's page, the book's title in its preface).
+- **The one dominant action is pinned at the bottom** (`Page`'s `footer`): one full-width forest button that follows the screen's state, never two at once. On a book's page it's Start reading, Continue reading, or Write lesson *n*; in the preface it's Send, then Write my textbook (and nothing while the mission is being edited). Quieter actions stay in the page as green text.
+- **Outlines read like contents pages:** numbered entries, fine dividers, the current entry marked quietly. On a book's page: *01*, *02*… in serif, a muted tick for a lesson read, *Up next* (and its number) in green, and the lesson not yet written in grey italic. The back of the book is lettered entries A–D that fold open, with a count where a page number would be.
+- **A book's page reads like the front of a printed book** (the mockup): the cover at about 45% of the column, the title, the mission's one-line goal, a line of facts in Inter (*Volume III · 2 lessons · 1 read*), a fine rule, then *Inside this book*, the why in the margin, and *At the back of the book*.
+- **Chapter openings read like book openings:** a kicker ("CHAPTER ONE"), a large centred serif title, a small ornament, then the text. The preface opens the same way: *Preface*, *Before we begin*.
+- **Reflection prompts read like notes in the margin** (`MarginNote`): a fine forest rule on the left (2px, since browsers draw 1.5px as 1px), a small green kicker, and serif text, with no box. The learner's own words take the same form: their answers in the preface, and the why of their mission.
+- **The mission** is a flat `noteFill` panel set like a dedication page: a green kicker, the goal as a centred heading, the ornament, the why in italic, then its parts under fine rules.
 - **Reading:** comfortable measure (about 65 characters), generous line spacing, adjustable text size, and clear Previous and Next.
 - **Motion** is subtle and supports navigation (a page sliding in, a book lifting when held). It respects reduced motion.
 

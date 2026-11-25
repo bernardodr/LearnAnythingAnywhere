@@ -22,7 +22,40 @@
 | A shelf of spines: a compact view with the same physics (user request) | ✅ Done (2026-11-16) |
 | A firmer shelf: a solid board, snappy physics, no bounce (user feedback) | ✅ Done (2026-11-16) |
 | Production: GitHub Actions pipeline, Hetzner server, web, App Store, Google Play (user request) | 🚧 Phase 1 steps 1–3 and 8 and Phase 3 done; **live at https://learnanythinganywhere.app** (2026-11-22); working through the web-beta checklist (`docs/PRODUCTION-PLAN.md`, *The web beta first*). Tasks are GitHub issues on the *LAA production* board; the process is `docs/WORKFLOW.md` |
-| A fresh look: Warm Editorial Minimalism, the owner's design brief (user request; `docs/DESIGN.md`, issue #67) | 🚧 Milestone 1 of 5 done (2026-11-24): foundation, covers with motifs, the library. Next: the book page, starting a book, the preface (#69) |
+| A fresh look: Warm Editorial Minimalism, the owner's design brief (user request; `docs/DESIGN.md`, issue #67) | 🚧 Milestones 1–2 of 5 done: foundation, covers with motifs, the library (2026-11-24); the book page, starting a book, the preface (2026-11-25). Next: reading (#70) |
+
+## Facelift 2: the book page, starting a book, and the preface (done 2026-11-25)
+
+Issue #69, part of #67. The owner: "Let's do milestone 2", after merging milestone 1 (#76). Built to `docs/DESIGN.md` and the book-page mockup.
+
+**Done**
+- **The book page** (`textbooks/[id]/index.tsx`, renamed `BookPage`), as the mockup:
+  - a top bar (`TopBar`: a back arrow, "Your library" centred);
+  - the drawn cover (about 45% of the column), the title, the mission's headline, and a line of facts (*Volume III · 2 lessons · 1 read*);
+  - **Inside this book** as a contents page: numbered *01*, *02* with fine dividers, a tick for a read lesson, *Up next* (and its number) in green, then the next lesson in grey italic (*Written after lesson 1*, *Being written now* with its progress);
+  - the mission's why as a note in the margin (`MarginNote`);
+  - the back of the book as contents entries A–D that fold open, each with a count on the right like a page number (glossary terms counted from its `**Term**:` lines); Sources holds **Add a source**;
+  - the one dominant action pinned at the bottom: **Start reading**, **Continue reading**, or **Write lesson *n*** once every lesson is read (it replaces the old outlined button).
+- **Starting a book** (`new.tsx`): a bare back arrow, "What would you like to learn?", and **a preview of the new cover** beside its volume: a dashed outline until a topic is typed, then `BookFace` with the topic tidied as the server will title it, the cloth of the next volume (`coverForVolume`), and the plain ornament (the motif is chosen at the end of the preface). **Begin the preface** is pinned at the bottom.
+- **The preface** (`preface.tsx`), as an opening: the book's title in the bar, then *Preface*, *Before we begin*, the ornament and the intro, centred. The tutor's turns are reading text under a *Your tutor* kicker; the learner's answers are margin notes (*You*). The pinned action follows the state: **Send** (busy while a reply streams), **Write my textbook** once the draft is shown (none while editing), **Write the mission draft** after a failed draft, **Try again** if the opening question failed.
+- **The mission card** (`MissionCard.tsx`): a flat `noteFill` panel set like a dedication page (green *Your mission* kicker, the headline, ornament, the why in italic, then Success / Limits / Not now under fine rules), with **Edit your mission** as a quiet button. The preface now owns the mission shown and the editing flag, since confirming lives in the pinned footer; the card owns only the form's text.
+- **`ui.tsx`:** `TopBar`, `MarginNote` (a 2px forest rule: Chrome draws 1.5px as 1px), and a `check` icon. **`Cover.tsx`:** `coverForVolume`.
+- **Server:** the contents response carries the cover (`coverColor`, `coverMotif`, `volume`), so the book page can draw it without loading the library.
+- **Docs:** product: the guide's *Your book's page* (was *Your contents page*; the file name and its anchors stay), *Starting a textbook* (the cover preview, the opening, answers in the margin, **Edit your mission**, the pinned buttons), the book page's new name everywhere, and release notes 0.15. Developer: `DESIGN.md` (the book page, openings, the top bar, the pinned action, the preview), `CLAUDE.md`, `README.md`, `GLOSSARY.md` (*Book page*).
+
+**Verified**
+- **`./e2e/run.sh book` (new), in Chrome at phone size**, the whole path through the real app:
+  - starting a book: the outline, then the preview cover in dusty blue (the third cloth, for volume III), drawn, with *Volume III*; **Begin the preface** pinned;
+  - the preface: the opening, the book's title in the bar, **Send** pinned; an answer is a margin note (a 2px forest rule, no fill, a *You* kicker); the mission card with **Write my textbook** pinned;
+  - editing the mission: no pinned action while the form is open; the edited goal is shown, and the server keeps it;
+  - the book page: the edited goal, *Volume III · 1 lesson · 0 read*, lesson 1 *Up next*, *Written after lesson 1*, the why, the cover drawn; the server's cover is the previewed cloth and the AI's leaf; **Start reading** pinned;
+  - the back of the book: A opens to its sheet, B to its empty note, D to **Add a source**, and an added source makes D's count 1;
+  - reading lesson 1 ticks it (*all read*), **Write lesson 2** writes it, then **Continue reading**; back in the library the new book is there;
+  - no console errors or warnings.
+- **Server tests:** `LessonApiTest` checks the contents' cover; `CoverColorsTest` (new) keeps `theme.ts`'s cover colours the same as `Textbook.COVER_COLORS`, in order, so the preview always matches. Full suite: see the pull request.
+- `./e2e/run.sh library` and `./e2e/run.sh diagrams` still pass.
+
+**Not covered:** iPhone and Android: nothing here ran on a phone. The pinned footer with the keyboard open (the preface's **Send**) relies on `KeyboardAvoidingView`, which needs a check on a real iPhone.
 
 ## Facelift 1: foundation, covers with motifs, and the library (done 2026-11-24)
 
@@ -1254,3 +1287,5 @@ From the architecture review (card 1, "Deepen learner-facing generation"): M6 ha
 | 2026-11-24 | **Notes and highlights are in the facelift** (milestone 4), on whole passages; search, bookmarks and reading time are later (#73–#75) | The owner's choices. Phones can't reliably report which words inside a paragraph were selected, so passages work the same everywhere. |
 | 2026-11-22 | **Nightly backups go to the owner's Mac for now**, fetched daily by a key that can only fetch backups (forced command, `restrict`), with 7 copies on the server and 30 on the Mac | The owner's choice over a Hetzner Storage Box or Cloudflare R2: free, and enough for a beta. The catch is that copies arrive only while the Mac is on. A storage service can replace the Mac without changing the server's half. |
 | 2026-11-22 | **Base images:** `eclipse-temurin:21-jre-noble` (build: `21-jdk-noble`), `node:24-bookworm-slim` (the export only), `caddy:2.11-alpine`, `postgres:18`, each pinned to a major or minor version | Official images, current on 2026-11-22. Pinning to a version line gets security patches when an image is rebuilt, without surprise upgrades. Node 24 matches local development. |
+| 2026-11-25 | **The screen's one dominant action is pinned at the bottom and follows its state** (the book page: Start reading, Continue reading or Write lesson *n*; the preface: Send, then Write my textbook) | The brief's "one visually dominant action", placed where the library's mockup puts it. One place for it means it's always in reach on a phone, and never two green buttons at once. |
+| 2026-11-25 | **The new-book screen previews the cover** in the cloth of its volume, with the plain ornament until the preface picks the motif. The app's cover colours must match the server's, in order (`CoverColorsTest`) | Books are drawn as physical books from the first moment. The preview never guesses the motif, so it can't promise one the AI then doesn't pick. |

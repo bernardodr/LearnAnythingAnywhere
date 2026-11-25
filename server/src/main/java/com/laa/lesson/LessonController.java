@@ -67,8 +67,13 @@ class LessonController {
     record BackOfBook(List<SheetView> referenceSheets, String glossary, List<RecordView> learned, List<Resource> sources,
                       boolean linksOff) {}
 
-    record ContentsView(String id, String title, Textbook.Status status, String missionHeadline, String missionWhy,
-                        List<LessonSummary> lessons, NextLesson next, BackOfBook back) {}
+    /**
+     * The book's page: its cover ({@code coverColor}, {@code coverMotif} as a motif key, {@code volume}), title and
+     * mission, the lessons in order, the next lesson, and the back of the book.
+     */
+    record ContentsView(String id, String title, Textbook.Status status, String coverColor, String coverMotif, int volume,
+                        String missionHeadline, String missionWhy, List<LessonSummary> lessons, NextLesson next,
+                        BackOfBook back) {}
 
     /** {@code practice}: per free-response block id, the learner's progress (revealed hints, latest note, met). */
     record LessonView(String id, int seq, String kicker, String title, String subtitle, String win, String missionLink,
@@ -139,7 +144,8 @@ class LessonController {
         }
         String glossary = workspace.read(tb.id(), "GLOSSARY.md").map(WorkspaceFile::content).orElse(null);
         MissionDraft mission = tb.missionDraft();
-        return new ContentsView(tb.id().toString(), tb.title(), tb.status(), tb.missionHeadline(),
+        return new ContentsView(tb.id().toString(), tb.title(), tb.status(), tb.coverColor(), tb.motif().key(), tb.volume(),
+                tb.missionHeadline(),
                 mission == null ? null : mission.why(), summaries, next,
                 new BackOfBook(sheets, glossary, learned, sources(tb.id()), profiles.forUser(userId).linksPolicy() == LinksPolicy.OFF));
     }
