@@ -114,7 +114,7 @@ class OwnerApiTest extends IntegrationTest {
                 "call", "RESEARCH", "input", Map.of("message", "x"),
                 "a", Map.of("provider", "FAKE", "modelTier", "SMALL"), "b", Map.of("provider", "FAKE_B")));
         assertThat(incapable.status()).isEqualTo(400);
-        assertThat(incapable.raw()).contains("tool calling");
+        assertThat(incapable.raw()).contains("web search");
     }
 
     @Test

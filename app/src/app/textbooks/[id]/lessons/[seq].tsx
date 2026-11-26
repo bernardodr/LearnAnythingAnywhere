@@ -3,7 +3,7 @@ import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { LessonBlock } from '@/components/LessonBlocks';
+import { LessonBlock, LessonSources } from '@/components/LessonBlocks';
 import { Markdown } from '@/components/Markdown';
 import { Button, Kicker, Note, Ornament, Page } from '@/components/ui';
 import { ApiError, apiGet, apiPost } from '@/lib/api';
@@ -77,10 +77,6 @@ export default function LessonPage() {
               practice={l.practice?.[block.id]} />
           ))}
 
-          {l.sources.length === 0 ? (
-            <Text style={styles.noSources}>No sources yet. Add your own at the back of the book, and later lessons can cite them.</Text>
-          ) : null}
-
           {l.referenceSheet ? (
             <View style={styles.sheet}>
               <Button
@@ -95,6 +91,8 @@ export default function LessonPage() {
                   <Markdown md={l.referenceSheet.md} size="small" />
                 </View>
               ) : null}
+
+          <LessonSources sources={l.sources} />
             </View>
           ) : null}
 
@@ -151,7 +149,6 @@ const styles = StyleSheet.create({
   winLabel: { marginBottom: 6, color: colors.accent },
   winText: { ...type.body },
   mission: { fontFamily: fonts.sans, fontSize: 13, color: colors.muted, marginTop: 8 },
-  noSources: { fontFamily: fonts.sans, fontSize: 13, lineHeight: 19, color: colors.muted, marginTop: 16 },
   sheet: { marginTop: 16 },
   sheetToggle: { alignSelf: 'flex-start', marginLeft: -8 },
   sheetBody: { borderWidth: 1, borderColor: colors.rule, borderRadius: 4, padding: 16, backgroundColor: colors.field },

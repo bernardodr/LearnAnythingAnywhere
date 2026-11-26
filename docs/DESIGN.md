@@ -94,6 +94,7 @@ All in `colors` (`app/src/theme.ts`). Contrast was checked against the backgroun
 - **Diagrams keep every word readable:** the frame's contrast guard turns HTML text below 4.5:1 against its fill to ink or ivory, whatever the diagram's own CSS chose.
 - **Reflection prompts read like notes in the margin** (`MarginNote`): a fine forest rule on the left (2px, since browsers draw 1.5px as 1px), a small green kicker, and serif text, with no box. The learner's own words take the same form: their answers in the preface, and the why of their mission.
 - **The mission** is a flat `noteFill` panel set like a dedication page: a green kicker, the goal as a centred heading, the ornament, the why in italic, then its parts under fine rules.
+- **A lesson ends with its sources,** like the references after a book's chapter: a fine rule, a *Sources* kicker, then numbered entries (the number in forest green, as the text cites it), each with its title, what it's good for, and its site in small type, and a line saying where they come from. Trust is the point: never a source LAA couldn't check.
 - **Reading:** comfortable measure (about 65 characters), generous line spacing, adjustable text size, and clear Previous and Next.
 - **Motion** is subtle and supports navigation (a page sliding in, a book lifting when held). It respects reduced motion.
 

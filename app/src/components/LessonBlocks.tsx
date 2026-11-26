@@ -136,6 +136,48 @@ function Citations({ ids, sources }: { ids: string[]; sources: Source[] }) {
   );
 }
 
+/** "www.nasa.gov" from "https://www.nasa.gov/moon": the site a source is on, shown under it. */
+function siteOf(url: string) {
+  const m = /^https?:\/\/([^/?#]+)/i.exec(url);
+  return m ? m[1] : url;
+}
+
+/**
+ * A lesson's sources, at its end like the references after a book's chapter (issue #82): each numbered as the lesson
+ * cites it, with its title (a link if the reader's links setting allows), what it's good for, and the site it's on.
+ * These are the ones found for this lesson by web search and checked by LAA, and any the lesson cites (the learner's
+ * own included). With none, it says so and points to the back of the book.
+ *
+ * @param sources the lesson's own sources (`LessonView.sources`)
+ */
+export function LessonSources({ sources }: { sources: Source[] }) {
+  return (
+    <View style={styles.sources}>
+      <Kicker style={styles.sourcesLabel}>Sources</Kicker>
+      {sources.length === 0 ? (
+        <Text style={styles.sourcesNone}>
+          No sources could be checked for this lesson. You can add ones you trust at the back of the book, and later
+          lessons can cite them.
+        </Text>
+      ) : (
+        sources.map((s) => (
+          <View key={s.id} style={styles.sourceRow} accessible accessibilityLabel={`Source ${s.id.slice(1)}: ${s.title}. ${s.note}`}>
+            <Text style={styles.sourceNo}>{s.id.slice(1)}</Text>
+            <View style={styles.sourceBody}>
+              <SourceTitle source={s} />
+              {s.note ? <Text style={styles.sourceNote}>{s.note}</Text> : null}
+              {s.url ? <Text style={styles.sourceSite}>{siteOf(s.url)}</Text> : null}
+            </View>
+          </View>
+        ))
+      )}
+      <Text style={styles.sourcesFoot}>
+        Every source is a real page: found by a web search and checked by LAA, or added by you. LAA never makes them up.
+      </Text>
+    </View>
+  );
+}
+
 export function SourceTitle({ source, inline }: { source: Source; inline?: boolean }) {
   const style = inline ? styles.citationLink : styles.sourceTitle;
   if (!source.url) return <Text style={style}>{source.title}</Text>;
@@ -148,6 +190,16 @@ export function SourceTitle({ source, inline }: { source: Source; inline?: boole
 
 const styles = StyleSheet.create({
   gap: { marginBottom: 8 },
+  // The sources at a lesson's end: a fine rule above, then numbered entries like a book's references.
+  sources: { marginTop: 32, paddingTop: 20, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.rule },
+  sourcesLabel: { color: colors.ink, marginBottom: 12 },
+  sourcesNone: { ...type.meta, fontSize: 14, lineHeight: 20, marginBottom: 12 },
+  sourceRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
+  sourceNo: { fontFamily: fonts.serifSemiBold, fontSize: 16, lineHeight: 26, color: colors.accent, width: 20 },
+  sourceBody: { flex: 1 },
+  sourceNote: { ...type.small, fontSize: 15, lineHeight: 22 },
+  sourceSite: { ...type.meta, marginTop: 4 },
+  sourcesFoot: { ...type.meta, marginTop: 4 },
   h2: { ...type.h2, marginTop: 20, marginBottom: 10 },
   small: { ...type.body, fontSize: 15, lineHeight: 15 * 1.5 },
   box: { borderWidth: 1, borderColor: colors.rule, borderRadius: 4, padding: 16, marginVertical: 12, backgroundColor: colors.field },

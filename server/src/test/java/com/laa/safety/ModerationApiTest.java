@@ -142,8 +142,9 @@ class ModerationApiTest extends IntegrationTest {
         ok(put("/profiles/" + profile, learner, off));
         JsonNode back = get("/textbooks/" + b.id() + "/contents", learner).body().get("back");
         assertThat(back.get("linksOff").asBoolean()).isTrue();
-        assertThat(back.get("sources").get(0).get("title").asString()).isEqualTo("Guide");
-        assertThat(back.get("sources").get(0).path("url").asString("")).as("no address").isEmpty();
+        // The learner's own, and the ones found for the lesson: all without their addresses.
+        assertThat(back.get("sources").valueStream().map(s -> s.get("title").asString())).contains("Guide");
+        assertThat(back.get("sources").valueStream().map(s -> s.path("url").asString(""))).as("no addresses").allMatch(String::isEmpty);
         assertThat(post("/textbooks/" + b.id() + "/resources", learner, Map.of("title", "More", "url", "https://more.example.com")).status())
                 .isEqualTo(403);
     }

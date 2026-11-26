@@ -57,6 +57,10 @@ _Avoid_: icon, illustration, cover art, logo
 
 ## Lessons
 
+**Source**:
+A real page, book or video a learner can trust for their subject: one LAA found for a lesson by searching the web and checked, or one the learner added. Never made up. Each lesson lists its sources at its end; the book collects them all at the back.
+_Avoid_: reference (fine in prose, but "source" in the app), citation (the small number in a lesson pointing to a source), link
+
 **Interactive diagram**:
 A picture in a lesson that the learner explores (tapping parts, stepping through, comparing, sliding), drawn by an AI service for that lesson. It always comes with a text version that says the same thing, and it's left out rather than shown if it doesn't pass its checks.
 _Avoid_: widget, figure, visual, applet

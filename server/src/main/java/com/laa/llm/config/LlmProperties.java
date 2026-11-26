@@ -23,6 +23,9 @@ import com.laa.llm.Provider;
  *   <li>{@code practiceProviders}: the practice providers (FAKE, FAKE_B) can be called only when this is on (local
  *       development and tests).</li>
  *   <li>{@code limits}: daily spending caps, in estimated US dollars.</li>
+ *   <li>{@code childSafeSearchDomains}: the only sites a web search may look at for a reader in child-safe mode
+ *       (well-known educational sites; the owner can change the list). Lesson sources from anywhere else are dropped
+ *       for them too.</li>
  * </ul>
  */
 @ConfigurationProperties("laa.llm")
@@ -33,10 +36,12 @@ public record LlmProperties(
         @DefaultValue("30s") Duration routeCacheTtl,
         @DefaultValue("120s") Duration callTimeout,
         @DefaultValue("30s") Duration firstTokenTimeout,
-        Map<Provider, ProviderSettings> providers) {
+        Map<Provider, ProviderSettings> providers,
+        List<String> childSafeSearchDomains) {
 
     public LlmProperties {
         providers = providers == null ? Map.of() : new EnumMap<>(providers);
+        childSafeSearchDomains = childSafeSearchDomains == null ? List.of() : List.copyOf(childSafeSearchDomains);
     }
 
     /**
@@ -71,13 +76,16 @@ public record LlmProperties(
             boolean structuredOutput,
             boolean toolCalling,
             boolean streaming,
+            boolean webSearch,
             int maxContext,
             BigDecimal inputPerMtok,
-            BigDecimal outputPerMtok) {
+            BigDecimal outputPerMtok,
+            BigDecimal webSearchPer1k) {
 
         public ModelInfo toModelInfo() {
             return new ModelInfo(id, label == null ? id : label, tier,
-                    new Capabilities(structuredOutput, toolCalling, streaming, maxContext), inputPerMtok, outputPerMtok);
+                    new Capabilities(structuredOutput, toolCalling, streaming, webSearch, maxContext), inputPerMtok, outputPerMtok,
+                    webSearchPer1k);
         }
     }
 

@@ -29,7 +29,7 @@ final class FakeScripts {
 
     /** The structured calls with a scripted reply; every other structured call gets schema-generated JSON. */
     private static final Set<Call> SCRIPTED = Set.of(Calls.TOPIC_GATE, Calls.MISSION_DRAFT, Calls.LESSON_PLAN, Calls.LESSON_WRITE, Calls.DIAGRAM,
-            Calls.GRADE, Calls.LEAK_CHECK, Calls.CONTENT_CHECK, Calls.RECORD_UPDATE);
+            Calls.GRADE, Calls.LEAK_CHECK, Calls.CONTENT_CHECK, Calls.RECORD_UPDATE, Calls.RESEARCH);
 
     private FakeScripts() {}
 
@@ -72,6 +72,9 @@ final class FakeScripts {
         }
         if (call.equals(Calls.CONTENT_CHECK)) {
             return moderation(request);
+        }
+        if (call.equals(Calls.RESEARCH)) {
+            return research(request, tag);
         }
         if (call.equals(Calls.RECORD_UPDATE)) {
             return json(Map.of(
@@ -254,6 +257,22 @@ final class FakeScripts {
         if (userTurns <= 1) return tag + "Hello! What’s drawing you to this, and what would you love to be able to do?";
         if (userTurns == 2) return tag + "That’s a great start. What would success look like a few months from now?";
         return tag + "Thank you, I have what I need to draft your mission. " + MissionInterview.MARKER;
+    }
+
+    /**
+     * Two sources for the lesson, as a search would find them, on example.org and example.com: hosts reserved for
+     * examples, which LAA's source check accepts without going online only while practice mode is on. Like a real
+     * search's answer (no JSON mode), the JSON comes after a sentence, so the gateway's extraction is exercised too.
+     */
+    private static String research(ProviderRequest request, String tag) {
+        var named = java.util.regex.Pattern.compile("about \\*\\*(.+?)\\*\\*").matcher(request.system() == null ? "" : request.system());
+        String title = named.find() ? named.group(1) : "this subject";
+        String slug = title.toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9]+", "-").replaceAll("^-|-$", "");
+        return "I searched for trustworthy pages about " + title + ".\n" + json(Map.of("sources", List.of(
+                Map.of("title", tag + "A beginner’s guide to " + title, "url", "https://example.org/guides/" + slug,
+                        "site", tag + "Example Encyclopedia", "note", tag + "A clear overview to read first, before the practice."),
+                Map.of("title", tag + title + ": going further", "url", "https://www.example.com/learn/" + slug + "/deeper",
+                        "site", tag + "Example Museum", "note", tag + "Pictures and examples to explore once the lesson makes sense."))));
     }
 
     private static String missionDraft(ProviderRequest request, String tag) {

@@ -31,7 +31,7 @@ Lessons follow the same pattern, so you always know where you are.
 - A question you answer in your own words, checked by your tutor. See [Practice and your tutor](05-practice-and-your-tutor.md).
 
 **Primary source**
-- If you've [added sources](03-your-contents-page.md#d-sources), the best one to read or watch next. Otherwise you'll see a small *No sources yet* note.
+- The best of the lesson's [sources](#sources) to read or watch next, and when.
 
 **Stuck or curious?**
 - Ask your tutor anything about the lesson. See [Chatting with your tutor](05-practice-and-your-tutor.md#chatting-with-your-tutor).
@@ -67,6 +67,12 @@ The answers are shuffled and written to be similar in length and wording, so you
 ## Cheat sheet
 
 Near the end of each lesson, tap **Cheat sheet: …** to open its one-page summary. It's also saved under *Reference sheets* at the back of the book, for later.
+
+## Sources
+
+Every lesson ends with its **Sources**: the real pages it's built on, so you can check what it says and read further. Each has a number, which is how the lesson refers to it (a small *[1]* after a paragraph that draws on it), then its title, what it's good for, and the site it's on. Tap a title to open it, if your [links setting](07-reader-settings.md#your-settings) allows.
+
+LAA finds them for each lesson by searching the web, and opens every one to check it's real before you see it. You'll also see any sources you added yourself that the lesson uses. If none could be checked this time, the lesson says so; you can always [add your own](03-your-contents-page.md#d-sources).
 
 ## Finishing a lesson
 

@@ -59,7 +59,8 @@ public final class Resources {
 
     /** RESOURCES.md with one more Knowledge entry, creating the file or the section if needed. */
     public static String append(String md, String topic, String title, String url, String note) {
-        String entry = "- [" + line(title).replace("]", ")") + "](" + url.strip().replace(" ", "%20").replace(")", "%29") + ")\n"
+        // Square brackets would break the Markdown link, so they become round ones ("[Draft] Guide" reads "(Draft) Guide").
+        String entry = "- [" + line(title).replace("[", "(").replace("]", ")") + "](" + url.strip().replace(" ", "%20").replace(")", "%29") + ")\n"
                 + (line(note).isEmpty() ? "" : "  " + line(note) + "\n");
         if (md == null || md.isBlank()) {
             return "# " + line(topic) + " Resources\n\n## Knowledge\n\n" + entry;

@@ -57,7 +57,7 @@ class ResourcesTest {
         String updated = Resources.append(TEACH_EXAMPLE, "x", "New [book]", "https://example.org/a b)", "  A   note ");
         var list = Resources.parse(updated);
         assertThat(list).extracting(Resources.Resource::id).containsExactly("r1", "r2", "r3", "r4");
-        assertThat(list.get(3).title()).isEqualTo("New [book)");
+        assertThat(list.get(3).title()).isEqualTo("New (book)");
         assertThat(list.get(3).url()).isEqualTo("https://example.org/a%20b%29");
         assertThat(list.get(3).note()).isEqualTo("A note");
         assertThat(updated).contains("  A note\n\n## Wisdom (Communities)");

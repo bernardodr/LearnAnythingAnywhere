@@ -60,12 +60,36 @@ laa:
   llm:
     default-provider: ${LAA_DEFAULT_PROVIDER:}       # seeds an empty DB only (required then); the owner console decides after that
     practice-providers: ${LAA_PRACTICE_PROVIDERS:false}  # FAKE and FAKE_B, for local development and tests; ./dev.sh turns it on
+    # The only sites a web search may look at for a reader in child-safe mode (finding lesson sources, issue #82), and
+    # the only ones such a reader's lessons may list. Bare domains; subdomains count (www.nasa.gov is on nasa.gov).
+    child-safe-search-domains:
+      - wikipedia.org
+      - britannica.com
+      - nationalgeographic.com
+      - natgeokids.com
+      - nasa.gov
+      - noaa.gov
+      - nps.gov
+      - si.edu
+      - smithsonianmag.com
+      - khanacademy.org
+      - bbc.co.uk
+      - nhm.ac.uk
+      - rmg.co.uk
+      - sciencemuseum.org.uk
+      - britishmuseum.org
+      - metmuseum.org
+      - amnh.org
+      - dkfindout.com
+      - ducksters.com
     limits:                                # daily caps on estimated spend (USD), reset at midnight UTC
       learner-daily-usd: ${LAA_LEARNER_DAILY_USD:1.00}
       total-daily-usd: ${LAA_TOTAL_DAILY_USD:25.00}
     route-cache-ttl: 30s
     call-timeout: 120s                     # per provider attempt; a route can override with params.timeoutMs
     first-token-timeout: 30s               # streaming: give up on a provider that hasn't started answering
+    # web-search: the model can search the web with its provider's own tool (the RESEARCH task needs it); Anthropic
+    # charges USD 10 per 1,000 searches plus tokens (platform.claude.com web search tool docs, checked 2026-11-26).
     # Model IDs and prices checked against each provider's docs on 2026-11-01. Prices are USD per 1M tokens,
     # used only for the rough cost estimate in model_runs. The first model of each tier is that tier's default.
     providers:
@@ -73,9 +97,9 @@ laa:
         api-key: ${ANTHROPIC_API_KEY:}
         max-retries: 1
         models:
-          - { id: claude-opus-5-5,   label: Claude Opus 5.5,   tier: LARGE, structured-output: true, tool-calling: true, streaming: true, max-context: 1000000, input-per-mtok: 4.00, output-per-mtok: 20.00 }
-          - { id: claude-sonnet-5-5, label: Claude Sonnet 5.5, tier: LARGE, structured-output: true, tool-calling: true, streaming: true, max-context: 1000000, input-per-mtok: 2.00, output-per-mtok: 10.00 }
-          - { id: claude-haiku-5-5,  label: Claude Haiku 5.5,  tier: SMALL, structured-output: true, tool-calling: true, streaming: true, max-context: 1000000, input-per-mtok: 0.10, output-per-mtok: 0.50 }
+          - { id: claude-opus-5-5,   label: Claude Opus 5.5,   tier: LARGE, structured-output: true, tool-calling: true, streaming: true, web-search: true, max-context: 1000000, input-per-mtok: 4.00, output-per-mtok: 20.00, web-search-per-1k: 10.00 }
+          - { id: claude-sonnet-5-5, label: Claude Sonnet 5.5, tier: LARGE, structured-output: true, tool-calling: true, streaming: true, web-search: true, max-context: 1000000, input-per-mtok: 2.00, output-per-mtok: 10.00, web-search-per-1k: 10.00 }
+          - { id: claude-haiku-5-5,  label: Claude Haiku 5.5,  tier: SMALL, structured-output: true, tool-calling: true, streaming: true, web-search: true, max-context: 1000000, input-per-mtok: 0.10, output-per-mtok: 0.50, web-search-per-1k: 10.00 }
       OPENAI:
         api-key: ${OPENAI_API_KEY:}
         max-retries: 1
@@ -103,9 +127,9 @@ laa:
           - { id: "gemma3:4b",   label: Gemma 3 4B (local),  tier: SMALL, structured-output: true, tool-calling: false, streaming: true, max-context: 128000 }
       FAKE:
         models:
-          - { id: fake-large, label: Fake large, tier: LARGE, structured-output: true, tool-calling: true,  streaming: true, max-context: 1000000 }
+          - { id: fake-large, label: Fake large, tier: LARGE, structured-output: true, tool-calling: true,  streaming: true, web-search: true, max-context: 1000000 }
           - { id: fake-small, label: Fake small, tier: SMALL, structured-output: true, tool-calling: false, streaming: true, max-context: 1000000 }
       FAKE_B:
         models:
-          - { id: fake-b-large, label: Fake B large, tier: LARGE, structured-output: true, tool-calling: true,  streaming: true, max-context: 1000000 }
+          - { id: fake-b-large, label: Fake B large, tier: LARGE, structured-output: true, tool-calling: true,  streaming: true, web-search: true, max-context: 1000000 }
           - { id: fake-b-small, label: Fake B small, tier: SMALL, structured-output: true, tool-calling: false, streaming: true, max-context: 1000000 }

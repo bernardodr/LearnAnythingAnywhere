@@ -17,6 +17,7 @@ LAA is careful never to lose your work. If something fails, you'll see a short m
 | *"…couldn't reply just now. Your answer wasn't lost: send it again."* | Tap **Send** again. Your answer is still in the box. |
 | *"We couldn't check this topic just now, so nothing was created."* | Wait a moment, then try your topic again. |
 | *"The lesson didn't pass its checks, so it wasn't saved."* | Tap **Write lesson** again on your book's page. |
+| *"No sources could be checked for this lesson."* | LAA couldn't find pages it could check this time, so it showed none rather than guess. Add sources you trust at the back of the book, and later lessons can cite them. |
 | *"Your tutor couldn't read your answer just now. Nothing was lost."* | Tap **Send to your tutor** again. |
 | *"We couldn't run the safety check just now, so nothing was saved or sent."* | Wait a moment, then try again. LAA never skips its safety check. |
 | *"Let's keep this about learning, in a way that fits your reader settings."* | Put your message another way. Nothing was saved. |

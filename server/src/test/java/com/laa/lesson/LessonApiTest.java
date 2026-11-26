@@ -20,6 +20,8 @@ class LessonApiTest extends IntegrationTest {
 
     @Test
     void lessonsAreWrittenAsJobsReadInOrderAndKeepTheirSecretsServerSide() {
+        // This test follows the learner's own source; the research step finds nothing here (LessonSourcesTest covers it).
+        fakes.setCanned(Calls.RESEARCH, "{\"sources\": []}");
         String learner = login("lessons@test.dev");
         String id = activeTextbook(learner, "Bouldering");
 

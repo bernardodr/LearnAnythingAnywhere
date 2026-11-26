@@ -6,6 +6,8 @@ import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 
+import org.springframework.ai.anthropic.AnthropicChatOptions;
+import org.springframework.ai.anthropic.AnthropicWebSearchTool;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
@@ -15,6 +17,8 @@ import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.model.tool.StructuredOutputChatOptions;
+
+import com.anthropic.models.messages.ServerToolUsage;
 
 import com.laa.llm.ChatMessage;
 import com.laa.llm.Provider;
@@ -27,6 +31,9 @@ import reactor.core.publisher.Flux;
  * use the provider's native JSON-schema mode via {@link StructuredOutputChatOptions}.
  */
 final class SpringAiProviderClient implements ProviderClient {
+
+    /** The most web searches one research call may run (Anthropic bills each one; failed searches count too). */
+    static final long MAX_SEARCHES = 3;
 
     /** Route params the adapters understand; anything else is gateway-level (e.g. timeoutMs). */
     static final String TEMPERATURE = "temperature";
@@ -88,6 +95,17 @@ final class SpringAiProviderClient implements ProviderClient {
                 throw new IllegalStateException(provider + " options do not support a native output schema");
             }
         }
+        if (request.task().needs().webSearch()) {
+            // A call that must search the web is refused by a provider that can't: answering from memory is exactly
+            // how sources get invented (BRIEF section 6.3), so it fails and the gateway tries the next provider.
+            if (!(builder instanceof AnthropicChatOptions.Builder anthropic)) {
+                throw new ProviderCallException(ErrorKind.NOT_CONFIGURED, provider + " can't search the web, which "
+                        + request.task() + " needs: route it to a provider that can (Anthropic)");
+            }
+            AnthropicWebSearchTool.Builder search = AnthropicWebSearchTool.builder().maxUses(MAX_SEARCHES);
+            if (request.searchDomains() != null) search.allowedDomains(request.searchDomains());
+            anthropic.webSearchTool(search.build());
+        }
         return builder;
     }
 
@@ -112,14 +130,19 @@ final class SpringAiProviderClient implements ProviderClient {
         }
         Integer in = null;
         Integer out = null;
+        int searches = 0;
         if (response != null && response.getMetadata() != null) {
             Usage usage = response.getMetadata().getUsage();
             if (usage != null) {
                 in = positiveOrNull(usage.getPromptTokens());
                 out = positiveOrNull(usage.getCompletionTokens());
+                // Anthropic counts its web searches in the SDK's own usage (usage.server_tool_use.web_search_requests).
+                if (usage.getNativeUsage() instanceof com.anthropic.models.messages.Usage anthropic) {
+                    searches = (int) anthropic.serverToolUse().map(ServerToolUsage::webSearchRequests).orElse(0L).longValue();
+                }
             }
         }
-        return new ProviderReply(text == null ? "" : text, in, out);
+        return new ProviderReply(text == null ? "" : text, in, out, searches);
     }
 
     private static Integer positiveOrNull(Integer n) {
