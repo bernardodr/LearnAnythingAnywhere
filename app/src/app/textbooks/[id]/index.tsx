@@ -1,25 +1,38 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Redirect, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
+import { BookFace, volumeNumeral } from '@/components/Cover';
 import { SourceTitle } from '@/components/LessonBlocks';
 import { Markdown } from '@/components/Markdown';
-import { Button, Field, goBack, Kicker, Note, Ornament, Page } from '@/components/ui';
+import { Button, Divider, Field, Icon, Kicker, MarginNote, Note, Page, TopBar } from '@/components/ui';
 import { ApiError, apiGet, apiPost } from '@/lib/api';
 import { useSession } from '@/lib/session';
 import { getSse } from '@/lib/sse';
 import type { Contents } from '@/lib/types';
 import { colors, fonts, minTouch, type } from '@/theme';
 
+/** "01" for lesson 1: the contents page's numbering. */
+const two = (n: number) => String(n).padStart(2, '0');
+
 /**
- * Screen 4: the contents page. Title, the mission as an epigraph, the numbered lessons (read / read next), the
- * next lesson ("Written after lesson n", or being written now, with live progress), "Continue reading", and
- * the back of the book: A reference sheets, B glossary, C what you've learned, D sources.
+ * Screen 4: a book's page (`docs/DESIGN.md`, the book-page mockup), read like the front of a printed book. At the top,
+ * the drawn cover, the title, the mission's one-line goal and a line of facts (volume, lessons, how many read). Then
+ * "Inside this book": the lessons as a contents page (numbered entries, fine dividers, the one up next marked quietly),
+ * ending with the next lesson ("Written after lesson n", or being written now, with live progress). Then the mission's
+ * why as a note in the margin, and the back of the book (A reference sheets, B glossary, C what you've learned,
+ * D sources), each folded until opened. The one dominant action is pinned at the bottom: Start reading, Continue
+ * reading, or Write lesson n once every lesson is read.
+ *
+ * Loads `/textbooks/{id}/contents` (refreshed whenever the screen comes back into view), follows a lesson being written
+ * at `/jobs/{jobId}/events`, and starts lesson 1 itself straight after the preface. Leads to a lesson, and back to the
+ * library. A book still in its preface goes to the preface instead.
  */
-export default function ContentsPage() {
+export default function BookPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { ready, user, token } = useSession();
+  const { width } = useWindowDimensions();
   const queryClient = useQueryClient();
   const contents = useQuery({
     queryKey: ['contents', id],
@@ -27,7 +40,7 @@ export default function ContentsPage() {
     enabled: !!token && !!id,
   });
   // Coming back from a lesson reuses this screen, so refresh on focus: learning records and glossary terms are
-  // written in the background after a practice answer is met, and a finished lesson changes "read next".
+  // written in the background after a practice answer is met, and a finished lesson changes what's up next.
   const { refetch } = contents;
   useFocusEffect(
     useCallback(() => {
@@ -69,12 +82,13 @@ export default function ContentsPage() {
 
   /** Starts writing the next lesson; the job id arrives in a callback, which the follow effect picks up. */
   const write = useCallback(() => {
+    setWriteError(null);
     apiPost<{ jobId: string }>(`/textbooks/${id}/lessons/next`, undefined, token)
       .then((res) => setStartedJob(res.jobId))
       .catch((e: unknown) => setWriteError(e instanceof ApiError ? e.message : 'The lesson couldn’t be started.'));
   }, [id, token]);
 
-  // "Write my textbook": lesson 1 is written straight after the mission is confirmed.
+  // "Write my textbook": lesson 1 is written straight after the mission is confirmed, without another tap.
   useEffect(() => {
     if (!data || data.status !== 'ACTIVE' || data.next.jobId || autoStarted.current) return;
     if (data.lessons.length === 0 && data.next.canWrite) {
@@ -92,50 +106,60 @@ export default function ContentsPage() {
   const openLesson = (seq: number) =>
     router.push({ pathname: '/textbooks/[id]/lessons/[seq]', params: { id, seq: String(seq) } });
   const nextToRead = data?.lessons.find((l) => !l.read) ?? null;
+  const readCount = data?.lessons.filter((l) => l.read).length ?? 0;
   const writing = jobId !== null;
+  // About 45% of the reading column, as in the mockup, and never so big it pushes the contents off a phone's screen.
+  const coverWidth = Math.min(168, Math.round(Math.min(560, width - 48) * 0.45));
+
+  // The one dominant action (DESIGN.md): read on if there's something to read, else write the next lesson.
+  const footer = !data ? undefined : nextToRead ? (
+    <Button label={readCount > 0 ? 'Continue reading' : 'Start reading'} onPress={() => openLesson(nextToRead.seq)} />
+  ) : !writing && data.next.canWrite ? (
+    <Button label={`Write lesson ${data.next.seq}`} onPress={write} />
+  ) : undefined;
 
   return (
-    <Page>
-      <Button label="‹ Your shelf" variant="quiet" onPress={goBack} style={styles.back} accessibilityLabel="Back to your shelf" />
+    <Page footer={footer}>
+      <TopBar backLabel="Back to your library" kicker="Your library" />
       {contents.isError ? <Note tone="error">{contents.error.message}</Note> : null}
       {data ? (
         <View>
-          <Text style={styles.title} accessibilityRole="header">
-            {data.title}
-          </Text>
-          {data.missionWhy ? (
-            <View style={styles.epigraph}>
-              <Text style={styles.epigraphText}>{data.missionWhy}</Text>
-              {data.missionHeadline ? <Text style={styles.epigraphBy}>— your mission: {data.missionHeadline}</Text> : null}
+          <View style={styles.front}>
+            <View style={styles.cover}>
+              <BookFace book={data} width={coverWidth} />
             </View>
-          ) : null}
-          <Ornament />
+            <Text style={styles.title} accessibilityRole="header">
+              {data.title}
+            </Text>
+            {data.missionHeadline ? <Text style={styles.headline}>{data.missionHeadline}</Text> : null}
+            <Text style={styles.facts}>{facts(data.volume, data.lessons.length, readCount)}</Text>
+          </View>
 
-          <Kicker>Contents</Kicker>
-          {data.lessons.map((l) => (
-            <Pressable
-              key={l.id}
-              accessibilityRole="button"
-              accessibilityLabel={`Lesson ${l.seq}: ${l.title}. ${l.read ? 'Read' : l.id === nextToRead?.id ? 'Read next' : ''}`}
-              onPress={() => openLesson(l.seq)}
-              style={({ pressed }) => [styles.entry, pressed && { opacity: 0.7 }]}>
-              <Text style={styles.entryNo}>{l.seq}</Text>
-              <Text style={styles.entryTitle} numberOfLines={2}>
-                {l.title}
-              </Text>
-              <View style={styles.leader} />
-              <Text style={[styles.entryStatus, l.id === nextToRead?.id && styles.entryNext]}>
-                {l.read ? 'Read' : l.id === nextToRead?.id ? 'Read next' : ''}
-              </Text>
-            </Pressable>
-          ))}
-
-          <View style={[styles.entry, styles.entryPending]}>
-            <Text style={[styles.entryNo, styles.muted]}>{data.next.seq}</Text>
-            <Text style={[styles.entryTitle, styles.muted]}>
+          <Divider style={styles.rule} />
+          <Kicker style={styles.sectionKicker}>Inside this book</Kicker>
+          {data.lessons.map((l) => {
+            const upNext = l.id === nextToRead?.id;
+            return (
+              <Pressable
+                key={l.id}
+                accessibilityRole="button"
+                accessibilityLabel={`Lesson ${l.seq}: ${l.title}. ${l.read ? 'Read' : upNext ? 'Up next' : ''}`}
+                onPress={() => openLesson(l.seq)}
+                style={({ pressed }) => [styles.entry, pressed && styles.pressed]}>
+                <Text style={[styles.entryNo, upNext && styles.entryNoNext]}>{two(l.seq)}</Text>
+                <Text style={styles.entryTitle} numberOfLines={2}>
+                  {l.title}
+                </Text>
+                {l.read ? <Icon name="check" size={18} color={colors.muted} /> : upNext ? <Text style={styles.upNext}>Up next</Text> : null}
+              </Pressable>
+            );
+          })}
+          {/* The next lesson, not written yet: LAA writes each one after the last is finished. */}
+          <View style={styles.entry}>
+            <Text style={styles.entryNo}>{two(data.next.seq)}</Text>
+            <Text style={styles.entryPending}>
               {writing ? 'Being written now' : data.next.writtenAfter === 0 ? 'Your first lesson' : `Written after lesson ${data.next.writtenAfter}`}
             </Text>
-            <View style={styles.leader} />
             {writing ? <ActivityIndicator color={colors.accent} /> : null}
           </View>
           {writing ? (
@@ -144,76 +168,102 @@ export default function ContentsPage() {
             </Text>
           ) : null}
           {writeError ? <Note tone="error">{writeError}</Note> : null}
-          {!writing && data.next.canWrite ? (
-            <Button
-              label={`Write lesson ${data.next.seq}`}
-              variant="secondary"
-              onPress={() => {
-                setWriteError(null);
-                write();
-              }}
-              style={styles.writeButton}
-            />
+
+          {data.missionWhy ? (
+            <MarginNote kicker="Why you’re learning this" style={styles.why}>
+              {data.missionWhy}
+            </MarginNote>
           ) : null}
 
-          {nextToRead ? (
-            <Button label="Continue reading" onPress={() => openLesson(nextToRead.seq)} style={styles.continue} />
-          ) : null}
-
-          <Ornament />
-          <Kicker>At the back of the book</Kicker>
-          <BackSection letter="A" title="Reference sheets" empty="Each lesson adds a cheat sheet here.">
-            {data.back.referenceSheets.length > 0
-              ? data.back.referenceSheets.map((s) => <Sheet key={s.seq} seq={s.seq} title={s.title} md={s.md} />)
-              : null}
-          </BackSection>
-          <BackSection letter="B" title="Glossary" empty="Terms appear here once you’ve shown you understand them.">
+          <Kicker style={styles.sectionKicker}>At the back of the book</Kicker>
+          <BackEntry letter="A" title="Reference sheets" count={data.back.referenceSheets.length} empty="Each lesson adds its cheat sheet here.">
+            {data.back.referenceSheets.map((s) => <Sheet key={s.seq} seq={s.seq} title={s.title} md={s.md} />)}
+          </BackEntry>
+          <BackEntry letter="B" title="Glossary" count={termCount(data.back.glossary)} empty="Terms appear here once you’ve shown you understand them.">
             {data.back.glossary ? <Markdown md={data.back.glossary} size="small" /> : null}
-          </BackSection>
-          <BackSection letter="C" title="What you’ve learned" empty="Your tutor records what you’ve shown you can do, as you practise.">
-            {data.back.learned.length > 0
-              ? data.back.learned.map((r) => (
-                  <View key={r.path} style={styles.record}>
-                    <Text style={styles.recordTitle}>{r.title}</Text>
-                    <Text style={styles.small}>{r.body}</Text>
-                  </View>
-                ))
-              : null}
-          </BackSection>
-          <BackSection letter="D" title="Sources" empty="No sources yet. LAA never makes them up: add ones you trust, and lessons can cite them.">
-            {data.back.sources.length > 0
-              ? data.back.sources.map((s) => (
-                  <View key={s.id} style={styles.record}>
-                    <SourceTitle source={s} />
-                    {s.note ? <Text style={styles.small}>{s.note}</Text> : null}
-                  </View>
-                ))
-              : null}
-          </BackSection>
-          {data.back.linksOff ? (
-            <Text style={styles.small}>Links are turned off in your reader settings, so sources show without their web addresses.</Text>
-          ) : (
-            <AddSource textbookId={id} token={token} onAdded={() => queryClient.invalidateQueries({ queryKey: ['contents', id] })} />
-          )}
+          </BackEntry>
+          <BackEntry letter="C" title="What you’ve learned" count={data.back.learned.length}
+            empty="Your tutor records what you’ve shown you can do, as you practise.">
+            {data.back.learned.map((r) => (
+              <View key={r.path} style={styles.record}>
+                <Text style={styles.recordTitle}>{r.title}</Text>
+                <Text style={styles.small}>{r.body}</Text>
+              </View>
+            ))}
+          </BackEntry>
+          <BackEntry letter="D" title="Sources" count={data.back.sources.length} alwaysOpenable
+            empty="No sources yet. LAA never makes them up: add ones you trust, and lessons can cite them.">
+            {data.back.sources.map((s) => (
+              <View key={s.id} style={styles.record}>
+                <SourceTitle source={s} />
+                {s.note ? <Text style={styles.small}>{s.note}</Text> : null}
+              </View>
+            ))}
+            {data.back.linksOff ? (
+              <Text style={styles.note}>Links are turned off in your reader settings, so sources show without their web addresses.</Text>
+            ) : (
+              <AddSource textbookId={id} token={token} onAdded={() => queryClient.invalidateQueries({ queryKey: ['contents', id] })} />
+            )}
+          </BackEntry>
         </View>
       ) : null}
     </Page>
   );
 }
 
-function BackSection({ letter, title, empty, children }: { letter: string; title: string; empty: string; children: ReactNode }) {
-  const hasContent = Array.isArray(children) ? children.length > 0 : !!children;
+/** "Volume III · 2 lessons · 1 read": the line of facts under the title. */
+function facts(volume: number, lessons: number, read: number) {
+  const parts = [`Volume ${volumeNumeral(volume)}`, lessons === 1 ? '1 lesson' : `${lessons} lessons`];
+  if (lessons > 0) parts.push(read === lessons ? 'all read' : `${read} read`);
+  return parts.join(' · ');
+}
+
+/** How many terms the book's glossary holds: one `**Term**:` line each (the /teach glossary format). */
+function termCount(glossary: string | null) {
+  return glossary ? (glossary.match(/^\*\*.+?\*\*:/gm) ?? []).length : 0;
+}
+
+/**
+ * One section at the back of the book, as a contents entry that folds open: its letter, its title, and on the right how
+ * many things it holds (like a page number), or "None yet". Opening an empty one says what will fill it.
+ *
+ * @param count how many items the section holds; 0 shows `empty` when opened
+ * @param alwaysOpenable show `children` even when `count` is 0 (Sources: the form to add the first one lives inside)
+ */
+function BackEntry({ letter, title, count, empty, alwaysOpenable, children }: {
+  letter: string;
+  title: string;
+  count: number;
+  empty: string;
+  alwaysOpenable?: boolean;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const summary = count === 0 ? 'None yet' : String(count);
   return (
-    <View style={styles.backSection}>
-      <Text style={styles.backTitle} accessibilityRole="header">
-        <Text style={styles.backLetter}>{letter}  </Text>
-        {title}
-      </Text>
-      {hasContent ? children : <Text style={styles.empty}>{empty}</Text>}
+    <View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        accessibilityLabel={`${letter}, ${title}: ${count === 0 ? 'none yet' : count}`}
+        onPress={() => setOpen(!open)}
+        style={({ pressed }) => [styles.entry, pressed && styles.pressed]}>
+        <Text style={[styles.entryNo, styles.letter]}>{letter}</Text>
+        <Text style={styles.entryTitle}>{title}</Text>
+        <Text style={styles.count}>{summary}</Text>
+        <Icon name={open ? 'chevronUp' : 'chevronDown'} size={18} color={colors.muted} />
+      </Pressable>
+      {open ? (
+        <View style={styles.backBody}>
+          {count === 0 ? <Text style={styles.note}>{empty}</Text> : null}
+          {count > 0 || alwaysOpenable ? children : null}
+        </View>
+      ) : null}
     </View>
   );
 }
 
+/** A lesson's cheat sheet at the back of the book: its title, folded until tapped. */
 function Sheet({ seq, title, md }: { seq: number; title: string; md: string }) {
   const [open, setOpen] = useState(false);
   return (
@@ -225,13 +275,17 @@ function Sheet({ seq, title, md }: { seq: number; title: string; md: string }) {
         onPress={() => setOpen(!open)}
         style={styles.sheetRow}>
         <Text style={styles.recordTitle}>{title}</Text>
-        <Text style={styles.sheetMeta}>Lesson {seq} {open ? '▴' : '▾'}</Text>
+        <Text style={styles.sheetMeta}>Lesson {seq}</Text>
       </Pressable>
       {open ? <Markdown md={md} size="small" /> : null}
     </View>
   );
 }
 
+/**
+ * "Add a source": a quiet button that opens a short form (title, web address, what it's good for). Adding one writes
+ * it to the book's sources (`POST /textbooks/{id}/resources`), then `onAdded` refreshes the page.
+ */
 function AddSource({ textbookId, token, onAdded }: { textbookId: string; token: string | null; onAdded: () => void }) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
@@ -274,32 +328,41 @@ function AddSource({ textbookId, token, onAdded }: { textbookId: string; token: 
 }
 
 const styles = StyleSheet.create({
-  back: { alignSelf: 'flex-start', marginLeft: -8, marginBottom: 12 },
-  title: { ...type.h1, textAlign: 'center', marginTop: 8 },
-  epigraph: { marginTop: 20, paddingHorizontal: 12 },
-  epigraphText: { ...type.body, fontFamily: fonts.serifItalic, textAlign: 'center' },
-  epigraphBy: { fontFamily: fonts.sans, fontSize: 13, color: colors.muted, textAlign: 'center', marginTop: 8 },
-  entry: { flexDirection: 'row', alignItems: 'flex-end', minHeight: minTouch, paddingVertical: 6 },
-  entryPending: { opacity: 1 },
-  entryNo: { ...type.body, width: 28, color: colors.accent },
-  entryTitle: { ...type.body, flexShrink: 1 },
-  leader: { flex: 1, minWidth: 16, borderBottomWidth: 1, borderStyle: 'dotted', borderColor: colors.muted, marginHorizontal: 8, marginBottom: 7 },
-  entryStatus: { ...type.kicker, fontSize: 11, marginBottom: 4 },
-  entryNext: { color: colors.accent },
-  muted: { color: colors.muted },
-  progress: { fontFamily: fonts.sans, fontSize: 14, color: colors.muted, marginLeft: 28, marginTop: 2 },
-  writeButton: { alignSelf: 'flex-start', marginTop: 12 },
-  continue: { marginTop: 24 },
-  backSection: { marginTop: 18 },
-  backTitle: { ...type.h2, fontSize: 20, marginBottom: 8 },
-  backLetter: { color: colors.accent },
-  empty: { fontFamily: fonts.sans, fontSize: 14, lineHeight: 20, color: colors.muted },
+  front: { alignItems: 'center' },
+  cover: { marginTop: 4, marginBottom: 28 },
+  title: { ...type.h1, fontSize: 34, lineHeight: 40, textAlign: 'center' },
+  headline: { ...type.small, fontSize: 18, lineHeight: 26, textAlign: 'center', marginTop: 8, paddingHorizontal: 8 },
+  facts: { ...type.meta, textAlign: 'center', marginTop: 10 },
+  rule: { marginTop: 24 },
+  sectionKicker: { color: colors.ink, marginTop: 24, marginBottom: 4 },
+  // A contents entry: number, title, and a quiet mark on the right, over a fine divider.
+  entry: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    minHeight: 54,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.rule,
+  },
+  pressed: { opacity: 0.7 },
+  entryNo: { fontFamily: fonts.serif, fontSize: 16, color: colors.muted, width: 26, fontVariant: ['tabular-nums'] },
+  entryNoNext: { color: colors.accent, fontFamily: fonts.serifSemiBold },
+  letter: { fontFamily: fonts.serifSemiBold, color: colors.accent },
+  entryTitle: { fontFamily: fonts.serif, fontSize: 18, lineHeight: 25, color: colors.ink, flex: 1 },
+  entryPending: { fontFamily: fonts.serifItalic, fontSize: 18, lineHeight: 25, color: colors.muted, flex: 1 },
+  upNext: { fontFamily: fonts.sansSemiBold, fontSize: 13, color: colors.accent },
+  count: { fontFamily: fonts.sans, fontSize: 13, color: colors.muted },
+  progress: { ...type.meta, marginLeft: 40, marginTop: 8 },
+  why: { marginTop: 36 },
+  backBody: { paddingLeft: 40, paddingTop: 12, paddingBottom: 8 },
+  note: { ...type.meta, fontSize: 14, lineHeight: 20, marginBottom: 8 },
   record: { marginBottom: 12 },
-  recordTitle: { ...type.body, fontFamily: fonts.serifSemiBold },
-  small: { ...type.body, fontSize: 15, lineHeight: 15 * 1.5 },
-  sheetRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', minHeight: minTouch },
-  sheetMeta: { fontFamily: fonts.sans, fontSize: 13, color: colors.muted },
-  addToggle: { alignSelf: 'flex-start', marginLeft: -8, marginTop: 4 },
-  addForm: { marginTop: 12, borderTopWidth: 1, borderTopColor: colors.rule, paddingTop: 16 },
+  recordTitle: { ...type.small, fontFamily: fonts.serifSemiBold, flexShrink: 1 },
+  small: { ...type.small, fontSize: 15, lineHeight: 22 },
+  sheetRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, minHeight: minTouch },
+  sheetMeta: { ...type.meta },
+  addToggle: { alignSelf: 'flex-start', marginLeft: -10 },
+  addForm: { marginTop: 8 },
   addActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12 },
 });

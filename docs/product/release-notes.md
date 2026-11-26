@@ -6,6 +6,27 @@ What's new in each release of Learn Anything Anywhere, newest first. Each featur
 
 ---
 
+## 0.15: Each book's own page, and a calmer start to every book
+*25 November 2026*
+
+The new look reaches your books. Each one now has a page set out like the front of a printed book, and starting a book feels like opening one.
+
+### New
+
+- **Your book's page.** Open a book and you'll see its cover, its title, your goal in one line, and how far you've got (*Volume III · 2 lessons · 1 read*). Your lessons are listed underneath like a book's contents, with a tick for each one you've finished and the one *Up next* in green. [Your book's page →](guide/03-your-contents-page.md)
+- **One button for what's next.** At the bottom of a book's page: **Start reading**, **Continue reading**, or **Write lesson *n*** once you've read them all. [Your book's page →](guide/03-your-contents-page.md#contents-your-lessons)
+- **See your new book take shape.** As you type a topic, its cover appears with your title, in the colour it will have in your library. [Choose a topic →](guide/02-starting-a-textbook.md#1-choose-a-topic)
+
+### Changed
+
+- **The preface opens like a book,** with *Before we begin* and a small ornament. Your answers sit like notes in the margin, and **Send** waits at the bottom of the screen. [The preface →](guide/02-starting-a-textbook.md#3-the-preface-why-do-you-want-to-learn-this)
+- **Your mission** is set like a book's dedication page. **Edit your mission** changes it, and **Write my textbook** waits at the bottom of the screen. [Your mission card →](guide/02-starting-a-textbook.md#4-your-mission-card)
+- **Why you're learning this** now sits in the margin of your book's page, below the contents. [Why you're learning this →](guide/03-your-contents-page.md#why-youre-learning-this)
+- **The back of the book folds away.** Reference sheets, glossary, what you've learned and sources are listed like contents, each with how many things it holds. Tap one to open it. [At the back of the book →](guide/03-your-contents-page.md#at-the-back-of-the-book)
+- **Back to your library** is now an arrow at the top left of each of these screens.
+
+---
+
 ## 0.14: A fresh look, beginning with your library
 *24 November 2026*
 

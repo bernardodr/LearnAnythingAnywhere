@@ -146,7 +146,7 @@ export function Ornament() {
 }
 
 /** The line icons the app uses (DESIGN.md: clear icons). */
-export type IconName = 'back' | 'settings' | 'more' | 'close' | 'chevronRight' | 'chevronDown' | 'chevronUp' | 'plus';
+export type IconName = 'back' | 'settings' | 'more' | 'close' | 'chevronRight' | 'chevronDown' | 'chevronUp' | 'plus' | 'check';
 
 /**
  * A simple line icon in a 24 × 24 box. Decorative on its own: put it in an `IconButton` (or next to text) so it has a
@@ -175,6 +175,7 @@ export function Icon({ name, size = 24, color = colors.ink }: { name: IconName; 
     chevronDown: <Path d="M6 9 L12 15 L18 9" {...line} />,
     chevronUp: <Path d="M6 15 L12 9 L18 15" {...line} />,
     plus: <Path d="M12 5 V19 M5 12 H19" {...line} />,
+    check: <Path d="M5 12.5 L10 17.5 L19 7" {...line} />,
   };
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" accessible={false} importantForAccessibility="no-hide-descendants" aria-hidden>
@@ -190,6 +191,44 @@ export function IconButton({ icon, label, onPress, color }: { icon: IconName; la
       style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
       <Icon name={icon} color={color} />
     </Pressable>
+  );
+}
+
+/**
+ * The bar at the top of a screen you reach from somewhere else (DESIGN.md, the book-page mockup): a back arrow on the
+ * left, and in the middle an optional kicker saying where you are ("Your library" on a book's page, the book's title
+ * in its preface). The kicker only repeats what the back arrow's label says, so screen readers skip it.
+ *
+ * @param backLabel what the back arrow says to screen readers, e.g. "Back to your library"
+ * @param onBack where it goes; by default back, or to the library when there's no history (`goBack`)
+ * @param kicker the small centred line; leave it out for a bare back arrow
+ */
+export function TopBar({ backLabel, onBack = goBack, kicker }: { backLabel: string; onBack?: () => void; kicker?: string }) {
+  return (
+    <View style={styles.topBar}>
+      <IconButton icon="back" label={backLabel} onPress={onBack} />
+      <Text style={[type.kicker, styles.topBarKicker]} numberOfLines={1} importantForAccessibility="no" aria-hidden>
+        {kicker ?? ''}
+      </Text>
+      {/* As wide as the arrow, so the kicker sits in the true middle of the screen. */}
+      <View style={styles.topBarSide} />
+    </View>
+  );
+}
+
+/**
+ * A note in the margin (DESIGN.md "Screens"): a fine green rule down the left, a small green kicker, then serif text,
+ * with no box. For reflections and the learner's own words: their answers in the preface, the why of their mission.
+ *
+ * @param kicker the small capitals above the note, e.g. "You" or "Why you’re learning this"
+ * @param children the note: a string is set in the margin's serif, anything else is shown as it is
+ */
+export function MarginNote({ kicker, children, style }: { kicker: string; children: ReactNode; style?: ViewStyle }) {
+  return (
+    <View style={[styles.marginNote, style]}>
+      <Text style={[type.kicker, styles.marginKicker]}>{kicker}</Text>
+      {typeof children === 'string' ? <Text style={styles.marginText}>{children}</Text> : children}
+    </View>
   );
 }
 
@@ -351,6 +390,13 @@ const styles = StyleSheet.create({
   ornament: { alignSelf: 'center', marginVertical: 20 },
   iconButton: { width: minTouch, height: minTouch, justifyContent: 'center', alignItems: 'center', borderRadius: radius },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.rule, alignSelf: 'stretch' },
+  // The arrow's own padding is pulled into the gutter, so the arrow lines up with the text below it.
+  topBar: { flexDirection: 'row', alignItems: 'center', marginHorizontal: -10, marginBottom: 12 },
+  topBarKicker: { flex: 1, textAlign: 'center', color: colors.ink, letterSpacing: 3 },
+  topBarSide: { width: minTouch },
+  marginNote: { borderLeftWidth: 2, borderLeftColor: colors.accent, paddingLeft: 18, paddingVertical: 2 },
+  marginKicker: { color: colors.accent, marginBottom: 6 },
+  marginText: { ...type.small, fontSize: 17, lineHeight: 27 },
   button: {
     minHeight: minTouch,
     minWidth: minTouch,

@@ -11,6 +11,7 @@ import com.laa.IntegrationTest;
 import com.laa.llm.Calls;
 import com.laa.llm.Provider;
 import com.laa.llm.provider.fake.FailureMode;
+import com.laa.textbook.Textbook;
 
 import tools.jackson.databind.JsonNode;
 
@@ -56,6 +57,10 @@ class LessonApiTest extends IntegrationTest {
         Resp contents = get("/textbooks/" + id + "/contents", learner);
         ok(contents);
         assertThat(contents.body().get("lessons").get(0).get("read").asBoolean()).isFalse();
+        // The book's page draws its cover: the cloth of its volume and the motif picked when the preface ended.
+        assertThat(contents.body().get("coverColor").asString()).isEqualTo(Textbook.COVER_COLORS.get(0));
+        assertThat(contents.body().get("coverMotif").asString()).isEqualTo("mountain");
+        assertThat(contents.body().get("volume").asInt()).isEqualTo(1);
         assertThat(contents.body().get("next").get("seq").asInt()).isEqualTo(2);
         assertThat(contents.body().get("next").get("writtenAfter").asInt()).isEqualTo(1);
         assertThat(contents.body().get("next").get("canWrite").asBoolean()).isFalse();

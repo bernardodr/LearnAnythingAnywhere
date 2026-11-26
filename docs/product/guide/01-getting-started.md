@@ -52,7 +52,7 @@ After you sign in, you land on **Your library**: your textbooks, laid out like a
 
 - **Each textbook is a book.** Its cover is cloth in forest green, ochre, dusty blue or terracotta, with the title in large type and one small drawing of its subject: stars for the night sky, a leaf for plants, a mountain for climbing. LAA chooses the drawing when you finish the book's preface, from what the book is about.
 - **A book with a red ribbon** sticking out of the top, and *Preface in progress* underneath, is one whose opening interview you haven't finished yet.
-- **Tap a book to open it.** An unfinished one takes you back to its interview; a finished one opens its contents page, where your mission is too.
+- **Tap a book to open it.** An unfinished one takes you back to its interview; a finished one opens [its page](03-your-contents-page.md): the cover, your lessons and your mission.
 - **Create a textbook**, at the bottom of the screen, starts a new one. See [Starting a textbook](02-starting-a-textbook.md).
 - **The settings icon** (two small sliders, at the top right) opens your settings: how your textbooks are written, your parent PIN, your password, and **Sign out**. See [Reader settings and the parent PIN](07-reader-settings.md).
 

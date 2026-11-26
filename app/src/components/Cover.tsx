@@ -16,6 +16,16 @@ export function volumeNumeral(volume: number) {
   return ROMAN[volume - 1] ?? String(volume);
 }
 
+/**
+ * The cloth a learner's `volume`th book gets: the four cover colours in turn, exactly as the server hands them out
+ * (`Textbook.COVER_COLORS`; `CoverColorsTest` keeps the two lists the same). The new-book screen uses it to preview the
+ * cover before the book exists.
+ */
+export function coverForVolume(volume: number) {
+  const cloths = Object.values(colors.covers);
+  return cloths[(Math.max(1, volume) - 1) % cloths.length];
+}
+
 /** What a screen reader says for a book, whichever way it's shown. */
 export function bookLabel(book: Textbook) {
   const inProgress = book.status === 'INTERVIEW';

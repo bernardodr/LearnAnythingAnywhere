@@ -22,7 +22,7 @@ Read it in order the first time; afterwards, jump to what you need.
 |---|---|---|
 | 1 | [Getting started](guide/01-getting-started.md) | Creating your account, confirming your email, signing in, your password, a forgotten password, your library, covers or spines, and arranging it |
 | 2 | [Starting a textbook](guide/02-starting-a-textbook.md) | Choosing a topic, the topic check, the preface interview, your mission card |
-| 3 | [Your contents page](guide/03-your-contents-page.md) | Your lessons, what's next, and the back of the book |
+| 3 | [Your book's page](guide/03-your-contents-page.md) | The cover, your lessons, what's next, and the back of the book |
 | 4 | [Reading a lesson](guide/04-reading-a-lesson.md) | The parts of a lesson, quizzes, cheat sheets, finishing a lesson |
 | 5 | [Practice and your tutor](guide/05-practice-and-your-tutor.md) | Practice questions, the tutor's note, hints, chatting with your tutor, what you've learned |
 | 6 | [Good to know](guide/06-good-to-know.md) | Practice mode, when something goes wrong, the daily allowance, what's coming next |

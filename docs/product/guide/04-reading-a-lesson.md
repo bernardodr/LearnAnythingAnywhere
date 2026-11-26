@@ -1,6 +1,6 @@
 # 4. Reading a lesson
 
-[← Your contents page](03-your-contents-page.md) · [Guide home](../README.md) · Next: [Practice and your tutor →](05-practice-and-your-tutor.md)
+[← Your book's page](03-your-contents-page.md) · [Guide home](../README.md) · Next: [Practice and your tutor →](05-practice-and-your-tutor.md)
 
 Each lesson is one page you scroll through, and is meant to take just a few minutes. It teaches **one thing**, linked to your mission, which you can use straight away.
 
@@ -69,12 +69,12 @@ Near the end of each lesson, tap **Cheat sheet: …** to open its one-page summa
 
 When you've worked through the lesson, tap **I've finished this lesson** at the bottom.
 
-- This marks the lesson as **Read** on your contents page.
-- It unlocks your next lesson. If the next one is already written, you're taken straight to it. If not, you go back to the contents page, where you can tap **Write lesson *n*** to get it.
+- This ticks the lesson off on your book's page.
+- It unlocks your next lesson. If the next one is already written, you're taken straight to it. If not, you go back to your book's page, where you can tap **Write lesson *n*** at the bottom to get it.
 
 Finish a lesson when you've really done it, ideally including the practice question, because your next lesson is planned from how you're getting on.
 
 ## Moving around
 
-- **‹ Contents** at the top takes you back to the contents page.
+- **‹ Contents** at the top takes you back to your book's page.
 - At the bottom, **‹ Lesson *n*** and **Lesson *n* ›** move to the previous or next lesson.

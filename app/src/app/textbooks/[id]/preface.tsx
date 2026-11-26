@@ -4,16 +4,24 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { MissionCard } from '@/components/MissionCard';
-import { Button, Field, goBack, Kicker, Note, Ornament, Page } from '@/components/ui';
+import { Button, Field, Kicker, MarginNote, Note, Ornament, Page, TopBar } from '@/components/ui';
 import { ApiError, apiGet, apiPost } from '@/lib/api';
 import { useSession } from '@/lib/session';
 import { postSse } from '@/lib/sse';
 import type { ChatTurn, ConfirmResponse, MissionDraft, MissionState } from '@/lib/types';
-import { colors, fonts, type } from '@/theme';
+import { colors, type } from '@/theme';
 
 /**
- * Screen 3: the preface. A streamed interview about why the learner wants this topic (TUTOR / YOU transcript),
- * ending in a mission card they can edit and confirm ("Write my textbook" writes MISSION.md).
+ * Screen 3: the preface (`docs/DESIGN.md`), set like the opening of a book: the book's title in the bar, then
+ * "Preface", "Before we begin", an ornament and a line on what happens here. Below it, a streamed interview about why
+ * the learner wants this topic: the tutor's questions as reading text, the learner's answers as notes in the margin. It
+ * ends in the mission card, which they can edit and confirm. The one dominant action is pinned at the bottom: Send
+ * while they answer, then "Write my textbook" (which saves the mission as MISSION.md and leads to the book's page,
+ * where lesson 1 is written).
+ *
+ * Loads `/textbooks/{id}/mission` (the learner may be coming back to an unfinished preface); streams each turn from
+ * `POST /textbooks/{id}/mission/messages` (the first one with no answer, for the opening question); retries a failed
+ * draft at `POST /mission/draft`; confirms at `POST /mission/confirm`. A book whose preface is done goes to its page.
  */
 export default function Preface() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -42,6 +50,10 @@ export default function Preface() {
   const [draftError, setDraftError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  // The learner's edit of the draft, if they kept one, and whether the edit form is open. The card shows `edited` over
+  // the draft, and "Write my textbook" confirms whichever is shown.
+  const [edited, setEdited] = useState<MissionDraft | null>(null);
+  const [editing, setEditing] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const started = useRef(false);
   const abort = useRef<AbortController | null>(null);
@@ -127,6 +139,7 @@ export default function Preface() {
     setDraftError(null);
     try {
       const fresh = await apiPost<MissionDraft>(`/textbooks/${id}/mission/draft`, undefined, token);
+      setEdited(null);
       update((s) => ({ ...s, draft: fresh }));
     } catch (e) {
       setDraftError(e instanceof ApiError ? e.message : 'The mission draft couldn’t be written.');
@@ -150,20 +163,34 @@ export default function Preface() {
     }
   }
 
+  const shown = edited ?? draft;
+  // The one dominant action at the bottom: whatever moves the preface on from where it is now.
+  const footer = draft ? (
+    editing ? undefined : <Button label="Write my textbook" busy={confirming} onPress={() => shown && void confirm(shown)} />
+  ) : draftError ? (
+    <Button label="Write the mission draft" onPress={retryDraft} busy={retrying} />
+  ) : messages.length === 0 && !busy && error ? (
+    <Button label="Try again" onPress={() => void sendTurn(null)} />
+  ) : messages.length > 0 || busy ? (
+    <Button label="Send" onPress={() => void sendTurn(answer.trim())} disabled={!canAnswer} busy={busy}
+      accessibilityLabel="Send your answer" />
+  ) : undefined;
+
   return (
-    <Page stickToBottom>
-      <Button label="‹ Your shelf" variant="quiet" onPress={goBack} style={styles.back}
-        accessibilityLabel="Back to your shelf" />
-      <Kicker>Preface</Kicker>
-      <Text style={styles.title} accessibilityRole="header">
-        {mission.data?.title ?? ' '}
-      </Text>
-      <Text style={styles.intro}>
-        Before a single lesson is written: why do you want to learn this? A few questions, then your mission.
-      </Text>
+    <Page stickToBottom footer={footer}>
+      <TopBar backLabel="Back to your library" kicker={mission.data?.title} />
+      <View style={styles.opening}>
+        <Kicker>Preface</Kicker>
+        <Text style={styles.title} accessibilityRole="header">
+          Before we begin
+        </Text>
+        <Ornament />
+        <Text style={styles.intro}>
+          Before a single lesson is written: why do you want to learn this? A few questions, then your mission.
+        </Text>
+      </View>
       {mission.data?.gateNote ? <Note>{mission.data.gateNote}</Note> : null}
       {mission.isError ? <Note tone="error">{mission.error.message}</Note> : null}
-      <Ornament />
 
       {messages.map((m) => (
         <Turn key={m.id} role={m.role} text={m.content} />
@@ -177,14 +204,16 @@ export default function Preface() {
 
       {error ? <Note tone="error">{error}</Note> : null}
 
-      {draft ? (
+      {draft && shown ? (
         // Keyed by content: a regenerated draft remounts the card, discarding any half-done edit of the old one.
-        <MissionCard key={JSON.stringify(draft)} draft={draft} busy={confirming} onConfirm={confirm} />
+        <MissionCard key={JSON.stringify(draft)} mission={shown} editing={editing} busy={confirming}
+          onEdit={() => setEditing(true)} onCancel={() => setEditing(false)}
+          onDone={(m) => {
+            setEdited(m);
+            setEditing(false);
+          }} />
       ) : draftError ? (
-        <View>
-          <Note tone="error">{draftError}</Note>
-          <Button label="Write the mission draft" onPress={retryDraft} busy={retrying} />
-        </View>
+        <Note tone="error">{draftError}</Note>
       ) : messages.length > 0 && !busy && !mission.isPending ? (
         <View style={styles.answer}>
           <Field
@@ -195,35 +224,30 @@ export default function Preface() {
             maxLength={2000}
             hint={mission.data ? `Question ${Math.min(answers + 1, mission.data.maxAnswers)} of up to ${mission.data.maxAnswers}` : undefined}
           />
-          <Button label="Send" onPress={() => void sendTurn(answer.trim())} disabled={!canAnswer}
-            accessibilityLabel="Send your answer" />
         </View>
-      ) : null}
-      {messages.length === 0 && !busy && error ? (
-        <Button label="Try again" onPress={() => void sendTurn(null)} variant="secondary" />
       ) : null}
     </Page>
   );
 }
 
+/** One turn of the interview: the tutor's words as reading text, the learner's as a note in the margin. */
 function Turn({ role, text }: { role: 'USER' | 'ASSISTANT'; text: string }) {
-  const you = role === 'USER';
+  if (role === 'USER') return <MarginNote kicker="You" style={styles.turn}>{text}</MarginNote>;
   return (
     <View style={styles.turn}>
-      <Text style={[styles.speaker, you && styles.speakerYou]}>{you ? 'You' : 'Tutor'}</Text>
-      <Text style={[styles.said, you && styles.saidYou]}>{text}</Text>
+      <Kicker style={styles.speaker}>Your tutor</Kicker>
+      <Text style={styles.said}>{text}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  back: { alignSelf: 'flex-start', marginLeft: -8, marginBottom: 12 },
-  title: { ...type.h1, marginTop: 8 },
-  intro: { ...type.body, color: colors.muted, marginTop: 8 },
-  turn: { marginBottom: 20 },
-  speaker: { ...type.kicker, fontSize: 11, letterSpacing: 1.4, color: colors.accent, marginBottom: 4 },
-  speakerYou: { color: colors.muted },
+  // An opening (DESIGN.md "Screens"): kicker, a large centred serif title, the ornament, then the text.
+  opening: { alignItems: 'center', marginTop: 12, marginBottom: 12 },
+  title: { ...type.h1, fontSize: 36, lineHeight: 42, textAlign: 'center', marginTop: 10 },
+  intro: { ...type.small, fontSize: 17, lineHeight: 27, color: colors.muted, textAlign: 'center' },
+  turn: { marginTop: 24 },
+  speaker: { marginBottom: 6 },
   said: { ...type.body },
-  saidYou: { fontFamily: fonts.serifItalic },
-  answer: { marginTop: 8 },
+  answer: { marginTop: 28 },
 });
