@@ -17,7 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 
-import { colors, fonts, minTouch, radius, type } from '@/theme';
+import { colors, fonts, minTouch, radius, themed, type } from '@/theme';
 
 /**
  * A screen (`docs/DESIGN.md`): an even ivory background and one readable column with generous space. `stickToBottom`
@@ -368,7 +368,7 @@ export function Note({ children, tone = 'note' }: { children: ReactNode; tone?: 
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.paper },
   page: { flexGrow: 1, alignItems: 'center', paddingHorizontal: 24, paddingTop: 20, paddingBottom: 40 },
   pageCenter: { justifyContent: 'center' },
@@ -442,4 +442,4 @@ const styles = StyleSheet.create({
   note: { backgroundColor: colors.noteFill, borderRadius: radius, padding: 16, marginVertical: 12 },
   noteError: { backgroundColor: colors.paper, borderWidth: 1, borderColor: colors.rule, borderLeftWidth: 3, borderLeftColor: colors.danger },
   noteText: { ...type.small },
-});
+}));

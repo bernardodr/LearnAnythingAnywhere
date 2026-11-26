@@ -96,5 +96,7 @@ export async function connect({ port = 9333, outDir }) {
   await send('Page.enable');
   await send('Target.setAutoAttach', { autoAttach: true, waitForDebuggerOnStart: false, flatten: true });
   await send('Emulation.setDeviceMetricsOverride', { width: 420, height: 900, deviceScaleFactor: 2, mobile: true });
+  // Light pages unless a test asks otherwise: left alone, Chrome follows the computer, which may be in dark mode.
+  await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] });
   return { ws, send, evaluate, hasText, byLabel, shot, waitFor, click, clickAt, type, frame, forgetFrame, problems, sleep };
 }

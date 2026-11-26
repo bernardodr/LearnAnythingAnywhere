@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Button, Kicker, Note, type Option, Select } from '@/components/ui';
 import { ApiError, apiGet, apiPatch, apiPost } from '@/lib/api';
 import type { CallView, CompareResult, CompareSide, ProviderId, ProviderView, RouteView, RunView, TaskId, Tier } from '@/lib/types';
-import { colors, fonts, minTouch, type } from '@/theme';
+import { colors, fonts, minTouch, themed, type } from '@/theme';
 
 /** Plain names for what each task does, as the owner thinks of it. */
 export const TASK_LABEL: Record<TaskId, string> = {
@@ -422,7 +422,7 @@ function Check({ ok, text }: { ok: boolean; text: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   h2: { ...type.h2, marginTop: 36, marginBottom: 6 },
   intro: { ...type.body, fontSize: 15, lineHeight: 22, color: colors.muted, marginBottom: 14 },
   small: { fontFamily: fonts.sans, fontSize: 13, lineHeight: 19, color: colors.ink },
@@ -472,4 +472,4 @@ const styles = StyleSheet.create({
   checks: { marginVertical: 8, gap: 2 },
   output: { fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 12, lineHeight: 17, color: colors.ink, backgroundColor: colors.noteFill, padding: 10, borderRadius: 4 },
   useButton: { alignSelf: 'flex-start', marginTop: 10 },
-});
+}));

@@ -22,7 +22,26 @@
 | A shelf of spines: a compact view with the same physics (user request) | ✅ Done (2026-11-16) |
 | A firmer shelf: a solid board, snappy physics, no bounce (user feedback) | ✅ Done (2026-11-16) |
 | Production: GitHub Actions pipeline, Hetzner server, web, App Store, Google Play (user request) | 🚧 Phase 1 steps 1–3 and 8 and Phase 3 done; **live at https://learnanythinganywhere.app** (2026-11-22); working through the web-beta checklist (`docs/PRODUCTION-PLAN.md`, *The web beta first*). Tasks are GitHub issues on the *LAA production* board; the process is `docs/WORKFLOW.md` |
-| A fresh look: Warm Editorial Minimalism, the owner's design brief (user request; `docs/DESIGN.md`, issue #67) | 🚧 Milestones 1–2 of 5 done: foundation, covers with motifs, the library (2026-11-24); the book page, starting a book, the preface (2026-11-25). Owner feedback (2026-11-26): leather and linen, arranging from the book page, readable and more hands-on diagrams (#78); no em dashes and the reading ribbon (#80, #81); sources for every lesson (#82); the familiarity slider (#83). Next: dark mode (#85), then reading (#70) |
+| A fresh look: Warm Editorial Minimalism, the owner's design brief (user request; `docs/DESIGN.md`, issue #67) | 🚧 Milestones 1–2 of 5 done: foundation, covers with motifs, the library (2026-11-24); the book page, starting a book, the preface (2026-11-25). Owner feedback (2026-11-26): leather and linen, arranging from the book page, readable and more hands-on diagrams (#78); no em dashes and the reading ribbon (#80, #81); sources for every lesson (#82); the familiarity slider (#83); dark mode (#85). Next: reading (#70) |
+
+## Dark mode (done 2026-11-26)
+
+Issue #85, part of #67. The owner: "We also need a dark mode that still fits the design style, good luck."
+
+**Done**
+- **A dark palette** (`theme.ts`): a warm near-black page (`#1B1A17`), ivory ink, a sage forest for the one action (dark text on it), warm panels and rules; every text pair 4.5:1 or more (`DESIGN.md` has the table). The cover cloths, leather and linen are the same in both.
+- **How the screens follow it, without rewriting each:** `colors` and `type` are read from the palette in use (a proxy over the two); every file's styles are made per palette with `themed(() => StyleSheet.create({...}))` (24 files, changed mechanically); a constant that read colours at load (`WEB_SWITCH`) is `themed` too. **The root layout** (`Screens`) picks the palette from the learner's choice or the device (`useAppearance`, kept on the device like covers or spines), switches it before anything draws, and redraws the screens on a change (the React Compiler would otherwise keep the old styles); on phones it then takes the learner back to the screen they were on (the web keeps its address). `app.json` lets iOS report the device's dark setting (`userInterfaceStyle: automatic`).
+- **Things keep their colours:** cover and spine titles use `coverInk` (ink on ochre, ivory on the darker cloths) whatever the palette; the familiarity plant's pot and soil too.
+- **Diagrams:** `diagramShell` builds the frame's CSS variables and contrast guard per palette, with `color-scheme` set.
+- **Settings:** an **Appearance** choice (Match this device, Light, Dark), styled like the links choice.
+- **Walk-throughs:** `cdp.mjs` tells the test browser to prefer light unless a test asks otherwise (it would follow the computer, which may be dark at night).
+- **Docs:** the guide's *Light or dark pages*, release notes 0.20, `DESIGN.md` (*Dark mode*), `CLAUDE.md` (the `themed()` rule).
+
+**Verified**
+- **`./e2e/run.sh library`:** choosing **Dark** turns the pages `#1B1A17` and stays on settings; **Match this device** follows the browser to light and then to dark; the library in dark is screenshotted; no console errors. `book` and `diagrams` pass unchanged in light, the frame's seal included.
+- **A dark tour of every main screen** (title, library, spines, book page, a lesson with its diagram and sources, the preface, a new book with the slider, settings): the books keep their cloth, the diagram takes the dark variables, and nothing was left light. It caught the plant's soil drawn in text colour (ivory in the dark); now fixed.
+
+**Not covered:** iPhone and Android: dark mode should follow the phone (Expo Go needs `userInterfaceStyle: automatic`, now set), but it hasn't been seen on one.
 
 ## How familiar are you? The familiarity slider (done 2026-11-26)
 
@@ -1367,3 +1386,4 @@ From the architecture review (card 1, "Deepen learner-facing generation"): M6 ha
 | 2026-11-26 | **Lesson sources come from Anthropic's web search, and LAA opens each one before keeping it;** a provider that can't search refuses the research call rather than answer from memory | The owner chose search-then-verify, Anthropic, per lesson. Spring AI's Anthropic module has the search tool (and the SDK reports searches for metering); its OpenAI module has none yet. Refusing beats a model's memory, which is how references get invented. Checking from the server needs guarding: https on 443 to public addresses only, so a crafted address can't reach the server's own network. |
 | 2026-11-26 | **Search calls get their schema as instructions, not the provider's JSON mode** | Search answers always carry citations, and the docs don't say JSON mode works alongside them; reading the JSON out of the reply works either way, and the schema check still decides. |
 | 2026-11-26 | **Familiarity is chosen once, when a book starts, on five levels, and goes to the AI as words, not a number** ("Very confident. Never explain the basics…"); learning records outrank it | The owner's request after lessons felt too easy. Words steer a model better than a score; records are the evidence of what the learner can really do, so they win once there are some. |
+| 2026-11-26 | **Dark mode by palette proxies, styles made per palette, and a redraw on change** rather than a theme hook in every component | One line per file instead of rewriting every component; the React Compiler keeps unchanged components from redrawing, so a change redraws the screens and returns the learner to theirs. Books keep their colours: they're objects, not chrome. |

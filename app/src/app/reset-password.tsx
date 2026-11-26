@@ -6,7 +6,7 @@ import { Button, Kicker, Note, Page, PasswordField, passwordLength } from '@/com
 import { ApiError, apiPost } from '@/lib/api';
 import { useSession } from '@/lib/session';
 import type { SignInResponse } from '@/lib/types';
-import { type } from '@/theme';
+import { themed, type } from '@/theme';
 
 const MIN_PASSWORD = 15;
 
@@ -62,9 +62,9 @@ export default function ResetPassword() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   form: { width: '100%', maxWidth: 380, alignSelf: 'center' },
   title: { ...type.h1, marginTop: 8, marginBottom: 12 },
   intro: { ...type.body, marginBottom: 20 },
   back: { alignSelf: 'center', marginTop: 16 },
-});
+}));

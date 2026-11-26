@@ -143,10 +143,37 @@ try {
   await waitFor('settings', hasText('Sign out'));
   ok('the settings icon leads to settings, with Sign out');
 
+  // ---- Dark mode (issue #85): the Appearance choice in settings, or the device's own setting.
+  const DARK = 'rgb(27, 26, 23)', LIGHT = 'rgb(247, 244, 236)';
+  const page = () => evaluate(`(() => { let e = document.elementFromPoint(6, 400); while (e && getComputedStyle(e).backgroundColor === 'rgba(0, 0, 0, 0)') e = e.parentElement;
+    return e ? getComputedStyle(e).backgroundColor : 'none'; })()`);
+  const settle = async (want) => {
+    let now = '';
+    for (let t = 0; t < 30 && now !== want; t++, await sleep(100)) now = await page();
+    return now;
+  };
+  await click('Dark: Warm dark pages, easy on the eyes at night.');
+  assert.equal(await settle(DARK), DARK, 'choosing Dark turns the pages dark');
+  assert.ok(await evaluate(hasText('Appearance')), 'and stays on settings');
+  // The test browser is told which it prefers (left alone, it follows the computer, which may be dark at night).
+  await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] });
+  await click('Match this device: Light by day and dark at night, if your device does that.');
+  assert.equal(await settle(LIGHT), LIGHT, 'matching the device: light while it prefers light');
+  await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'dark' }] });
+  assert.equal(await settle(DARK), DARK, 'and follows it to dark');
+  await click('Back to your library');
+  await waitFor('the library, dark', hasText('Your library'));
+  await sleep(900);
+  await shot('library-dark');
+  await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] });
+  ok('dark mode: chosen in settings, or following the device, without leaving the screen');
+
   assert.deepEqual(problems, [], 'no console errors or warnings');
   ok('no console errors or warnings');
 
   // Signing out from settings, then a new learner's empty library, which invites a first topic.
+  await click('Settings and account');
+  await waitFor('settings again', hasText('Sign out'));
   await click(`Sign out ${EMAIL}`);
   await waitFor('title page again', `!!document.querySelector('[aria-label="Developer sign-in"]')`, 20000);
   await click('Developer sign-in');

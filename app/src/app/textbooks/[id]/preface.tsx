@@ -9,7 +9,7 @@ import { ApiError, apiGet, apiPost } from '@/lib/api';
 import { useSession } from '@/lib/session';
 import { postSse } from '@/lib/sse';
 import type { ChatTurn, ConfirmResponse, MissionDraft, MissionState } from '@/lib/types';
-import { colors, type } from '@/theme';
+import { colors, themed, type } from '@/theme';
 
 /**
  * Screen 3: the preface (`docs/DESIGN.md`), set like the opening of a book: the book's title in the bar, then
@@ -241,7 +241,7 @@ function Turn({ role, text }: { role: 'USER' | 'ASSISTANT'; text: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   // An opening (DESIGN.md "Screens"): kicker, a large centred serif title, the ornament, then the text.
   opening: { alignItems: 'center', marginTop: 12, marginBottom: 12 },
   title: { ...type.h1, fontSize: 36, lineHeight: 42, textAlign: 'center', marginTop: 10 },
@@ -250,4 +250,4 @@ const styles = StyleSheet.create({
   speaker: { marginBottom: 6 },
   said: { ...type.body },
   answer: { marginTop: 28 },
-});
+}));

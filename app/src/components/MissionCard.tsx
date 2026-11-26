@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { Button, Divider, Field, Kicker, Ornament } from '@/components/ui';
 import type { MissionDraft } from '@/lib/types';
-import { colors, fonts, radius, type } from '@/theme';
+import { colors, fonts, radius, themed, type } from '@/theme';
 
 /**
  * The mission that ends the preface (BRIEF screen 3, `docs/DESIGN.md`): a quiet panel set like a book's dedication page:
@@ -137,7 +137,7 @@ function lines(text: string): string[] {
     .filter((l) => l !== '');
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   // A quiet panel (DESIGN.md: noteFill is for notes and the mission), even and flat: texture belongs to books.
   card: { backgroundColor: colors.noteFill, borderRadius: radius, paddingHorizontal: 24, paddingVertical: 28, marginTop: 16 },
   kicker: { textAlign: 'center', color: colors.accent },
@@ -152,4 +152,4 @@ const styles = StyleSheet.create({
   invalid: { ...type.meta, color: colors.danger, marginBottom: 4 },
   actions: { flexDirection: 'row', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 12, marginTop: 8 },
   edit: { alignSelf: 'center', marginTop: 20 },
-});
+}));

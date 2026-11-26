@@ -1,14 +1,15 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Redirect, router } from 'expo-router';
 import { useState } from 'react';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { SettingsForm } from '@/components/Settings';
 import { Button, Divider, Field, goBack, IconButton, Kicker, Note, Ornament, Page, PasswordField, passwordLength } from '@/components/ui';
 import { ApiError, apiGet, apiPost, apiPut, api } from '@/lib/api';
+import { type Appearance, useAppearance } from '@/lib/appearance';
 import { useSession } from '@/lib/session';
 import type { Profile, ProfileSettings, SignInResponse } from '@/lib/types';
-import { colors, fonts, type } from '@/theme';
+import { colors, fonts, minTouch, themed, type } from '@/theme';
 
 /** The server's rule; it says so if a password breaks it. */
 const MIN_PASSWORD = 15;
@@ -74,6 +75,12 @@ export default function SettingsScreen() {
       </Text>
       <YourPassword pinSet={pinSet} />
 
+      <Ornament />
+      <Text style={styles.h2} accessibilityRole="header" nativeID="appearance-label">
+        Appearance
+      </Text>
+      <AppearanceChoice />
+
       {/* The account: signing out, and for the owner on the web, the owner console. (They lived in the library's
           header before the facelift, which gives the library a single settings icon instead.) */}
       <Divider style={styles.accountRule} />
@@ -86,6 +93,32 @@ export default function SettingsScreen() {
           accessibilityLabel={`Sign out ${user.email}`} />
       </View>
     </Page>
+  );
+}
+
+const APPEARANCES: { value: Appearance; label: string; hint: string }[] = [
+  { value: 'system', label: 'Match this device', hint: 'Light by day and dark at night, if your device does that.' },
+  { value: 'light', label: 'Light', hint: 'Warm ivory pages.' },
+  { value: 'dark', label: 'Dark', hint: 'Warm dark pages, easy on the eyes at night.' },
+];
+
+/**
+ * Light or dark pages (issue #85), kept on this device: following the device's own setting (the default), or always
+ * one. Changing it redraws the app in the new palette straight away.
+ */
+function AppearanceChoice() {
+  const { appearance, choose } = useAppearance();
+  return (
+    <View style={styles.radios} accessibilityRole="radiogroup" aria-labelledby="appearance-label">
+      {APPEARANCES.map((o) => (
+        <Pressable key={o.value} accessibilityRole="radio" accessibilityState={{ checked: appearance === o.value }}
+          aria-checked={appearance === o.value} accessibilityLabel={`${o.label}: ${o.hint}`}
+          onPress={() => choose(o.value)} style={[styles.radio, appearance === o.value && styles.radioOn]}>
+          <Text style={[styles.radioText, appearance === o.value && styles.radioTextOn]}>{o.label}</Text>
+          <Text style={styles.radioHint}>{o.hint}</Text>
+        </Pressable>
+      ))}
+    </View>
   );
 }
 
@@ -214,10 +247,16 @@ function YourPassword({ pinSet }: { pinSet: boolean }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   header: { flexDirection: 'row', marginBottom: 8, marginLeft: -8 },
   title: { ...type.h1, marginTop: 8, marginBottom: 12 },
   h2: { ...type.h2, marginBottom: 12 },
+  radios: { gap: 8 },
+  radio: { minHeight: minTouch, borderWidth: 1, borderColor: colors.rule, borderRadius: 4, paddingHorizontal: 14, paddingVertical: 8, justifyContent: 'center' },
+  radioOn: { borderColor: colors.accent, backgroundColor: colors.noteFill },
+  radioText: { fontFamily: fonts.sans, fontSize: 15, color: colors.ink },
+  radioTextOn: { fontFamily: fonts.sansSemiBold, color: colors.accent },
+  radioHint: { fontFamily: fonts.sans, fontSize: 13, color: colors.muted },
   intro: { ...type.body, color: colors.muted, marginBottom: 16 },
   small: { fontFamily: fonts.sans, fontSize: 13, lineHeight: 18, color: colors.muted },
   card: { borderWidth: 1, borderColor: colors.rule, borderRadius: 4, padding: 16, marginBottom: 14, backgroundColor: colors.field },
@@ -226,4 +265,4 @@ const styles = StyleSheet.create({
   button: { alignSelf: 'flex-start' },
   accountRule: { marginTop: 40, marginBottom: 20 },
   signedIn: { ...type.meta, marginBottom: 8 },
-});
+}));

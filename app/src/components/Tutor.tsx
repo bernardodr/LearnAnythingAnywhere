@@ -7,7 +7,7 @@ import { Button, Field, Kicker, Note } from '@/components/ui';
 import { ApiError, apiGet, apiPost } from '@/lib/api';
 import { postSse } from '@/lib/sse';
 import type { ChatTurn, HintView, PracticeState, TutorNote, Verdict } from '@/lib/types';
-import { colors, fonts, minTouch, type } from '@/theme';
+import { colors, fonts, minTouch, themed, type } from '@/theme';
 
 export type LessonContext = { textbookId: string; lessonId: string; seq: number; token: string | null };
 
@@ -275,7 +275,7 @@ function ChatLine({ role, text }: { role: 'USER' | 'ASSISTANT'; text: string }) 
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   gap: { marginBottom: 8 },
   h2: { ...type.h2, marginTop: 20, marginBottom: 10 },
   label: { ...type.kicker, marginBottom: 8, marginTop: 4 },
@@ -314,4 +314,4 @@ const styles = StyleSheet.create({
   thread: { marginTop: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.rule, paddingTop: 12 },
   line: { marginBottom: 12 },
   speaker: { ...type.kicker, fontSize: 11, color: colors.accent, marginBottom: 2 },
-});
+}));

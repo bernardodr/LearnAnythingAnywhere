@@ -12,7 +12,7 @@ import { useArrange } from '@/lib/arrange';
 import { useSession } from '@/lib/session';
 import { getSse } from '@/lib/sse';
 import type { Contents, Textbook } from '@/lib/types';
-import { colors, fonts, minTouch, radius, type } from '@/theme';
+import { colors, fonts, minTouch, radius, themed, type } from '@/theme';
 
 /** "01" for lesson 1: the contents page's numbering. */
 const two = (n: number) => String(n).padStart(2, '0');
@@ -376,7 +376,7 @@ function AddSource({ textbookId, token, onAdded }: { textbookId: string; token: 
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   // Above the page, so the open menu lies over the cover rather than pushing it down.
   top: { zIndex: 10 },
   menu: {
@@ -432,4 +432,4 @@ const styles = StyleSheet.create({
   addToggle: { alignSelf: 'flex-start', marginLeft: -10 },
   addForm: { marginTop: 8 },
   addActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12 },
-});
+}));

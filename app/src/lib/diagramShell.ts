@@ -1,4 +1,4 @@
-import { colors } from '@/theme';
+import { colors, scheme } from '@/theme';
 
 /**
  * The sealed document an interactive diagram runs inside, shared by the web frame (`DiagramFrame.web.tsx`) and the
@@ -82,7 +82,9 @@ function rgb(hex: string) {
 // or ivory, whichever reads better there; a mark is switched again if its fill changes later. HTML text only: text
 // drawn in SVG sits on shapes the guard can't see behind. It runs inside the sealed frame and changes nothing about
 // the seal (it sends nothing, loads nothing).
-const GUARD = `
+/** The guard's script, for the palette in use (its ink and ivory are the current ones). */
+function guard() {
+  return `
 (function () {
   var INK = [${rgb(colors.ink)}], PAPER = [${rgb(colors.paper)}];
   function parse(s) {
@@ -133,12 +135,16 @@ const GUARD = `
   document.addEventListener('transitionend', soon, true);
 })();
 `;
+}
 
 // LAA's design tokens (theme.ts), as the CSS variables the diagram prompt names. The older names (--slate, --olive,
 // --navy) stay, because diagrams already written use them; they now draw in DESIGN.md's palette. Fonts are system
 // ones: the page can't load LAA's own (no network), and these sit closest to Source Serif 4 and Inter.
-const STYLE = `
+/** LAA's look for the frame, in the palette in use: in dark mode the variables are the dark ones. */
+function style() {
+  return `
 :root {
+  color-scheme: ${scheme()};
   --paper: ${colors.paper}; --ink: ${colors.ink}; --muted: ${colors.muted}; --rule: ${colors.rule};
   --note: ${colors.noteFill}; --accent: ${colors.accent}; --ribbon: ${colors.ribbon};
   --forest: ${colors.covers.forest}; --ochre: ${colors.covers.ochre}; --blue: ${colors.covers.blue}; --terracotta: ${colors.covers.terracotta};
@@ -160,6 +166,7 @@ svg { max-width: 100%; height: auto; }
 [data-laa-text="paper"] { color: var(--paper) !important; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 `;
+}
 
 /** The whole document for one diagram: the seal, LAA's look, the bridge and the contrast guard, around the page. */
 export function diagramDocument(html: string) {
@@ -167,7 +174,7 @@ export function diagramDocument(html: string) {
     '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">' +
     `<meta http-equiv="Content-Security-Policy" content="${CSP}">` +
     '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">' +
-    `<style>${STYLE}</style><script>${BRIDGE}${GUARD}</script></head><body>${html}</body></html>`
+    `<style>${style()}</style><script>${BRIDGE}${guard()}</script></head><body>${html}</body></html>`
   );
 }
 

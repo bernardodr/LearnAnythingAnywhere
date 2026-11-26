@@ -1,7 +1,7 @@
 import { Fragment, type ReactNode } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 
-import { colors, fonts, type } from '@/theme';
+import { colors, fonts, themed, type } from '@/theme';
 
 /**
  * Renders the small Markdown subset lessons are written in (see prompts/lesson_write.v1.md): paragraphs,
@@ -118,7 +118,7 @@ function inline(text: string): ReactNode[] {
 
 const mono = Platform.select({ ios: 'Menlo', android: 'monospace', default: 'ui-monospace, Menlo, monospace' });
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   body: { ...type.body },
   small: { ...type.body, fontSize: 15, lineHeight: 15 * 1.5 },
   paragraph: { marginBottom: 12 },
@@ -131,4 +131,4 @@ const styles = StyleSheet.create({
   inlineCode: { fontFamily: mono, fontSize: 15, backgroundColor: colors.noteFill },
   codeBox: { backgroundColor: colors.noteFill, borderRadius: 4, padding: 12, marginBottom: 12 },
   code: { fontFamily: mono, fontSize: 14, lineHeight: 20, color: colors.ink },
-});
+}));

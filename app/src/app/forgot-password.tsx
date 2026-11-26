@@ -4,7 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { Button, Field, Kicker, Note, Page } from '@/components/ui';
 import { ApiError, apiPost } from '@/lib/api';
-import { type } from '@/theme';
+import { themed, type } from '@/theme';
 
 /** Asks for a password-reset link. The answer is the same whether or not the email has an account. */
 export default function ForgotPassword() {
@@ -48,10 +48,10 @@ export default function ForgotPassword() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   form: { width: '100%', maxWidth: 380, alignSelf: 'center' },
   title: { ...type.h1, marginTop: 8, marginBottom: 12 },
   intro: { ...type.body, marginBottom: 20 },
   small: { ...type.body, fontSize: 14, marginTop: 16 },
   back: { alignSelf: 'center', marginTop: 8 },
-});
+}));

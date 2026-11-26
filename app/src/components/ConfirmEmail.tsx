@@ -7,7 +7,7 @@ import { Button } from '@/components/ui';
 import { ApiError, apiGet, apiPost } from '@/lib/api';
 import { useSession } from '@/lib/session';
 import type { User } from '@/lib/types';
-import { colors, fonts } from '@/theme';
+import { colors, fonts, themed } from '@/theme';
 
 /**
  * On the shelf until the account's email is confirmed: starting a textbook waits until then. Rechecks whenever the
@@ -57,9 +57,9 @@ export function ConfirmEmail() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   box: { backgroundColor: colors.noteFill, borderLeftWidth: 3, borderLeftColor: colors.accent, borderRadius: 4, padding: 16, marginBottom: 20 },
   title: { fontFamily: fonts.serifSemiBold, fontSize: 18, color: colors.ink, marginBottom: 6 },
   text: { fontFamily: fonts.sans, fontSize: 15, lineHeight: 22, color: colors.ink, marginBottom: 8 },
   button: { alignSelf: 'flex-start', marginTop: 4 },
-});
+}));
