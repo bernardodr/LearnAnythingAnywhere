@@ -3,6 +3,7 @@ package com.laa.llm;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
@@ -23,11 +24,11 @@ class PromptLibraryTest {
 
     @Test
     void aNewRouteStartsOnTheNewestCompleteVersion() {
-        // Lesson writing has v2 (it can place diagrams) and the preface v2 (its draft picks the cover motif);
-        // everything else is still on v1.
+        // Lesson writing has v2 (it can place diagrams), the preface v2 (its draft picks the cover motif) and diagrams
+        // v2 (more hands-on); everything else is still on v1.
         assertThat(prompts.latest(Task.LESSON_WRITE)).isEqualTo("v2");
         assertThat(prompts.latest(Task.MISSION_INTERVIEW)).isEqualTo("v2");
-        assertThat(prompts.latest(Task.DIAGRAM)).isEqualTo("v1");
+        assertThat(prompts.latest(Task.DIAGRAM)).isEqualTo("v2");
         assertThat(prompts.latest(Task.SAFETY_CHECK)).isEqualTo("v1");
         assertThat(prompts.render(Calls.LESSON_WRITE, "v2", java.util.Map.of())).contains("DIAGRAM", "brief", "caption");
         assertThat(prompts.render(Calls.LESSON_WRITE, "v1", java.util.Map.of())).doesNotContain("DIAGRAM");
@@ -45,9 +46,22 @@ class PromptLibraryTest {
 
     @Test
     void theDiagramPromptStatesTheFramesLimitsAndTheLook() {
-        String prompt = prompts.render(Calls.DIAGRAM, "v1", java.util.Map.of("title", "Bouldering"));
-        assertThat(prompt).contains("Bouldering", "No internet", "--accent", "laa-button", "44px", "textVersion", "whole")
-                .doesNotContain("<!--");
+        for (String version : List.of("v1", "v2")) {
+            String prompt = prompts.render(Calls.DIAGRAM, version, java.util.Map.of("title", "Bouldering"));
+            assertThat(prompt).as(version).contains("Bouldering", "No internet", "--accent", "laa-button", "44px", "textVersion", "whole")
+                    .doesNotContain("<!--");
+        }
+    }
+
+    /** v2 (issue #78) asks for the most hands-on diagram the idea allows, says how to drag on a phone, and keeps text
+     * readable on any fill: the owner found a chosen button's text unreadable. */
+    @Test
+    void theDiagramPromptV2IsHandsOnAndKeepsTextReadable() {
+        String v2 = prompts.render(Calls.DIAGRAM, "v2", java.util.Map.of("title", "Bouldering"));
+        assertThat(v2).contains("Drag to explore", "Predict, then reveal", "Build it up", "Change a value", "Explore the parts",
+                "Step through", "Compare", "touch-action: none", "setPointerCapture", "Dragging must never be the only way",
+                "don't restyle `.laa-button`", "set its text colour in the same rule", "--forest", "--ochre", "--blue");
+        assertThat(v2).doesNotContain("--slate", "--olive", "--navy");
     }
 
     @Test

@@ -1,12 +1,12 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Redirect, router } from 'expo-router';
-import { useState } from 'react';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { ConfirmEmail } from '@/components/ConfirmEmail';
 import { Shelf, type ShelfView } from '@/components/Shelf';
 import { Button, IconButton, Kicker, Note, Page } from '@/components/ui';
-import { apiGet, apiPut } from '@/lib/api';
+import { apiGet } from '@/lib/api';
+import { useArrange } from '@/lib/arrange';
 import { getPref, setPref } from '@/lib/prefs';
 import { useSession } from '@/lib/session';
 import type { Textbook } from '@/lib/types';
@@ -31,7 +31,7 @@ export default function Library() {
     queryFn: () => apiGet<Textbook[]>('/textbooks', token),
     enabled: !!token,
   });
-  const [arrangeError, setArrangeError] = useState(false);
+  const { arrange, failed: arrangeFailed } = useArrange();
   // Covers or spines: remembered on this device.
   const shelfView = useQuery({
     queryKey: ['pref', 'shelf-view'],
@@ -44,17 +44,6 @@ export default function Library() {
 
   const column = Math.min(560, width - 48);
   const shelved = books.data ?? [];
-
-  /** The new order shows at once; the server keeps it, and if it can't, the shelf goes back to what it has. */
-  const arrange = (ids: string[]) => {
-    const byId = new Map(shelved.map((b) => [b.id, b]));
-    queryClient.setQueryData<Textbook[]>(['textbooks'], ids.flatMap((id) => byId.get(id) ?? []));
-    setArrangeError(false);
-    apiPut('/textbooks/order', { ids }, token).catch(() => {
-      setArrangeError(true);
-      void queryClient.invalidateQueries({ queryKey: ['textbooks'] });
-    });
-  };
 
   const open = (book: Textbook) =>
     book.status === 'INTERVIEW'
@@ -97,7 +86,7 @@ export default function Library() {
         </View>
       ) : null}
 
-      {arrangeError ? <Note tone="error">Your library’s new order couldn’t be saved, so it’s back as it was. Please try again.</Note> : null}
+      {arrangeFailed ? <Note tone="error">Your library’s new order couldn’t be saved, so it’s back as it was. Please try again.</Note> : null}
       {shelved.length > 0 && shelfView.data ? (
         <Shelf books={shelved} width={column} view={shelfView.data} onOpen={open} onArrange={arrange}
           onView={(view) => {

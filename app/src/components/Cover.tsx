@@ -1,6 +1,6 @@
 import { type ReactNode, useId } from 'react';
-import { type AccessibilityActionEvent, Pressable, StyleSheet, Text, View } from 'react-native';
-import Svg, { Defs, Line, LinearGradient, Pattern, Rect, Stop } from 'react-native-svg';
+import { type AccessibilityActionEvent, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
 import { Motif, motifOrDefault } from '@/components/Motif';
 import type { Textbook } from '@/lib/types';
@@ -24,6 +24,63 @@ export function volumeNumeral(volume: number) {
 export function coverForVolume(volume: number) {
   const cloths = Object.values(colors.covers);
   return cloths[(Math.max(1, volume) - 1) % cloths.length];
+}
+
+/** What a book is bound in: leather or linen, photographed materials laid over the cover's colour. */
+export type Material = 'leather' | 'linen';
+
+// Overlays made by scripts/cover-textures.cjs from CC0 materials (app/assets/covers/README.md): seamless 512-pixel
+// tiles of black and white grain at partial strength, shown at 256 points.
+const MATERIALS: Record<Material, number> = {
+  leather: require('../../assets/covers/leather.png'),
+  linen: require('../../assets/covers/linen.png'),
+};
+const TILE = 256;
+
+/**
+ * The material a cloth colour is bound in (DESIGN.md "Books", the owner's choice): forest green and terracotta are
+ * leather, ochre and dusty blue are linen. Colours go to books in turn, so a library mixes the two like a real
+ * bookcase. Any other colour (one from before the palette changed) is linen.
+ */
+export function materialFor(cloth: string): Material {
+  const c = cloth.toUpperCase();
+  return c === colors.covers.forest.toUpperCase() || c === colors.covers.terracotta.toUpperCase() ? 'leather' : 'linen';
+}
+
+/** A small number from text, so each book gets its own cut of the material (where its grain starts). */
+function seed(text: string) {
+  let h = 7;
+  for (const ch of text) h = (h * 31 + ch.charCodeAt(0)) % 9973;
+  return h;
+}
+
+/**
+ * The grain of a book's material, filling its parent (the cloth colour shows through): tiles of the material's
+ * overlay, offset per book so no two covers show the same grain in the same place. Decorative, and never touchable.
+ *
+ * @param cloth the cover colour, which decides leather or linen
+ * @param width the area to cover, in points; @param height likewise
+ * @param cut a stable text for the book (its title), which picks where the grain starts
+ * @param radius the corners to clip to, matching the book's
+ */
+export function MaterialGrain({ cloth, width, height, cut, radius = 0 }: {
+  cloth: string; width: number; height: number; cut: string; radius?: number;
+}) {
+  const source = MATERIALS[materialFor(cloth)];
+  const n = seed(cut);
+  const offX = n % TILE, offY = Math.floor(n / TILE) % TILE;
+  const tiles = [];
+  for (let y = -offY; y < height; y += TILE) {
+    for (let x = -offX; x < width; x += TILE) {
+      tiles.push(<Image key={`${x},${y}`} source={source} resizeMode="stretch" style={{ position: 'absolute', left: x, top: y, width: TILE, height: TILE }} />);
+    }
+  }
+  return (
+    <View pointerEvents="none" style={[StyleSheet.absoluteFill, { overflow: 'hidden', borderRadius: radius }]}
+      accessible={false} importantForAccessibility="no-hide-descendants">
+      {tiles}
+    </View>
+  );
 }
 
 /** What a screen reader says for a book, whichever way it's shown. */
@@ -59,16 +116,16 @@ export function titleColorOn(cloth: string) {
 }
 
 /**
- * A book's front, drawn as a physical book (DESIGN.md, "Books"): the cloth colour with a fine weave, a soft light
- * from the top left, a hint of spine depth down the left edge, a natural shadow, the title set top left, and its one
- * subject motif lower down. A ribbon marks a preface still in progress. Decorative to screen readers: whatever holds
+ * A book's front, drawn as a physical book (DESIGN.md, "Books"): its cloth colour bound in leather or linen (a
+ * photographed material's grain), a soft light from the top left, a hint of spine depth down the left edge, a natural
+ * shadow, the title set top left, and its one subject motif lower down. A ribbon marks a preface still in progress. Decorative to screen readers: whatever holds
  * it (`Cover`, the book page) carries the label.
  *
  * @param book the textbook: its title, cloth (`coverColor`), motif (`coverMotif`) and status
  * @param width the cover's width; the height follows from `COVER_RATIO`, and the type and motif scale with it
  */
 export function BookFace({ book, width }: { book: Pick<Textbook, 'title' | 'coverColor' | 'coverMotif' | 'status'>; width: number }) {
-  // Pattern and gradient ids must be unique on a web page with many covers.
+  // Gradient ids must be unique on a web page with many covers.
   const id = useId().replace(/:/g, '');
   const height = width * COVER_RATIO;
   const ink = titleColorOn(book.coverColor);
@@ -81,13 +138,9 @@ export function BookFace({ book, width }: { book: Pick<Textbook, 'title' | 'cove
   return (
     <View style={[styles.face, { width, height, backgroundColor: book.coverColor }]} accessible={false}
       importantForAccessibility="no-hide-descendants">
+      <MaterialGrain cloth={book.coverColor} width={width} height={height} cut={book.title} radius={3} />
       <Svg width={width} height={height} style={StyleSheet.absoluteFill}>
         <Defs>
-          {/* The weave: fine threads one way light, the other dark, too faint to read as a pattern. */}
-          <Pattern id={`weave${id}`} width={3} height={3} patternUnits="userSpaceOnUse">
-            <Line x1={0} y1={0.5} x2={3} y2={0.5} stroke="#FFFFFF" strokeOpacity={0.07} strokeWidth={0.8} />
-            <Line x1={0.5} y1={0} x2={0.5} y2={3} stroke="#000000" strokeOpacity={0.06} strokeWidth={0.8} />
-          </Pattern>
           {/* Light from the top left, falling off towards the bottom right. */}
           <LinearGradient id={`light${id}`} x1="0" y1="0" x2="1" y2="1">
             <Stop offset="0" stopColor="#FFFFFF" stopOpacity={0.12} />
@@ -103,7 +156,6 @@ export function BookFace({ book, width }: { book: Pick<Textbook, 'title' | 'cove
             <Stop offset="0.12" stopColor="#000000" stopOpacity={0} />
           </LinearGradient>
         </Defs>
-        <Rect width={width} height={height} fill={`url(#weave${id})`} />
         <Rect width={width} height={height} fill={`url(#light${id})`} />
         <Rect width={width} height={height} fill={`url(#spine${id})`} />
       </Svg>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { type AccessibilityActionEvent, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { GestureDetector, useHoverGesture, usePanGesture, useSimultaneousGestures } from 'react-native-gesture-handler';
 import Animated, {
@@ -14,10 +14,9 @@ import Animated, {
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
-import { bookLabel, Cover, COVER_RATIO, type CoverMove, MOVE_ACTIONS, titleColorOn, volumeNumeral } from '@/components/Cover';
-import { Button } from '@/components/ui';
+import { bookLabel, Cover, COVER_RATIO, type CoverMove, MaterialGrain, MOVE_ACTIONS, titleColorOn, volumeNumeral } from '@/components/Cover';
 import type { Textbook } from '@/lib/types';
-import { colors, fonts, minTouch, radius, type } from '@/theme';
+import { colors, fonts, minTouch, type } from '@/theme';
 
 /** Covers: the full covers in a grid. Spines: books standing side by side, spine out, on a fine ledge. */
 export type ShelfView = 'covers' | 'spines';
@@ -143,8 +142,9 @@ type Shared = {
 /**
  * The shelf (BRIEF screen 2), arranged by hand, shown as covers or as spines standing on the shelf. Drag a book (on a
  * phone, press and hold first) and the others make room; the order is the learner's, kept by the server.
- * Without dragging: "Arrange" gives covers arrow buttons, and on spines a tap selects a book for two move buttons;
- * screen readers get "Move earlier / later" actions. Reduced motion keeps the moves and drops the flourishes.
+ * Without dragging (the owner's choice, 2026-11-26: no Arrange mode here): screen readers get "Move earlier / later"
+ * actions on every book, and each book's page has the same two moves in its ••• menu. Reduced motion keeps the moves
+ * and drops the flourishes.
  */
 export function Shelf({
   books,
@@ -180,8 +180,6 @@ export function Shelf({
   const drop = useSharedValue({ n: 0, id: '' });
   const shared: Shared = { order, layout, active, drop };
   const reduced = useReducedMotion();
-  const [arranging, setArranging] = useState(false);
-  const [selected, setSelected] = useState<string | null>(null);
   // A drag ends with a click on the web: it mustn't open the book.
   const justDragged = useRef(false);
 
@@ -212,19 +210,8 @@ export function Shelf({
     }, 300);
   };
   const press = (book: Textbook) => {
-    if (justDragged.current) return;
-    if (arranging && view === 'spines') setSelected(selected === book.id ? null : book.id);
-    else onOpen(book);
+    if (!justDragged.current) onOpen(book);
   };
-  const chosen = books.find((b) => b.id === selected) ?? null;
-  const at = chosen ? ids.indexOf(chosen.id) : -1;
-
-  // Shown while arranging; dragging works any time, and says so here.
-  const hint = view === 'spines'
-    ? 'Tap a book, then move it with the buttons. Or drag it.'
-    : Platform.OS === 'web'
-      ? 'Use the arrows, or drag a book to its place.'
-      : 'Use the arrows, or press and hold a book and drag it.';
 
   return (
     <View>
@@ -239,33 +226,14 @@ export function Shelf({
             </Pressable>
           ))}
         </View>
-        {books.length > 1 ? (
-          <Button label={arranging ? 'Done' : 'Arrange'} variant="quiet"
-            onPress={() => {
-              setArranging(!arranging);
-              setSelected(null);
-            }}
-            accessibilityLabel={arranging ? 'Done arranging' : 'Arrange your library'} />
-        ) : null}
       </View>
-      {arranging ? <Text style={styles.hint}>{hint}</Text> : <View style={{ height: 20 }} />}
-      {arranging && view === 'spines' ? (
-        <View style={styles.spineMoves}>
-          <Button label="‹ Earlier" variant="secondary" disabled={!chosen || at === 0} onPress={() => chosen && move(chosen.id, 'earlier')}
-            accessibilityLabel={chosen ? `Move ${chosen.title} earlier` : 'Move earlier: choose a book first'} />
-          <Text style={styles.chosen} numberOfLines={1}>{chosen ? chosen.title : 'No book chosen'}</Text>
-          <Button label="Later ›" variant="secondary" disabled={!chosen || at === ids.length - 1}
-            onPress={() => chosen && move(chosen.id, 'later')}
-            accessibilityLabel={chosen ? `Move ${chosen.title} later` : 'Move later: choose a book first'} />
-        </View>
-      ) : null}
+      <View style={styles.barGap} />
 
       <View style={{ height: view === 'covers' ? rows * rowH - ROW_GAP : rows * spineRowH - SPINE_ROW_GAP }}>
         {view === 'spines' ? Array.from({ length: rows }, (_, r) => <Ledge key={r} top={r * spineRowH + SPINE_MAX_H} />) : null}
         {books.map((book) => (
           <ShelfBook key={book.id} book={book} home={place(book.id, ids, now)} view={view} coverW={coverW} clothH={clothH}
-            size={sizes[book.id]} shared={shared} reduced={reduced} arranging={arranging} selected={selected === book.id}
-            first={ids[0] === book.id} last={ids[ids.length - 1] === book.id}
+            size={sizes[book.id]} shared={shared} reduced={reduced}
             onPress={() => press(book)} onMove={(to) => move(book.id, to)} onDragStart={dragStarted} onDragEnd={dragEnded} />
         ))}
       </View>
@@ -287,10 +255,6 @@ function ShelfBook({
   size,
   shared,
   reduced,
-  arranging,
-  selected,
-  first,
-  last,
   onPress,
   onMove,
   onDragStart,
@@ -304,10 +268,6 @@ function ShelfBook({
   size: Size;
   shared: Shared;
   reduced: boolean;
-  arranging: boolean;
-  selected: boolean;
-  first: boolean;
-  last: boolean;
   onPress: () => void;
   onMove: (to: CoverMove) => void;
   onDragStart: () => void;
@@ -325,14 +285,9 @@ function ShelfBook({
   const nudge = useSharedValue(0);
   const hover = useSharedValue(0);
   const press = useSharedValue(0);
-  const raised = useSharedValue(0);
   /** Counts down for a moment after a drop. On the web, hover ends and starts again when the button comes up; that
    * restart mustn't pull the book back out of the place it just landed in. */
   const landing = useSharedValue(0);
-
-  useEffect(() => {
-    raised.set(withSpring(selected ? 1 : 0, LIFT));
-  }, [selected, raised]);
 
   // Glide to wherever this book's place is now, unless it's the one in hand. Only when the place changes: the saved
   // order coming back after a drop mustn't restart the landing.
@@ -424,7 +379,7 @@ function ShelfBook({
   const style = useAnimatedStyle(() => {
     const held = active.get() === id;
     const up = spines ? 14 : 10;
-    const pulled = (held ? 0 : hover.get() * (spines ? 8 : 5)) + raised.get() * 12;
+    const pulled = held ? 0 : hover.get() * (spines ? 8 : 5);
     return {
       zIndex: held ? 100 : 1,
       transform: [
@@ -437,23 +392,8 @@ function ShelfBook({
   });
   // Knocks pivot on the shelf, at the book's foot.
   const knock = useAnimatedStyle(() => ({ transform: [{ rotateZ: `${nudge.get()}deg` }] }));
-  const shadow = useAnimatedStyle(() => ({ opacity: Math.max(lift.get(), hover.get() * 0.4, raised.get() * 0.6) }));
+  const shadow = useAnimatedStyle(() => ({ opacity: Math.max(lift.get(), hover.get() * 0.4) }));
 
-  const footer = arranging && !spines ? (
-    <View style={styles.moves}>
-      <Pressable accessibilityRole="button" accessibilityLabel={`Move ${book.title} earlier`} disabled={first}
-        onPress={() => onMove('earlier')} style={({ pressed }) => [styles.move, first && styles.moveOff, pressed && styles.pressed]}>
-        <Text style={styles.moveText}>‹</Text>
-      </Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel={`Move ${book.title} later`} disabled={last}
-        onPress={() => onMove('later')} style={({ pressed }) => [styles.move, last && styles.moveOff, pressed && styles.pressed]}>
-        <Text style={styles.moveText}>›</Text>
-      </Pressable>
-    </View>
-  ) : undefined;
-
-  // Only the book itself can be picked up. The arrow buttons sit under it, outside the drag area, so pressing one is
-  // never the start of a drag (on the web it could be, and the book then stayed "held" where it was).
   return (
     <Animated.View style={[styles.book, { width: spines ? size.w : coverW, transformOrigin: spines ? '50% 0%' : '50% 50%' }, style]}>
       <GestureDetector gesture={gesture} userSelect="none" touchAction="pan-y">
@@ -461,13 +401,12 @@ function ShelfBook({
           <Animated.View pointerEvents="none"
             style={[styles.liftShadow, { height: spines ? size.h : clothH, borderRadius: spines ? 2 : 3 }, shadow]} />
           {spines ? (
-            <Spine book={book} size={size} selected={selected} onPress={onPress} onMove={onMove} />
+            <Spine book={book} size={size} onPress={onPress} onMove={onMove} />
           ) : (
-            <Cover book={book} width={coverW} onPress={onPress} onMove={onMove} footer={footer ? null : undefined} dimOnPress={false} />
+            <Cover book={book} width={coverW} onPress={onPress} onMove={onMove} dimOnPress={false} />
           )}
         </Animated.View>
       </GestureDetector>
-      {footer ?? null}
     </Animated.View>
   );
 }
@@ -483,9 +422,12 @@ function spineType(title: string, length: number) {
   return { fontSize: 12, lineHeight: 14, lines: 2 };
 }
 
-/** A book standing in the library, spine out: cloth colour, rounded edges, bands, the title down the spine, the volume. */
-function Spine({ book, size, selected, onPress, onMove }: {
-  book: Textbook; size: Size; selected: boolean; onPress: () => void; onMove: (to: CoverMove) => void;
+/**
+ * A book standing in the library, spine out: its cloth in leather or linen, rounded edges, bands, the title down the
+ * spine, the volume.
+ */
+function Spine({ book, size, onPress, onMove }: {
+  book: Textbook; size: Size; onPress: () => void; onMove: (to: CoverMove) => void;
 }) {
   const { label, hint } = bookLabel(book);
   const titleLength = size.h - 58;
@@ -493,10 +435,11 @@ function Spine({ book, size, selected, onPress, onMove }: {
   const ink = titleColorOn(book.coverColor);
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} accessibilityHint={hint}
-      accessibilityState={{ selected }} accessibilityActions={MOVE_ACTIONS}
+      accessibilityActions={MOVE_ACTIONS}
       onAccessibilityAction={(e: AccessibilityActionEvent) => onMove(e.nativeEvent.actionName === 'moveEarlier' ? 'earlier' : 'later')}
       style={{ width: size.w, height: size.h }}>
-      <View style={[styles.spine, { backgroundColor: book.coverColor }, selected && styles.spineSelected]}>
+      <View style={[styles.spine, { backgroundColor: book.coverColor }]}>
+        <MaterialGrain cloth={book.coverColor} width={size.w} height={size.h} cut={book.title} radius={2} />
         {book.status === 'INTERVIEW' ? <View style={styles.ribbon} /> : null}
         <View style={styles.edgeLight} />
         <View style={styles.edgeShade} />
@@ -523,9 +466,7 @@ const styles = StyleSheet.create({
   // The current view is underlined with a short green line, the way a contents page marks where you are.
   viewMark: { height: 2, width: 18, marginTop: 4, borderRadius: 1, backgroundColor: 'transparent' },
   viewMarkOn: { backgroundColor: colors.accent },
-  hint: { ...type.meta, marginTop: 4, marginBottom: 16 },
-  spineMoves: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
-  chosen: { ...type.small, flex: 1, textAlign: 'center' },
+  barGap: { height: 20 },
   ledge: {
     position: 'absolute',
     left: 0,
@@ -542,22 +483,8 @@ const styles = StyleSheet.create({
     top: 0,
     boxShadow: '0px 18px 28px rgba(41, 40, 35, 0.3)',
   },
-  moves: { flexDirection: 'row', justifyContent: 'center', gap: 12, marginTop: 10 },
-  move: {
-    width: minTouch,
-    height: minTouch,
-    borderRadius: radius,
-    borderWidth: 1,
-    borderColor: colors.rule,
-    backgroundColor: colors.field,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  moveOff: { opacity: 0.35 },
   pressed: { opacity: 0.75 },
-  moveText: { fontFamily: fonts.sansSemiBold, fontSize: 22, lineHeight: 26, color: colors.accent },
   spine: { flex: 1, borderRadius: 2, boxShadow: '1px 2px 4px rgba(41, 40, 35, 0.22)' },
-  spineSelected: { outlineWidth: 2, outlineColor: colors.accent, outlineStyle: 'solid', outlineOffset: 2 },
   // A little light on one edge and shade on the other, so the spine reads as rounded.
   edgeLight: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, backgroundColor: 'rgba(255,255,255,0.12)' },
   edgeShade: { position: 'absolute', right: 0, top: 0, bottom: 0, width: 5, backgroundColor: 'rgba(0,0,0,0.18)' },

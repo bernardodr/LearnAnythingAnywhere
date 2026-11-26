@@ -71,6 +71,31 @@ try {
   await shot('diagram-stepped');
   ok('the diagram draws, fits its page, and steps with real clicks');
 
+  // ---- The contrast guard: a page's own CSS gives a chosen button a pale fill while LAA's style keeps its text
+  // ivory (what the owner saw). The guard sets the text to ink; when the fill turns dark, back to ivory.
+  const INK = 'rgb(41, 40, 35)', PAPER = 'rgb(247, 244, 236)';
+  await inside(`(() => {
+    const css = document.createElement('style');
+    css.textContent = '#guard-test[aria-pressed="true"] { background: var(--note); }';
+    document.head.append(css);
+    const b = document.createElement('button');
+    b.id = 'guard-test'; b.className = 'laa-button'; b.textContent = 'Extend the Belt line'; b.setAttribute('aria-pressed', 'true');
+    document.body.append(b);
+  })()`);
+  let colour = '';
+  for (let t = 0; t < 20 && colour !== INK; t++, await sleep(100)) colour = await inside(`getComputedStyle(document.getElementById('guard-test')).color`);
+  assert.equal(colour, INK, 'ivory text on a pale fill becomes ink: ' + JSON.stringify(await inside(`(() => {
+    const g = document.getElementById('guard-test'); const s = getComputedStyle(g);
+    return { mark: g.getAttribute('data-laa-text'), colour: s.color, fill: s.backgroundColor, ns: g.namespaceURI,
+      guard: [...document.scripts].some((x) => x.textContent.includes('data-laa-text')), ready: document.readyState };
+  })()`)));
+  await inside(`document.getElementById('guard-test').style.background = 'var(--accent)'`);
+  for (let t = 0; t < 20 && colour !== PAPER; t++, await sleep(100)) colour = await inside(`getComputedStyle(document.getElementById('guard-test')).color`);
+  assert.equal(colour, PAPER, 'and ivory again on a dark fill');
+  assert.equal(await inside(`getComputedStyle(document.getElementById('next')).color`), 'rgb(56, 78, 65)', 'readable text is left as the page set it');
+  await inside(`document.getElementById('guard-test').remove()`);
+  ok('the contrast guard: unreadable text on a button turns ink or ivory to suit its fill; readable text is left alone');
+
   const title = await evaluate(`document.querySelector('[aria-label^="Show "][aria-label$=" as text"]').getAttribute('aria-label')`);
   await click(title);
   await waitFor('the text version', hasText('Repeat the step, changing one thing'));

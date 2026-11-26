@@ -202,8 +202,14 @@ export function IconButton({ icon, label, onPress, color }: { icon: IconName; la
  * @param backLabel what the back arrow says to screen readers, e.g. "Back to your library"
  * @param onBack where it goes; by default back, or to the library when there's no history (`goBack`)
  * @param kicker the small centred line; leave it out for a bare back arrow
+ * @param right one control at the top right, such as the ••• `IconButton` that opens a book's menu
  */
-export function TopBar({ backLabel, onBack = goBack, kicker }: { backLabel: string; onBack?: () => void; kicker?: string }) {
+export function TopBar({ backLabel, onBack = goBack, kicker, right }: {
+  backLabel: string;
+  onBack?: () => void;
+  kicker?: string;
+  right?: ReactNode;
+}) {
   return (
     <View style={styles.topBar}>
       <IconButton icon="back" label={backLabel} onPress={onBack} />
@@ -211,7 +217,7 @@ export function TopBar({ backLabel, onBack = goBack, kicker }: { backLabel: stri
         {kicker ?? ''}
       </Text>
       {/* As wide as the arrow, so the kicker sits in the true middle of the screen. */}
-      <View style={styles.topBarSide} />
+      <View style={styles.topBarSide}>{right}</View>
     </View>
   );
 }

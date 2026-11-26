@@ -6,6 +6,25 @@ What's new in each release of Learn Anything Anywhere, newest first. Each featur
 
 ---
 
+## 0.16: Leather and linen, and more hands-on diagrams
+*26 November 2026*
+
+### New
+
+- **Books bound in leather and linen.** Forest green and terracotta books are leather, with a fine pebbled grain; ochre and dusty blue books are linen, with its slubby weave. Each book has its own cut of the material, on its cover and its spine. [Your library →](guide/01-getting-started.md#your-library)
+- **More hands-on diagrams.** New diagrams let you drag things and watch the picture answer, make a prediction and then see what happens, or build a picture up one layer at a time. [Interactive diagrams →](guide/04-reading-a-lesson.md#interactive-diagrams)
+- **A menu on each book's page.** **•••** at the top right moves the book earlier or later in your library, without dragging. [Your book's page →](guide/03-your-contents-page.md)
+
+### Changed
+
+- **No more Arrange button.** To arrange your library, drag a book to its place (on a phone, press and hold it first), or use the book's **•••** menu. [Arranging your library →](guide/01-getting-started.md#arranging-your-library)
+
+### Fixed
+
+- **Diagram buttons are always readable.** A chosen button in a diagram could have pale text on a pale background. LAA now checks every word in a diagram, and turns any hard-to-read text dark or light to suit, in diagrams you already have too.
+
+---
+
 ## 0.15: Each book's own page, and a calmer start to every book
 *25 November 2026*
 
