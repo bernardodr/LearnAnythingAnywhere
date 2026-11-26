@@ -7,7 +7,7 @@ import { Button, Field, Note, Ornament, Page, PasswordField, passwordLength } fr
 import { ApiError, apiGet } from '@/lib/api';
 import { useSession } from '@/lib/session';
 import type { AuthOptions } from '@/lib/types';
-import { colors, type } from '@/theme';
+import { colors, themed, type } from '@/theme';
 
 type Mode = 'sign-in' | 'sign-up' | 'dev';
 
@@ -169,7 +169,7 @@ export default function TitlePage() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   titleBlock: { alignItems: 'center' },
   series: { ...type.kicker, letterSpacing: 2.4, marginBottom: 20 },
   headline: { ...type.h1, fontSize: 38, lineHeight: 46, textAlign: 'center' },
@@ -180,4 +180,4 @@ const styles = StyleSheet.create({
   adults: { ...type.body, fontSize: 15, color: colors.muted, marginBottom: 16 },
   submit: { marginTop: 4 },
   status: { ...type.kicker, fontSize: 11, marginTop: 40, textAlign: 'center' },
-});
+}));

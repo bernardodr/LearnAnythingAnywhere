@@ -1,8 +1,17 @@
 /**
- * Design tokens: the colours, fonts and type scale of Warm Editorial Minimalism (`docs/DESIGN.md`, the owner's brief).
- * Screens use these and never raw values, so a change here changes the whole app. Contrast ratios are in DESIGN.md.
+ * Design tokens: the colours, fonts and type scale of Warm Editorial Minimalism (`docs/DESIGN.md`, the owner's brief),
+ * in two palettes: light (the brief's ivory page) and dark (issue #85: a warm near-black page with ivory ink). Screens
+ * use these and never raw values, so a change here changes the whole app. Contrast ratios are in DESIGN.md.
+ *
+ * How the two palettes reach the screens without rewriting every one:
+ * - `colors` and `type` are read when they're used, from whichever palette is current (`setScheme`, called by the root
+ *   layout from the device's setting or the learner's choice).
+ * - Each file's styles are made once per palette with `themed(() => StyleSheet.create({...}))`, and `styles.x` gives
+ *   the current palette's. The root layout redraws the screens when the palette changes, so everything picks it up.
  */
-export const colors = {
+
+/** The light palette: the brief's. */
+const LIGHT = {
   /** Warm ivory: every screen's background. */
   paper: '#F7F4EC',
   /** Dark ink: text. */
@@ -21,11 +30,14 @@ export const colors = {
   field: '#FBF9F4',
   /** Errors (6.3:1 on paper). */
   danger: '#9A3B26',
-  /** The ribbon bookmark on a book whose preface is still in progress. */
+  /** The reading ribbon: the bookmark on the book read last. */
   ribbon: '#A9533A',
+  /** A shadow's colour, as "r, g, b" for rgba(): warm ink on ivory. */
+  shadow: '41, 40, 35',
   /**
-   * Cover cloths (DESIGN.md "Books"). `ochre` takes an ink title; the rest take ivory. Keep this order: books get them in
-   * turn by volume, as the server's `Textbook.COVER_COLORS` does (`CoverColorsTest` checks the two lists match).
+   * Cover cloths (DESIGN.md "Books"), the same in both palettes: books are things, not chrome. `ochre` takes an ink
+   * title; the rest take ivory. Keep this order: books get them in turn by volume, as the server's
+   * `Textbook.COVER_COLORS` does (`CoverColorsTest` checks the two lists match).
    */
   covers: {
     forest: '#2F4A3B',
@@ -33,7 +45,68 @@ export const colors = {
     blue: '#46668A',
     terracotta: '#A9533A',
   },
-} as const;
+};
+
+export type Palette = typeof LIGHT;
+
+/**
+ * The dark palette (issue #85): the same warmth at night. A warm near-black page, ivory ink, and a lighter, sage forest
+ * for the one thing to do (dark text on it). Every text pair is 4.5:1 or more (DESIGN.md has the ratios).
+ */
+const DARK: Palette = {
+  paper: '#1B1A17',
+  ink: '#EEEAE0',
+  muted: '#ADA79B',
+  rule: '#3A372F',
+  control: '#7E786C',
+  accent: '#93B79E',
+  noteFill: '#2A2823',
+  field: '#23211D',
+  danger: '#E79A80',
+  ribbon: '#C25F43',
+  shadow: '0, 0, 0',
+  covers: LIGHT.covers,
+};
+
+/** Light or dark. */
+export type Scheme = 'light' | 'dark';
+
+let current: Scheme = 'light';
+
+/** The palette in use. */
+export function scheme(): Scheme {
+  return current;
+}
+
+/** Switches the palette for everything read from now on (the root layout calls it, then redraws the screens). */
+export function setScheme(next: Scheme) {
+  current = next;
+}
+
+/** An object whose properties are read from one of two versions, whichever matches the current palette. */
+function live<T extends object>(light: T, dark: T): T {
+  return new Proxy(light, { get: (_, key) => Reflect.get(current === 'dark' ? dark : light, key) });
+}
+
+/**
+ * Makes something once per palette and hands back the current one's, property by property: wrap each file's styles,
+ * `themed(() => StyleSheet.create({...}))`, and `styles.title` follows the palette.
+ */
+export function themed<T extends object>(make: () => T): T {
+  const saved = current;
+  current = 'light';
+  const light = make();
+  current = 'dark';
+  const dark = make();
+  current = saved;
+  return live(light, dark);
+}
+
+/** The current palette's colours. */
+export const colors: Palette = live(LIGHT, DARK);
+
+/** Cover titles never change with the palette: ink on ochre, ivory on the darker cloths, as the cloth needs. */
+export const coverInk = { ink: LIGHT.ink, ivory: LIGHT.paper } as const;
 
 export const fonts = {
   serif: 'SourceSerif4_400Regular',
@@ -46,7 +119,7 @@ export const fonts = {
 } as const;
 
 /** The type scale (DESIGN.md "Type"). Reading text is serif; controls and metadata are Inter. */
-export const type = {
+export const type = themed(() => ({
   /** A screen's title: "Your library". */
   display: { fontFamily: fonts.serifSemiBold, fontSize: 40, lineHeight: 44, letterSpacing: -0.4, color: colors.ink },
   h1: { fontFamily: fonts.serifSemiBold, fontSize: 32, lineHeight: 38, letterSpacing: -0.2, color: colors.ink },
@@ -68,7 +141,7 @@ export const type = {
     textTransform: 'uppercase' as const,
     color: colors.muted,
   },
-} as const;
+}));
 
 /** Minimum touch target. */
 export const minTouch = 44;

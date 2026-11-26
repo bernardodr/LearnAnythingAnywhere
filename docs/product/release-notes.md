@@ -6,6 +6,15 @@ What's new in each release of Learn Anything Anywhere, newest first. Each featur
 
 ---
 
+## 0.20: Dark mode
+*26 November 2026*
+
+### New
+
+- **Warm dark pages.** LAA now has a dark look that keeps its warmth: a soft near-black page, ivory text, and a sage green for the thing to do next. It follows your phone or computer by itself, or you can choose **Light** or **Dark** in settings, under **Appearance**. Your books, diagrams and everything else come along. [Light or dark pages →](guide/01-getting-started.md#light-or-dark-pages)
+
+---
+
 ## 0.19: Lessons that start where you are
 *26 November 2026*
 

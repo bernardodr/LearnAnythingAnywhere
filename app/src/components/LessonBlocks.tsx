@@ -6,7 +6,7 @@ import { Markdown } from '@/components/Markdown';
 import { Kicker } from '@/components/ui';
 import { type LessonContext, Practice, TutorChat } from '@/components/Tutor';
 import type { Block, PracticeState, Source } from '@/lib/types';
-import { colors, fonts, minTouch, type } from '@/theme';
+import { colors, fonts, minTouch, themed, type } from '@/theme';
 
 const RIGHT = '#2F6B3A';
 const RIGHT_FILL = '#E5F1E6';
@@ -188,7 +188,7 @@ export function SourceTitle({ source, inline }: { source: Source; inline?: boole
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   gap: { marginBottom: 8 },
   // The sources at a lesson's end: a fine rule above, then numbered entries like a book's references.
   sources: { marginTop: 32, paddingTop: 20, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.rule },
@@ -236,4 +236,4 @@ const styles = StyleSheet.create({
   citationLink: { fontFamily: fonts.sans, fontSize: 12 },
   sourceTitle: { ...type.body, fontFamily: fonts.serifSemiBold, marginBottom: 4 },
   link: { color: colors.accent, textDecorationLine: 'underline' },
-});
+}));

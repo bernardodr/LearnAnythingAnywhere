@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { Button, Field, Kicker, Note } from '@/components/ui';
 import { ApiError } from '@/lib/api';
 import type { LinksPolicy, Profile, ProfileSettings } from '@/lib/types';
-import { colors, fonts, minTouch, type } from '@/theme';
+import { colors, fonts, minTouch, themed, type } from '@/theme';
 
 /** Shown under the age control; the server's wording (Profiles.readingLevel). */
 export function readingLevel(age: number | null): string {
@@ -24,7 +24,7 @@ const LINKS: { value: LinksPolicy; label: string; hint: string }[] = [
 ];
 
 /** react-native-web colours a switched-on thumb separately (its own prop, not in React Native's types). */
-export const WEB_SWITCH = { activeThumbColor: colors.paper } as object;
+export const WEB_SWITCH = themed(() => ({ activeThumbColor: colors.paper })) as object;
 
 /** How many tries before the answer can be revealed (BRIEF screen 7: "Reveal answer after 3 tries"). */
 const REVEAL_AFTER = 3;
@@ -219,7 +219,7 @@ function capitalise(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   section: { marginTop: 20, marginBottom: 4 },
   label: { ...type.kicker, marginTop: 18, marginBottom: 8 },
   hint: { fontFamily: fonts.sans, fontSize: 13, lineHeight: 18, color: colors.muted, marginTop: 2 },
@@ -271,4 +271,4 @@ const styles = StyleSheet.create({
   radioTextOn: { fontFamily: fonts.sansSemiBold, color: colors.accent },
   radioHint: { fontFamily: fonts.sans, fontSize: 13, color: colors.muted },
   save: { marginTop: 12, alignSelf: 'flex-start' },
-});
+}));

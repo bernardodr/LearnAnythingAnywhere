@@ -11,7 +11,7 @@ import { useArrange } from '@/lib/arrange';
 import { getPref, setPref } from '@/lib/prefs';
 import { useSession } from '@/lib/session';
 import type { Textbook } from '@/lib/types';
-import { colors, fonts, minTouch, radius, type } from '@/theme';
+import { colors, fonts, minTouch, radius, themed, type } from '@/theme';
 
 const SHELF_VIEW = 'laa.shelfView';
 
@@ -106,7 +106,7 @@ export default function Library() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   masthead: { color: colors.ink, textAlign: 'center', letterSpacing: 3, marginTop: 4, marginBottom: 28 },
   titleRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 20 },
   titleText: { flex: 1 },
@@ -136,4 +136,4 @@ const styles = StyleSheet.create({
     backgroundColor: colors.field,
   },
   chipText: { fontFamily: fonts.sans, fontSize: 15, color: colors.ink },
-});
+}));

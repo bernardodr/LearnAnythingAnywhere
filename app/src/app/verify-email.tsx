@@ -5,7 +5,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Button, Kicker, Note, Page } from '@/components/ui';
 import { apiPost } from '@/lib/api';
 import { useSession } from '@/lib/session';
-import { type } from '@/theme';
+import { themed, type } from '@/theme';
 
 /** Opened from a verification email: confirms the address once, then points to the shelf or to sign in. */
 export default function VerifyEmail() {
@@ -51,8 +51,8 @@ export default function VerifyEmail() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   box: { width: '100%', maxWidth: 420, alignSelf: 'center' },
   title: { ...type.h1, marginTop: 8, marginBottom: 12 },
   intro: { ...type.body },
-});
+}));

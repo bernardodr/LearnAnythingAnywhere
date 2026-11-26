@@ -55,7 +55,7 @@ After you sign in, you land on **Your library**: your textbooks, laid out like a
 - **A book with *Preface in progress* underneath** is one whose opening interview you haven't finished yet.
 - **Tap a book to open it.** An unfinished one takes you back to its interview; a finished one opens [its page](03-your-contents-page.md): the cover, your lessons and your mission.
 - **Create a textbook**, at the bottom of the screen, starts a new one. See [Starting a textbook](02-starting-a-textbook.md).
-- **The settings icon** (two small sliders, at the top right) opens your settings: how your textbooks are written, your parent PIN, your password, and **Sign out**. See [Reader settings and the parent PIN](07-reader-settings.md).
+- **The settings icon** (two small sliders, at the top right) opens your settings: how your textbooks are written, your parent PIN, your password, light or dark pages, and **Sign out**. See [Reader settings and the parent PIN](07-reader-settings.md).
 
 ### Covers or spines
 
@@ -89,6 +89,15 @@ A new library shows a dotted outline where your first book will stand, some **St
 - Or tap **Create a textbook** to type your own topic.
 
 See [Starting a textbook](02-starting-a-textbook.md) for what happens next.
+
+## Light or dark pages
+
+LAA can show warm ivory pages, or warm dark ones that are easier on the eyes at night. Open your settings and choose under **Appearance**:
+
+- **Match this device** (the starting choice): light or dark, following your phone's or computer's own setting, so it switches by itself if your device does at night.
+- **Light** or **Dark**: always that, whatever your device does.
+
+The change happens straight away, and you stay where you are. Your books look the same either way, like real books on a table. Each device remembers its own choice.
 
 ## Staying signed in
 

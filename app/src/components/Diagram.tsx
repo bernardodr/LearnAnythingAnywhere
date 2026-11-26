@@ -5,7 +5,7 @@ import { DiagramFrame } from '@/components/DiagramFrame';
 import { Markdown } from '@/components/Markdown';
 import { Button, Kicker } from '@/components/ui';
 import type { Block } from '@/lib/types';
-import { colors, fonts, type } from '@/theme';
+import { colors, fonts, themed, type } from '@/theme';
 
 type DiagramBlock = Extract<Block, { type: 'diagram' }>;
 
@@ -53,7 +53,7 @@ export function Diagram({ block }: { block: DiagramBlock }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   figure: { borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.rule, paddingVertical: 14, marginVertical: 16 },
   label: { marginBottom: 4 },
   title: { ...type.body, fontFamily: fonts.serifSemiBold, fontSize: 18, marginBottom: 10 },
@@ -61,4 +61,4 @@ const styles = StyleSheet.create({
   note: { ...type.body, fontSize: 15, fontFamily: fonts.serifItalic, color: colors.muted, marginBottom: 8 },
   caption: { ...type.body, fontSize: 15, lineHeight: 15 * 1.5, fontFamily: fonts.serifItalic, color: colors.muted, marginTop: 10 },
   toggle: { alignSelf: 'flex-start', marginTop: 4 },
-});
+}));

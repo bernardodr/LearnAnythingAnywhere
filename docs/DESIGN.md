@@ -52,6 +52,31 @@ All in `colors` (`app/src/theme.ts`). Contrast was checked against the backgroun
 - **Ochre, blue and terracotta live on books and illustrations,** not on controls.
 - **Backgrounds stay even:** no gradients, textures or shadows behind text. Depth and texture belong to the books.
 
+### Dark mode
+
+The same warmth at night (issue #85; the owner: "a dark mode that still fits the design style"). The learner chooses it
+in settings, under **Appearance**: match the device (the default), light, or dark. Text pairs are checked at 4.5:1.
+
+| Token | Dark value | Contrast |
+|---|---|---|
+| `paper` | `#1B1A17` | a warm near-black, never pure black |
+| `ink` | `#EEEAE0` | 14.5:1 |
+| `muted` | `#ADA79B` | 7.3:1 (6.2 on `noteFill`) |
+| `accent` | `#93B79E` | 7.9:1: a sage forest; the primary button is sage with dark text (7.9:1) |
+| `rule` | `#3A372F` | |
+| `control` | `#7E786C` | 4.0:1 (non-text, 3:1 needed) |
+| `noteFill` | `#2A2823` | |
+| `field` | `#23211D` | |
+| `danger` | `#E79A80` | 7.7:1 |
+| `ribbon` | `#C25F43` | |
+
+- **Books don't change:** covers and spines keep their cloth, leather or linen and title colours (`coverInk`), and the
+  plant on the familiarity slider keeps its pot and soil. They're things on a dark table, not chrome.
+- **Diagrams follow:** the sealed frame is given the dark palette's CSS variables and `color-scheme: dark`, and its
+  contrast guard measures against them.
+- **How:** `colors` and `type` read the palette in use; each file's styles are made per palette with `themed()`; the
+  root layout redraws the screens when the palette changes and keeps the learner on the screen they were on.
+
 ## Type
 
 `fonts` and `type` in `app/src/theme.ts`.

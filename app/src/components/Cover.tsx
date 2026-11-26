@@ -4,7 +4,7 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
 import { Motif, motifOrDefault } from '@/components/Motif';
 import type { Textbook } from '@/lib/types';
-import { colors, fonts } from '@/theme';
+import { colors, coverInk, fonts, themed } from '@/theme';
 
 /** Every cover's shape: height = width × this (DESIGN.md, "Books"). */
 export const COVER_RATIO = 1.36;
@@ -118,7 +118,8 @@ export type CoverMove = 'earlier' | 'later';
 
 /**
  * Ink or ivory for a title on this cloth, whichever contrasts more: ochre takes ink, the darker cloths take ivory.
- * Uses relative luminance, so a cover colour from before the palette change still gets a readable title.
+ * Uses relative luminance, so a cover colour from before the palette change still gets a readable title. Always the
+ * light palette's ink and ivory: a book looks the same in dark mode.
  */
 export function titleColorOn(cloth: string) {
   const channel = (i: number) => {
@@ -126,7 +127,7 @@ export function titleColorOn(cloth: string) {
     return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
   };
   const lum = /^#[0-9a-fA-F]{6}$/.test(cloth) ? 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5) : 0;
-  return lum > 0.3 ? colors.ink : colors.paper;
+  return lum > 0.3 ? coverInk.ink : coverInk.ivory;
 }
 
 /**
@@ -229,7 +230,7 @@ export function Cover({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   face: {
     borderTopLeftRadius: 2,
     borderBottomLeftRadius: 2,
@@ -245,4 +246,4 @@ const styles = StyleSheet.create({
   // The reading ribbon: a bookmark coming out of the top of the book being read.
   ribbon: { position: 'absolute', top: -8, height: 26, backgroundColor: colors.ribbon, borderRadius: 1 },
   caption: { fontFamily: fonts.serifItalic, fontSize: 15, lineHeight: 21, color: colors.accent, marginTop: 12, textAlign: 'center' },
-});
+}));

@@ -4,7 +4,7 @@ import { Platform, StyleSheet, Text } from 'react-native';
 import { ComparePanel, ProvidersPanel, RoutingTable, RunLog, useOwner } from '@/components/Owner';
 import { Button, goBack, Kicker, Note, Page } from '@/components/ui';
 import { useSession } from '@/lib/session';
-import { colors, type } from '@/theme';
+import { colors, themed, type } from '@/theme';
 
 /**
  * Screen 8: the owner console (web only, OWNER only). AI services and the default, per-task routing with
@@ -58,8 +58,8 @@ export default function OwnerConsole() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   back: { alignSelf: 'flex-start', marginLeft: -8, marginBottom: 12 },
   title: { ...type.h1, marginTop: 8 },
   intro: { ...type.body, fontSize: 15, color: colors.muted, marginTop: 6 },
-});
+}));

@@ -16,7 +16,7 @@ import { scheduleOnRN } from 'react-native-worklets';
 
 import { bookLabel, Cover, COVER_RATIO, type CoverMove, MaterialGrain, MOVE_ACTIONS, readingNow, titleColorOn, volumeNumeral } from '@/components/Cover';
 import type { Textbook } from '@/lib/types';
-import { colors, fonts, minTouch, type } from '@/theme';
+import { colors, fonts, minTouch, themed, type } from '@/theme';
 
 /** Covers: the full covers in a grid. Spines: books standing side by side, spine out, on a fine ledge. */
 export type ShelfView = 'covers' | 'spines';
@@ -461,7 +461,7 @@ function Spine({ book, size, reading, onPress, onMove }: {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   bar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   views: { flexDirection: 'row', gap: 4 },
   viewOption: { minHeight: minTouch, minWidth: minTouch, paddingHorizontal: 10, justifyContent: 'center', alignItems: 'center' },
@@ -507,4 +507,4 @@ const styles = StyleSheet.create({
   },
   // The reading ribbon: a bookmark poking out of the top of the book being read.
   ribbon: { position: 'absolute', top: -10, right: 12, width: 7, height: 22, backgroundColor: colors.ribbon, borderRadius: 1 },
-});
+}));

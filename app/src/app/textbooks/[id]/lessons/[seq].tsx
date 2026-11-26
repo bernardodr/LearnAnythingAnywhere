@@ -9,7 +9,7 @@ import { Button, Kicker, Note, Ornament, Page } from '@/components/ui';
 import { ApiError, apiGet, apiPost } from '@/lib/api';
 import { useSession } from '@/lib/session';
 import type { Block, Lesson, PracticeState } from '@/lib/types';
-import { colors, fonts, type } from '@/theme';
+import { colors, fonts, themed, type } from '@/theme';
 
 /**
  * Screen 5: a lesson, as one long page. Kicker, title, subtitle and "Your win today", then the blocks in
@@ -141,7 +141,7 @@ function quizHeading(blocks: Block[], i: number): string | undefined {
   return b.variant === 'warmup' ? 'Warm-up' : 'Check yourself';
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   back: { alignSelf: 'flex-start', marginLeft: -8, marginBottom: 12 },
   title: { ...type.h1, marginTop: 8 },
   subtitle: { ...type.body, fontFamily: fonts.serifItalic, color: colors.muted, marginTop: 6 },
@@ -155,4 +155,4 @@ const styles = StyleSheet.create({
   sheetLabel: { marginBottom: 8 },
   done: { fontFamily: fonts.sans, fontSize: 14, color: colors.muted, textAlign: 'center' },
   nav: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 24 },
-});
+}));

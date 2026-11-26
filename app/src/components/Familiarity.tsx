@@ -14,7 +14,7 @@ import Animated, {
 import Svg, { Circle, Ellipse, G, Path, Rect } from 'react-native-svg';
 import { scheduleOnRN } from 'react-native-worklets';
 
-import { colors, fonts, minTouch, type } from '@/theme';
+import { colors, coverInk, fonts, minTouch, themed, type } from '@/theme';
 
 /**
  * How familiar a learner already is with what they want to learn (issue #83): five levels, the same five the server
@@ -120,7 +120,7 @@ export function FamiliarityPlant({ level, size = 112 }: { level: number; size?: 
         {/* Bottom to top, so each level's growth starts at the soil. */}
         <Animated.View style={[StyleSheet.absoluteFill, { transformOrigin: '50% 70%' }, seedStyle]} pointerEvents="none">
           <Part shown={at(1, 1)} origin={[50, 70]} reduced={reduced} size={size}>
-            <Ellipse cx={50} cy={68.5} rx={6} ry={4} fill={colors.covers.ochre} stroke={colors.ink} strokeWidth={1.2} />
+            <Ellipse cx={50} cy={68.5} rx={6} ry={4} fill={colors.covers.ochre} stroke={coverInk.ink} strokeWidth={1.2} />
             <Path d="M50 64.5 Q52 61 55 61.5" stroke={colors.accent} strokeWidth={1.6} fill="none" strokeLinecap="round" />
           </Part>
         </Animated.View>
@@ -157,13 +157,13 @@ export function FamiliarityPlant({ level, size = 112 }: { level: number; size?: 
             <Circle cx={50} cy={16} r={4.4} fill={colors.covers.terracotta} />
           </G>
         </Part>
-        {/* The pot and its soil, always there, in front of the stem's foot. */}
+        {/* The pot and its soil, always there, in front of the stem's foot. Like a book, it keeps its colours in the dark. */}
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
           <Svg width={size} height={size} viewBox="0 0 100 100">
-            <Ellipse cx={50} cy={71} rx={19} ry={3.2} fill={colors.ink} opacity={0.75} />
+            <Ellipse cx={50} cy={71} rx={19} ry={3.2} fill={coverInk.ink} opacity={0.75} />
             <Path d="M31 74 H69 L64.5 97 H35.5 Z" fill={colors.covers.terracotta} />
             <Rect x={27.5} y={69.5} width={45} height={7} rx={2} fill={colors.covers.terracotta} />
-            <Rect x={27.5} y={74.5} width={45} height={1.6} fill={colors.ink} opacity={0.18} />
+            <Rect x={27.5} y={74.5} width={45} height={1.6} fill={coverInk.ink} opacity={0.18} />
           </Svg>
         </View>
       </Animated.View>
@@ -275,7 +275,7 @@ export function FamiliaritySlider({ level, onChange }: { level: number; onChange
 
 const THUMB = 24;
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   block: { marginTop: 4, marginBottom: 20 },
   label: { fontFamily: fonts.sansMedium, fontSize: 14, lineHeight: 20, color: colors.ink, marginBottom: 8 },
   picture: { flexDirection: 'row', alignItems: 'center', gap: 16 },
@@ -314,4 +314,4 @@ const styles = StyleSheet.create({
     borderColor: colors.accent,
     boxShadow: '0px 2px 4px rgba(41, 40, 35, 0.25)',
   },
-});
+}));

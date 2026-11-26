@@ -4,7 +4,7 @@ import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import type { ShouldStartLoadRequest } from 'react-native-webview/lib/WebViewTypes';
 
 import { diagramDocument, frameHeight, readDiagramMessage } from '@/lib/diagramShell';
-import { colors } from '@/theme';
+import { colors, themed } from '@/theme';
 
 /**
  * An interactive diagram's page on iPhone and Android: a locked-down web view holding the sealed document from
@@ -61,6 +61,6 @@ function onlyTheDocument(request: ShouldStartLoadRequest) {
   return request.url === 'about:blank' || request.url.startsWith('data:');
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   frame: { width: '100%', backgroundColor: colors.paper },
-});
+}));

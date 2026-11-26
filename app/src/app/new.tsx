@@ -9,7 +9,7 @@ import { Button, Field, Kicker, Note, Page, TopBar } from '@/components/ui';
 import { ApiError, apiGet, apiPost } from '@/lib/api';
 import { useSession } from '@/lib/session';
 import type { CreateTextbookResponse, Textbook } from '@/lib/types';
-import { colors, fonts, type } from '@/theme';
+import { colors, fonts, themed, type } from '@/theme';
 
 const PREVIEW_WIDTH = 124;
 
@@ -121,7 +121,7 @@ export default function NewTextbook() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   title: { ...type.h1, marginTop: 8 },
   preview: { flexDirection: 'row', alignItems: 'flex-end', gap: 20, marginTop: 28, marginBottom: 28 },
   emptyBook: {
@@ -135,4 +135,4 @@ const styles = StyleSheet.create({
   previewText: { flex: 1, gap: 6, paddingBottom: 4 },
   previewNote: { fontFamily: fonts.serifItalic, fontSize: 15, lineHeight: 21, color: colors.muted },
   next: { ...type.small, fontSize: 15, lineHeight: 22, color: colors.muted },
-});
+}));
