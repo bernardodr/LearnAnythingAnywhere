@@ -11,7 +11,8 @@ import com.laa.mission.MissionDraft;
  * A learner's textbook, as stored. {@code coverMotif} is the subject motif the AI picked when the preface ended
  * (null before then, or for a book from before motifs existed: {@link #motif()} fills those in from the title).
  * {@code lastReadAt} is when the learner last opened one of its lessons (null if never): the library's reading ribbon
- * marks the book with the latest.
+ * marks the book with the latest. {@code familiarity} is how well the learner said they already know the subject when
+ * they started it (null for books from before the slider).
  */
 public record Textbook(
         UUID id,
@@ -25,6 +26,7 @@ public record Textbook(
         Map<String, Object> topicGate,
         MissionDraft missionDraft,
         String missionHeadline,
+        Familiarity familiarity,
         Instant lastReadAt,
         Instant createdAt) {
 

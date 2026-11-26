@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { BookFace, COVER_RATIO, coverForVolume, volumeNumeral } from '@/components/Cover';
+import { DEFAULT_FAMILIARITY, FamiliaritySlider } from '@/components/Familiarity';
 import { Button, Field, Kicker, Note, Page, TopBar } from '@/components/ui';
 import { ApiError, apiGet, apiPost } from '@/lib/api';
 import { useSession } from '@/lib/session';
@@ -15,8 +16,9 @@ const PREVIEW_WIDTH = 124;
 /**
  * Starting a book (`docs/DESIGN.md`): "What would you like to learn?", the topic, and a preview of the new book's cover
  * taking shape as the topic is typed, in the cloth its volume will get. The drawing on the cover is chosen at the end of
- * the preface, so until then the preview carries the plain ornament. "Begin the preface" is the one dominant action,
- * pinned at the bottom.
+ * the preface, so until then the preview carries the plain ornament. Then "How well do you know it already?" (issue #83):
+ * a slider whose plant grows from a seed to a flower, saved with the book and given to the AI for the preface and every
+ * lesson. "Begin the preface" is the one dominant action, pinned at the bottom.
  *
  * Loads `/textbooks` (usually already loaded by the library) to know the next volume. Sends the topic to
  * `POST /textbooks`, which runs the topic gate (BRIEF section 8): a declined topic creates nothing and shows the kind
@@ -33,6 +35,7 @@ export default function NewTextbook() {
     enabled: !!token,
   });
   const [topic, setTopic] = useState(params.topic ?? '');
+  const [familiarity, setFamiliarity] = useState(DEFAULT_FAMILIARITY);
   const [busy, setBusy] = useState(false);
   const [declined, setDeclined] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +48,7 @@ export default function NewTextbook() {
     setError(null);
     setDeclined(null);
     try {
-      const res = await apiPost<CreateTextbookResponse>('/textbooks', { topic: topic.trim() }, token);
+      const res = await apiPost<CreateTextbookResponse>('/textbooks', { topic: topic.trim(), familiarity }, token);
       if (!res.textbook) {
         setDeclined(res.message);
         return;
@@ -103,6 +106,7 @@ export default function NewTextbook() {
         returnKeyType="go"
         onSubmitEditing={() => canBegin && submit()}
       />
+      <FamiliaritySlider level={familiarity} onChange={setFamiliarity} />
       {declined ? (
         <View accessibilityLiveRegion="polite">
           <Note>{declined}</Note>

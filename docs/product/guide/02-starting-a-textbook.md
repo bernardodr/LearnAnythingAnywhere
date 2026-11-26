@@ -10,6 +10,8 @@ Tap **Create a textbook** at the bottom of your library (or one of the **Start w
 
 Keep it simple: *bouldering*, *watercolour painting*, *Python*, *how bread rises*. You'll get to say exactly what you want out of it in a moment.
 
+**Tell LAA how well you know it already.** Under the topic, **How well do you know it already?** has five steps, from *Brand new* to *Very confident*, with a little plant that grows from a seed to a flower as you go. Drag along the line, tap a step, or use **−** and **+**. LAA writes your whole book from where you are: if you're brand new, lessons start from the very basics and explain every word; if you're confident, they skip what you know and go straight to the deeper, harder parts. As you practise, what you show you can do counts for more than where you started.
+
 **Watch your new book take shape.** Above the box is an empty place for the book. As you type, its cover appears there with your topic as the title, in the colour it will have in your library, and with its volume number beside it (*Volume III* for your third book). The cover's small subject drawing is chosen at the end of the preface, so until then it carries a plain ornament.
 
 ## 2. The topic check

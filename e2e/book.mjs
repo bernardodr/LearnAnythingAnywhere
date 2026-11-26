@@ -63,6 +63,21 @@ try {
   await shot('new-book');
   ok('a new book: volume III, its cover previewed in its own cloth as the topic is typed');
 
+  // ---- How familiar are you (issue #83)? It starts at "A little"; three taps on + make it "Very confident".
+  const slider = `document.querySelector('[aria-label="How well do you know it already?"][role="slider"], [aria-label="How well do you know it already?"]')`;
+  assert.ok(await evaluate(hasText('A little')) && await evaluate(hasText('I’ve picked up a few things here and there.')), 'starts at a little');
+  for (let i = 0; i < 3; i++) {
+    await click('More familiar');
+    await sleep(150);
+  }
+  await waitFor('very confident', hasText('I know it well. Challenge me.'));
+  assert.match(await evaluate(`${slider}.getAttribute('aria-valuetext') ?? ''`), /Very confident/, 'the slider says its level to a screen reader');
+  assert.equal(await evaluate(`document.querySelector('[aria-label="More familiar"]').getAttribute('aria-disabled')`), 'true', 'no further than very confident');
+  await evaluate(`document.querySelector('[aria-label="Less familiar"]').scrollIntoView({ block: 'center' })`);
+  await sleep(900); // the flower pops in, a part at a time
+  await shot('familiarity');
+  ok('the familiarity slider: "A little" to "Very confident" with the +, the plant in flower, said to screen readers');
+
   // ---- The preface: an opening, the tutor's questions, the learner's answers as notes in the margin.
   await click('Begin the preface');
   await waitFor('the preface', hasText('Before we begin'));
@@ -112,6 +127,8 @@ try {
   assert.ok(await evaluate(hasText('Why you’re learning this')), 'the why, in the margin');
   const cover = await evaluate(`[...document.querySelectorAll('svg')].length`);
   assert.ok(cover >= 3, 'the cover is drawn on the page');
+  const library = await learner.call('GET', '/textbooks').then((r) => r.json());
+  assert.equal(library.find((x) => x.id === id).familiarity, 5, 'the book remembers how familiar the learner is');
   const contents = await learner.call('GET', `/textbooks/${id}/contents`).then((r) => r.json());
   assert.equal(contents.missionHeadline, 'Keep my balcony plants thriving', 'the server kept the edited mission');
   assert.equal(contents.coverMotif, 'leaf', 'the AI picked the leaf for plants');

@@ -7,6 +7,9 @@ import java.util.UUID;
 
 import org.springframework.stereotype.Component;
 
+import com.laa.textbook.Familiarity;
+import com.laa.textbook.Textbook;
+
 import com.laa.workspace.Resources.Resource;
 import com.laa.workspace.WorkspaceFiles.WorkspaceFile;
 
@@ -29,7 +32,12 @@ public class TeachingContext {
         this.files = files;
     }
 
-    public Context load(UUID textbookId, String title) {
+    /**
+     * The workspace of this book, as prompt variables: title, mission, glossary, recent learning records, notes,
+     * sources, and how familiar the learner said they were when they started it ({@code familiarity}, issue #83).
+     */
+    public Context load(Textbook tb) {
+        UUID textbookId = tb.id();
         List<Resource> resources = Resources.parse(read(textbookId, "RESOURCES.md"));
         List<String> recordPaths = files.list(textbookId).stream()
                 .filter(p -> p.startsWith("learning-records/")).sorted().toList();
@@ -39,7 +47,8 @@ public class TeachingContext {
         }
 
         Map<String, String> v = new HashMap<>();
-        v.put("title", title);
+        v.put("title", tb.title());
+        v.put("familiarity", Familiarity.forPrompt(tb.familiarity()));
         v.put("mission", orNone(read(textbookId, WorkspaceFiles.MISSION), "No mission yet."));
         v.put("glossary", orNone(read(textbookId, "GLOSSARY.md"),
                 "None yet. Terms are added once the learner shows they understand them."));

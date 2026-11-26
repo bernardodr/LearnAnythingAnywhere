@@ -6,6 +6,15 @@ What's new in each release of Learn Anything Anywhere, newest first. Each featur
 
 ---
 
+## 0.19: Lessons that start where you are
+*26 November 2026*
+
+### New
+
+- **How well do you know it already?** When you start a book, choose from *Brand new* to *Very confident*, and watch a little plant grow from a seed into a flower as you do. Your preface, your mission and every lesson are written from where you are: the basics first if you're new, and straight past them if you're not. [Choose a topic →](guide/02-starting-a-textbook.md#1-choose-a-topic)
+
+---
+
 ## 0.18: Sources for every lesson
 *26 November 2026*
 

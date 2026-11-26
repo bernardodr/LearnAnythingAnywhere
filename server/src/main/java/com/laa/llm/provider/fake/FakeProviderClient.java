@@ -38,6 +38,7 @@ public final class FakeProviderClient implements ProviderClient {
 
     @Override
     public ProviderReply call(ProviderRequest request) {
+        behaviour.sent(request.call(), request.system());
         failIfConfigured(true);
         String text;
         // Structured by the kind of call, not by the schema: a call that searches the web gets its schema as
@@ -59,6 +60,7 @@ public final class FakeProviderClient implements ProviderClient {
 
     @Override
     public Flux<ProviderReply> stream(ProviderRequest request) {
+        behaviour.sent(request.call(), request.system());
         return Flux.defer(() -> {
             if (behaviour.mode(provider) == FailureMode.TIMEOUT) {
                 return Mono.delay(behaviour.hang()).thenMany(Flux.<ProviderReply>empty());

@@ -24,7 +24,7 @@ public class TextbookRepository {
 
     private static final TypeReference<Map<String, Object>> MAP = new TypeReference<>() {};
     private static final String COLUMNS = "id, user_id, title, topic, status, cover_color, cover_motif, volume, topic_gate, "
-            + "mission_draft, mission_headline, last_read_at, created_at";
+            + "mission_draft, mission_headline, familiarity, last_read_at, created_at";
 
     private final JdbcClient jdbc;
     private final JsonMapper json;
@@ -37,13 +37,16 @@ public class TextbookRepository {
     /**
      * The next volume number goes to this textbook; the unique (user_id, volume) key guards a race. {@code profileId}
      * is the learner's generation profile the topic was checked against (null in tests that don't need one).
+     * {@code familiarity}: how well they already know the subject (null if not given).
      */
-    public Textbook create(UUID userId, String title, String topic, Map<String, Object> topicGate, UUID profileId) {
+    public Textbook create(UUID userId, String title, String topic, Map<String, Object> topicGate, UUID profileId,
+                           Familiarity familiarity) {
         int volume = jdbc.sql("SELECT coalesce(max(volume), 0) + 1 FROM textbooks WHERE user_id = :u")
                 .param("u", userId).query(Integer.class).single();
-        return jdbc.sql("INSERT INTO textbooks (user_id, title, topic, status, cover_color, volume, topic_gate, profile_id) "
-                        + "VALUES (:u, :title, :topic, 'INTERVIEW', :cover, :volume, :gate::jsonb, :profile) RETURNING " + COLUMNS)
+        return jdbc.sql("INSERT INTO textbooks (user_id, title, topic, status, cover_color, volume, topic_gate, profile_id, familiarity) "
+                        + "VALUES (:u, :title, :topic, 'INTERVIEW', :cover, :volume, :gate::jsonb, :profile, :fam) RETURNING " + COLUMNS)
                 .param("u", userId).param("title", title).param("topic", topic).param("profile", profileId)
+                .param("fam", familiarity == null ? null : (short) familiarity.level())
                 .param("cover", Textbook.coverFor(volume)).param("volume", volume)
                 .param("gate", json.writeValueAsString(topicGate))
                 .query(this::map).single();
@@ -112,6 +115,7 @@ public class TextbookRepository {
                 json.readValue(rs.getString("topic_gate"), MAP),
                 draft == null ? null : json.readValue(draft, MissionDraft.class),
                 rs.getString("mission_headline"),
+                Familiarity.of((Integer) rs.getObject("familiarity", Integer.class)),
                 rs.getTimestamp("last_read_at") == null ? null : rs.getTimestamp("last_read_at").toInstant(),
                 rs.getTimestamp("created_at").toInstant());
     }

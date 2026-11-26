@@ -21,6 +21,7 @@ import com.laa.llm.runs.Origin;
 import com.laa.safety.SafetyLayer;
 import com.laa.safety.TopicVerdict;
 import com.laa.textbook.Textbook;
+import com.laa.textbook.Familiarity;
 import com.laa.textbook.Motif;
 import com.laa.textbook.TextbookRepository;
 import com.laa.web.ApiException;
@@ -183,6 +184,7 @@ public class MissionInterview {
         Map<String, String> v = new HashMap<>();
         v.put("title", tb.title());
         v.put("topic", tb.topic());
+        v.put("familiarity", Familiarity.forPrompt(tb.familiarity()));
         v.put("marker", MARKER);
         v.put("max_answers", String.valueOf(MAX_ANSWERS));
         boolean reframed = TopicVerdict.Verdict.REFRAME.name().equals(tb.topicGate().get("verdict"));

@@ -27,6 +27,8 @@ import com.laa.workspace.WorkspaceFiles;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -39,7 +41,8 @@ import jakarta.validation.constraints.Size;
 @RequestMapping("/textbooks")
 class TextbookController {
 
-    record CreateRequest(@NotBlank @Size(max = 120) String topic) {}
+    /** {@code familiarity}: the slider, 1 (brand new) to 5 (very confident); optional (issue #83). */
+    record CreateRequest(@NotBlank @Size(max = 120) String topic, @Min(1) @Max(5) Integer familiarity) {}
 
     record ArrangeRequest(@NotNull @Size(max = 1000) List<@NotNull UUID> ids) {}
 
@@ -49,12 +52,14 @@ class TextbookController {
      */
     /** A book in the library. {@code lastReadAt}: when a lesson of it was last opened (the app's reading ribbon). */
     record TextbookView(String id, String title, String topic, Textbook.Status status, String coverColor, String coverMotif,
-                        int volume, String missionHeadline, String gateNote, Instant lastReadAt, Instant createdAt) {
+                        int volume, String missionHeadline, String gateNote, Integer familiarity, Instant lastReadAt,
+                        Instant createdAt) {
         static TextbookView of(Textbook t) {
             Object verdict = t.topicGate().get("verdict");
             String note = "REFRAME".equals(verdict) ? String.valueOf(t.topicGate().getOrDefault("message", "")) : null;
             return new TextbookView(t.id().toString(), t.title(), t.topic(), t.status(), t.coverColor(), t.motif().key(), t.volume(),
-                    t.missionHeadline(), note, t.lastReadAt(), t.createdAt());
+                    t.missionHeadline(), note, t.familiarity() == null ? null : t.familiarity().level(), t.lastReadAt(),
+                    t.createdAt());
         }
     }
 
@@ -105,7 +110,8 @@ class TextbookController {
         if (!decision.allowsCreation()) {
             return ResponseEntity.ok(new CreateResponse(decision.verdict().name(), decision.message(), null));
         }
-        Textbook created = textbooks.create(userId, decision.title(), topic, decision.asJson(), profile.id());
+        Textbook created = textbooks.create(userId, decision.title(), topic, decision.asJson(), profile.id(),
+                Familiarity.of(request.familiarity()));
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new CreateResponse(decision.verdict().name(), decision.message(), TextbookView.of(created)));
     }
