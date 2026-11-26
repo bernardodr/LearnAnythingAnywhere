@@ -35,6 +35,8 @@ export type Textbook = {
   missionHeadline: string | null;
   /** The topic gate's note when the topic was reframed. */
   gateNote: string | null;
+  /** When one of its lessons was last opened (ISO time), or null: the reading ribbon goes on the latest. */
+  lastReadAt: string | null;
   createdAt: string;
 };
 

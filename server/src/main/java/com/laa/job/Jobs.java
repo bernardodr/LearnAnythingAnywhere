@@ -19,6 +19,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import com.laa.safety.Dashes;
 import com.laa.security.SecretRedactor;
 import com.laa.web.ApiException;
 
@@ -78,7 +79,9 @@ public class Jobs {
         jobs.put(job.id, job);
         executor.execute(() -> {
             try {
-                Object result = work.run((stage, message) -> publish(job, new Event("progress", Map.of("stage", stage, "message", message))));
+                // Progress can name the lesson being written (the AI's title), so it gets the em dash filter too (issue #80).
+                Object result = work.run((stage, message) -> publish(job, new Event("progress",
+                        Map.of("stage", stage, "message", Dashes.replace(message)))));
                 publish(job, new Event("done", result));
             } catch (ApiException e) {
                 publish(job, new Event("error", Map.of("message", e.getMessage())));

@@ -51,7 +51,8 @@ If several reset emails are asked for in a short time, LAA waits a while before 
 After you sign in, you land on **Your library**: your textbooks, laid out like a small, carefully kept bookcase.
 
 - **Each textbook is a book.** It's bound in leather (forest green or terracotta) or linen (ochre or dusty blue), with the title in large type and one small drawing of its subject: stars for the night sky, a leaf for plants, a mountain for climbing. LAA chooses the drawing when you finish the book's preface, from what the book is about. Each book has its own grain, like real leather and cloth.
-- **A book with a red ribbon** sticking out of the top, and *Preface in progress* underneath, is one whose opening interview you haven't finished yet.
+- **The book you're reading** has a red ribbon bookmark sticking out of the top, and *Continue reading* underneath: it's the one whose lesson you opened last, so you can pick up where you left off. Only one book wears the ribbon at a time.
+- **A book with *Preface in progress* underneath** is one whose opening interview you haven't finished yet.
 - **Tap a book to open it.** An unfinished one takes you back to its interview; a finished one opens [its page](03-your-contents-page.md): the cover, your lessons and your mission.
 - **Create a textbook**, at the bottom of the screen, starts a new one. See [Starting a textbook](02-starting-a-textbook.md).
 - **The settings icon** (two small sliders, at the top right) opens your settings: how your textbooks are written, your parent PIN, your password, and **Sign out**. See [Reader settings and the parent PIN](07-reader-settings.md).
@@ -61,7 +62,7 @@ After you sign in, you land on **Your library**: your textbooks, laid out like a
 Above your books, choose how your library looks:
 
 - **Covers** shows each book's front cover, two to a row on a phone.
-- **Spines** stands your books side by side with their spines facing out, like a real bookcase, so you can see many more at once. Each spine shows the title and volume number, and books differ a little in thickness and height. A book whose preface you haven't finished has its red ribbon.
+- **Spines** stands your books side by side with their spines facing out, like a real bookcase, so you can see many more at once. Each spine shows the title and volume number, and books differ a little in thickness and height. The book you're reading has its red ribbon.
 
 The one you're looking at is underlined. LAA remembers your choice on each device. Tap a spine to open its book, just like a cover.
 

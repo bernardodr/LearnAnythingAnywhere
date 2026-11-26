@@ -24,7 +24,7 @@ public class TextbookRepository {
 
     private static final TypeReference<Map<String, Object>> MAP = new TypeReference<>() {};
     private static final String COLUMNS = "id, user_id, title, topic, status, cover_color, cover_motif, volume, topic_gate, "
-            + "mission_draft, mission_headline, created_at";
+            + "mission_draft, mission_headline, last_read_at, created_at";
 
     private final JdbcClient jdbc;
     private final JsonMapper json;
@@ -76,6 +76,11 @@ public class TextbookRepository {
         }
     }
 
+    /** Notes that the learner is reading this book now (a lesson was opened): the reading ribbon moves to it. */
+    public void markRead(UUID id) {
+        jdbc.sql("UPDATE textbooks SET last_read_at = now() WHERE id = :id").param("id", id).update();
+    }
+
     public void saveDraft(UUID id, MissionDraft draft) {
         jdbc.sql("UPDATE textbooks SET mission_draft = :d::jsonb WHERE id = :id")
                 .param("d", json.writeValueAsString(draft)).param("id", id).update();
@@ -107,6 +112,7 @@ public class TextbookRepository {
                 json.readValue(rs.getString("topic_gate"), MAP),
                 draft == null ? null : json.readValue(draft, MissionDraft.class),
                 rs.getString("mission_headline"),
+                rs.getTimestamp("last_read_at") == null ? null : rs.getTimestamp("last_read_at").toInstant(),
                 rs.getTimestamp("created_at").toInstant());
     }
 }

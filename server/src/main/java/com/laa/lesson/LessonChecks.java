@@ -18,6 +18,7 @@ import com.laa.lesson.LessonDraft.Rubric;
 import com.laa.lesson.LessonDraft.Type;
 import com.laa.llm.GenerationProfile;
 import com.laa.profile.Profiles;
+import com.laa.safety.Dashes;
 import com.laa.safety.Moderation;
 import com.laa.safety.ReaderView;
 import com.laa.web.ApiException;
@@ -177,7 +178,8 @@ public class LessonChecks {
                 changes.add("Diagram " + id + ": left out, it couldn't be drawn");
                 continue;
             }
-            String html = DiagramRules.normalise(d.draft().html());
+            // No em dashes in the page's words either (issue #80); the reader view filters it again when it's shown.
+            String html = Dashes.replace(DiagramRules.normalise(d.draft().html()));
             List<String> problems = DiagramRules.problems(html);
             if (!problems.isEmpty()) {
                 changes.add("Diagram " + id + ": left out, its page broke the rules (" + String.join(" ", problems) + ")");

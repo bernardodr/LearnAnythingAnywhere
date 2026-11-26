@@ -88,7 +88,7 @@ export function MissionCard({
   );
 }
 
-/** One part of the mission: a fine rule, its kicker, then a line per item (or "None stated yet"). */
+/** One part of the mission: a fine rule, its kicker, then a line per item with a green bullet (or "None stated yet"). */
 function Section({ label, items }: { label: string; items: string[] }) {
   return (
     <View style={styles.section}>
@@ -99,7 +99,7 @@ function Section({ label, items }: { label: string; items: string[] }) {
       ) : (
         items.map((item, i) => (
           <Text key={i} style={styles.item}>
-            <Text style={styles.bullet}>—  </Text>
+            <Text style={styles.bullet}>•  </Text>
             {item}
           </Text>
         ))

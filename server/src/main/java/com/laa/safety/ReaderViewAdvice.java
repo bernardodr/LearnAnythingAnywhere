@@ -15,14 +15,14 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyAdvice;
 
 import com.laa.auth.CurrentUser;
-import com.laa.llm.GenerationProfile.LinksPolicy;
 
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Puts every learner-facing JSON response through the {@link ReaderView} on its way out. On by default, so a new
- * endpoint is covered without doing anything; only the owner and dev tools are left out, because they show what the
- * model wrote on purpose. Streamed replies don't come through here: they're checked as they're written.
+ * Puts every learner-facing JSON response through the {@link ReaderView} on its way out: the links policy and the em
+ * dash filter. On by default, so a new endpoint is covered without doing anything; only the owner and dev tools are
+ * left out, because they show what the model wrote on purpose. Streamed replies don't come through here: they're
+ * checked (and filtered) as they're written.
  */
 @RestControllerAdvice
 class ReaderViewAdvice implements ResponseBodyAdvice<Object> {
@@ -53,8 +53,6 @@ class ReaderViewAdvice implements ResponseBodyAdvice<Object> {
         if (body == null || body instanceof ProblemDetail) return body; // our own error messages
         if (!(SecurityContextHolder.getContext().getAuthentication() instanceof JwtAuthenticationToken auth)) return body;
         UUID userId = CurrentUser.id(auth.getToken());
-        ReaderView.Reader reader = view.of(userId);
-        if (reader.policy() == LinksPolicy.OPEN) return body;
-        return reader.apply(json.valueToTree(body));
+        return view.of(userId).apply(json.valueToTree(body));
     }
 }

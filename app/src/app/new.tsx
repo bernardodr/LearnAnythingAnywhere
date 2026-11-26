@@ -76,7 +76,7 @@ export default function NewTextbook() {
       {/* The drawn cover is decorative to screen readers; the volume and the note beside it say what matters. */}
       <View style={styles.preview}>
         {title && volume ? (
-          <BookFace book={{ title: title[0].toUpperCase() + title.slice(1), coverColor: coverForVolume(volume), coverMotif: 'ornament', status: 'ACTIVE' }}
+          <BookFace book={{ title: title[0].toUpperCase() + title.slice(1), coverColor: coverForVolume(volume), coverMotif: 'ornament' }}
             width={PREVIEW_WIDTH} />
         ) : (
           // An empty place where the new book will stand, as in an empty library.

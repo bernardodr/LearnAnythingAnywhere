@@ -14,7 +14,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
-import { bookLabel, Cover, COVER_RATIO, type CoverMove, MaterialGrain, MOVE_ACTIONS, titleColorOn, volumeNumeral } from '@/components/Cover';
+import { bookLabel, Cover, COVER_RATIO, type CoverMove, MaterialGrain, MOVE_ACTIONS, readingNow, titleColorOn, volumeNumeral } from '@/components/Cover';
 import type { Textbook } from '@/lib/types';
 import { colors, fonts, minTouch, type } from '@/theme';
 
@@ -174,6 +174,8 @@ export function Shelf({
   const rows =
     view === 'covers' ? Math.max(1, Math.ceil(ids.length / perRow)) : ids.length ? place(ids[ids.length - 1], ids, now).row + 1 : 1;
 
+  // The one book wearing the reading ribbon: the last one read.
+  const reading = readingNow(books);
   const order = useSharedValue<string[]>(ids);
   const layout = useSharedValue<Layout>(now);
   const active = useSharedValue<string | null>(null);
@@ -233,7 +235,7 @@ export function Shelf({
         {view === 'spines' ? Array.from({ length: rows }, (_, r) => <Ledge key={r} top={r * spineRowH + SPINE_MAX_H} />) : null}
         {books.map((book) => (
           <ShelfBook key={book.id} book={book} home={place(book.id, ids, now)} view={view} coverW={coverW} clothH={clothH}
-            size={sizes[book.id]} shared={shared} reduced={reduced}
+            size={sizes[book.id]} shared={shared} reduced={reduced} reading={reading === book.id}
             onPress={() => press(book)} onMove={(to) => move(book.id, to)} onDragStart={dragStarted} onDragEnd={dragEnded} />
         ))}
       </View>
@@ -255,6 +257,7 @@ function ShelfBook({
   size,
   shared,
   reduced,
+  reading,
   onPress,
   onMove,
   onDragStart,
@@ -268,6 +271,7 @@ function ShelfBook({
   size: Size;
   shared: Shared;
   reduced: boolean;
+  reading: boolean;
   onPress: () => void;
   onMove: (to: CoverMove) => void;
   onDragStart: () => void;
@@ -401,9 +405,9 @@ function ShelfBook({
           <Animated.View pointerEvents="none"
             style={[styles.liftShadow, { height: spines ? size.h : clothH, borderRadius: spines ? 2 : 3 }, shadow]} />
           {spines ? (
-            <Spine book={book} size={size} onPress={onPress} onMove={onMove} />
+            <Spine book={book} size={size} reading={reading} onPress={onPress} onMove={onMove} />
           ) : (
-            <Cover book={book} width={coverW} onPress={onPress} onMove={onMove} dimOnPress={false} />
+            <Cover book={book} width={coverW} onPress={onPress} onMove={onMove} reading={reading} dimOnPress={false} />
           )}
         </Animated.View>
       </GestureDetector>
@@ -424,12 +428,12 @@ function spineType(title: string, length: number) {
 
 /**
  * A book standing in the library, spine out: its cloth in leather or linen, rounded edges, bands, the title down the
- * spine, the volume.
+ * spine, the volume, and the reading ribbon if it's the book being read.
  */
-function Spine({ book, size, onPress, onMove }: {
-  book: Textbook; size: Size; onPress: () => void; onMove: (to: CoverMove) => void;
+function Spine({ book, size, reading, onPress, onMove }: {
+  book: Textbook; size: Size; reading: boolean; onPress: () => void; onMove: (to: CoverMove) => void;
 }) {
-  const { label, hint } = bookLabel(book);
+  const { label, hint } = bookLabel(book, reading);
   const titleLength = size.h - 58;
   const set = spineType(book.title, titleLength);
   const ink = titleColorOn(book.coverColor);
@@ -440,7 +444,7 @@ function Spine({ book, size, onPress, onMove }: {
       style={{ width: size.w, height: size.h }}>
       <View style={[styles.spine, { backgroundColor: book.coverColor }]}>
         <MaterialGrain cloth={book.coverColor} width={size.w} height={size.h} cut={book.title} radius={2} />
-        {book.status === 'INTERVIEW' ? <View style={styles.ribbon} /> : null}
+        {reading ? <View style={styles.ribbon} /> : null}
         <View style={styles.edgeLight} />
         <View style={styles.edgeShade} />
         <View style={[styles.band, { top: 12 }]} />
@@ -501,6 +505,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     letterSpacing: 1,
   },
-  // A preface still in progress: a ribbon bookmark poking out of the top.
+  // The reading ribbon: a bookmark poking out of the top of the book being read.
   ribbon: { position: 'absolute', top: -10, right: 12, width: 7, height: 22, backgroundColor: colors.ribbon, borderRadius: 1 },
 });

@@ -6,6 +6,20 @@ What's new in each release of Learn Anything Anywhere, newest first. Each featur
 
 ---
 
+## 0.17: The reading ribbon, and no more em dashes
+*26 November 2026*
+
+### New
+
+- **The reading ribbon.** The book you read last wears a red ribbon bookmark, with *Continue reading* under it in your library, so you can pick up where you left off. It moves to whichever book you open a lesson in next. [Your library →](guide/01-getting-started.md#your-library)
+
+### Changed
+
+- **No more em dashes.** Everything you read in LAA, from your lessons and diagrams to your tutor's replies and your mission, is now written without those long dashes: you'll see commas, colons and full stops instead. That includes lessons you already have.
+- **A book still in its preface** now says *Preface in progress* under it, without a ribbon: the ribbon is for the book you're reading.
+
+---
+
 ## 0.16: Leather and linen, and more hands-on diagrams
 *26 November 2026*
 

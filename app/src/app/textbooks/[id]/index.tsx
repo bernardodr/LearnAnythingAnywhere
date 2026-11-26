@@ -3,7 +3,7 @@ import { Redirect, router, useFocusEffect, useLocalSearchParams } from 'expo-rou
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
-import { BookFace, volumeNumeral } from '@/components/Cover';
+import { BookFace, readingNow, volumeNumeral } from '@/components/Cover';
 import { SourceTitle } from '@/components/LessonBlocks';
 import { Markdown } from '@/components/Markdown';
 import { Button, Divider, Field, Icon, IconButton, Kicker, MarginNote, Note, Page, TopBar } from '@/components/ui';
@@ -47,16 +47,21 @@ export default function BookPage() {
   // Coming back from a lesson reuses this screen, so refresh on focus: learning records and glossary terms are
   // written in the background after a practice answer is met, and a finished lesson changes what's up next.
   const { refetch } = contents;
-  useFocusEffect(
-    useCallback(() => {
-      if (token && id) void refetch();
-    }, [token, id, refetch]),
-  );
   const library = useQuery({
     queryKey: ['textbooks'],
     queryFn: () => apiGet<Textbook[]>('/textbooks', token),
     enabled: !!token,
   });
+  // The library too: opening a lesson moves the reading ribbon to this book.
+  const refetchLibrary = library.refetch;
+  useFocusEffect(
+    useCallback(() => {
+      if (token && id) {
+        void refetch();
+        void refetchLibrary();
+      }
+    }, [token, id, refetch, refetchLibrary]),
+  );
   const { move, failed: moveFailed } = useArrange();
   const [menuOpen, setMenuOpen] = useState(false);
   const [startedJob, setStartedJob] = useState<string | null>(null);
@@ -143,7 +148,7 @@ export default function BookPage() {
         <View>
           <View style={styles.front}>
             <View style={styles.cover}>
-              <BookFace book={data} width={coverWidth} />
+              <BookFace book={data} width={coverWidth} ribbon={readingNow(library.data ?? []) === id} />
             </View>
             <Text style={styles.title} accessibilityRole="header">
               {data.title}

@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Redirect, router } from 'expo-router';
+import { Redirect, router, useFocusEffect } from 'expo-router';
+import { useCallback } from 'react';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { ConfirmEmail } from '@/components/ConfirmEmail';
@@ -32,6 +33,13 @@ export default function Library() {
     enabled: !!token,
   });
   const { arrange, failed: arrangeFailed } = useArrange();
+  // Back from reading, the reading ribbon may have moved to another book: refresh when the library comes into view.
+  const { refetch } = books;
+  useFocusEffect(
+    useCallback(() => {
+      if (token) void refetch();
+    }, [token, refetch]),
+  );
   // Covers or spines: remembered on this device.
   const shelfView = useQuery({
     queryKey: ['pref', 'shelf-view'],
