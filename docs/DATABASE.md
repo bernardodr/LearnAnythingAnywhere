@@ -2,7 +2,7 @@
 
 LAA keeps everything in one **PostgreSQL 18** database: 13 tables, built by the Flyway migrations in `server/src/main/resources/db/migration/` (`V1` to `V13`). The server reads and writes it with `JdbcClient` and plain SQL, not JPA. This page is for developers; for the words used here (reader settings, held back, …) see `GLOSSARY.md`.
 
-Read from the local database on 2026-11-17, after `V13`; `V14` (2026-11-18), `V15` (2026-11-24) and `V16` (2026-11-26) are noted where they change things. When a migration changes the structure, update this page in the same pull request.
+Read from the local database on 2026-11-17, after `V13`; `V14` (2026-11-18), `V15` (2026-11-24), `V16` and `V17` (2026-11-26) are noted where they change things. When a migration changes the structure, update this page in the same pull request.
 
 ## Conventions
 
@@ -72,6 +72,7 @@ erDiagram
         int shelf_position "the arranged order"
         text cover_color
         text cover_motif "V15: the cover's subject drawing"
+        timestamptz last_read_at "V17: a lesson last opened"
         jsonb topic_gate
         jsonb mission_draft
         text mission_headline
@@ -181,7 +182,7 @@ erDiagram
 
 | Table | What it holds | Rules worth knowing |
 |---|---|---|
-| `textbooks` | A learner's book: title, topic, status, volume number, cover colour and cover motif, shelf position (its place in the library), the topic gate's verdict, and the mission. | `volume` is unique per user. Arranged books (`shelf_position`) are listed first, then the rest by volume. `cover_motif` (V15) is a lower-case name from `Motif.java`, saved when the preface is confirmed; while it's null the server matches one from the title when it shows the book. |
+| `textbooks` | A learner's book: title, topic, status, volume number, cover colour and cover motif, shelf position (its place in the library), the topic gate's verdict, and the mission. | `volume` is unique per user. Arranged books (`shelf_position`) are listed first, then the rest by volume. `cover_motif` (V15) is a lower-case name from `Motif.java`, saved when the preface is confirmed; while it's null the server matches one from the title when it shows the book. `last_read_at` (V17) is stamped whenever one of its lessons is opened (`GET /textbooks/{id}/lessons/{seq}`). |
 | `lessons` | A written lesson: title, subtitle, the *win*, the mission link, the blocks the learner reads (an interactive diagram is a block holding its page, text version and caption), a reference sheet. | Only `LessonChecks` can produce a lesson to store. **`rubrics` and `plan` never go to the app.** `seq` is unique per textbook. |
 | `attempts` | Each answer to a practice question, with the grader's verdict and feedback. | Unique per (lesson, block, user, attempt number). |
 | `practice_progress` | Per question and learner: hints shown, whether the answer was shown, when it was met. | One row per (lesson, block, user). |
@@ -209,7 +210,7 @@ The last row is what *Delete your account* (issue #14) has to handle, in one tra
 
 ## Changing the database
 
-1. **Add a new migration**: `server/src/main/resources/db/migration/V17__what_it_does.sql`. **Never edit one that has already run.** Flyway checks every applied file's checksum and refuses to start if one changed.
+1. **Add a new migration**: `server/src/main/resources/db/migration/V18__what_it_does.sql`. **Never edit one that has already run.** Flyway checks every applied file's checksum and refuses to start if one changed.
 2. Follow the conventions above: a UUID key, `created_at`/`updated_at` with the trigger, checks for fixed values.
 3. **Data changes are one-way.** A migration that deletes or rewrites rows can't be undone by reverting the code. Say so under *Merge Danger* in the pull request, and back up first once production exists (Phase 3 sets up nightly backups).
 4. Run `cd server && ./mvnw test`: the tests start a fresh `postgres:18` (Testcontainers) and run every migration from `V1`. `./dev.sh` runs new migrations against your local database on the next start.
@@ -243,3 +244,4 @@ Then `\dt` lists the tables, and `\d users` describes one.
 | `V14__diagrams` | `DIAGRAM` allowed as a task; lesson-writing routes still on prompt `v1` moved to `v2` (which can place diagrams) |
 | `V15__covers` | `textbooks.cover_motif` (lower-case names only); the four old cover colours moved to the new palette by volume (forest, ochre, dusty blue, terracotta); preface routes still on prompt `v1` moved to `v2` (whose draft picks the motif) |
 | `V16__diagram_v2` | Diagram routes still on prompt `v1` moved to `v2` (more hands-on diagrams, readable text on any fill); a version the owner chose stays |
+| `V17__last_read` | `textbooks.last_read_at`: when one of the book's lessons was last opened; the app's reading ribbon goes on the latest |

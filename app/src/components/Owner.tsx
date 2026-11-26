@@ -142,7 +142,7 @@ export function ProvidersPanel({ providers, token, onChanged }: { providers: Pro
 
 export function RoutingTable({ routes, providers, token, onChanged }: { routes: RouteView[]; providers: ProviderView[]; token: string | null; onChanged: Changed }) {
   const [errors, setErrors] = useState<Partial<Record<TaskId, string>>>({});
-  const label = (id: ProviderId | null) => providers.find((p) => p.id === id)?.label ?? id ?? '—';
+  const label = (id: ProviderId | null) => providers.find((p) => p.id === id)?.label ?? id ?? 'none';
   const def = providers.find((p) => p.isDefault);
 
   async function patch(task: TaskId, body: Record<string, unknown>) {
@@ -176,7 +176,7 @@ export function RoutingTable({ routes, providers, token, onChanged }: { routes: 
         if (!r) return null;
         const resolved = providers.find((p) => p.id === r.resolvedProvider);
         const serviceOptions: Option<string>[] = [
-          { value: 'DEFAULT', label: `Default (${def?.label ?? '—'})` },
+          { value: 'DEFAULT', label: `Default (${def?.label ?? 'none set'})` },
           ...providers.filter((p) => p.usable).map((p) => ({ value: p.id, label: p.label })),
         ];
         const modelOptions: Option<string>[] = [
@@ -189,7 +189,7 @@ export function RoutingTable({ routes, providers, token, onChanged }: { routes: 
           <View key={task} style={styles.row}>
             <View style={styles.colTask}>
               <Text style={styles.taskName}>{TASK_LABEL[task]}</Text>
-              <Text style={styles.muted}>{label(r.resolvedProvider)} · {r.resolvedModel ?? '—'}</Text>
+              <Text style={styles.muted}>{label(r.resolvedProvider)} · {r.resolvedModel ?? 'no model'}</Text>
             </View>
             <View style={styles.colPick}>
               <Select compact label={`Service for ${TASK_LABEL[task]}`} value={r.providerChoice} options={serviceOptions}

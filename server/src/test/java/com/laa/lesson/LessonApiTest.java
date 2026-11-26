@@ -185,6 +185,33 @@ class LessonApiTest extends IntegrationTest {
     }
 
     /** A textbook through the (fake) preface with its mission confirmed. */
+    /** The reading ribbon (issue #81): opening a lesson stamps its book as the one being read, and the latest wins. */
+    @Test
+    void openingALessonMovesTheReadingRibbonToItsBook() {
+        String learner = login("ribbon@test.dev");
+        String climbing = activeTextbook(learner, "Bouldering");
+        String bread = activeTextbook(learner, "Sourdough");
+        ok(writeNext(learner, climbing));
+        ok(writeNext(learner, bread));
+        assertThat(lastRead(learner)).as("nothing read yet").isEmpty();
+
+        ok(get("/textbooks/" + climbing + "/lessons/1", learner));
+        assertThat(lastRead(learner)).containsOnlyKeys(climbing);
+        ok(get("/textbooks/" + bread + "/lessons/1", learner));
+        Map<String, java.time.Instant> read = lastRead(learner);
+        assertThat(read).containsOnlyKeys(climbing, bread);
+        assertThat(read.get(bread)).as("the latest book read").isAfter(read.get(climbing));
+        assertThat(get("/textbooks/" + bread + "/lessons/9", learner).status()).as("no such lesson: nothing stamped").isEqualTo(404);
+    }
+
+    /** Each book's {@code lastReadAt} from the library, for the books that have one. */
+    private Map<String, java.time.Instant> lastRead(String token) {
+        Map<String, java.time.Instant> out = new java.util.HashMap<>();
+        get("/textbooks", token).body().valueStream().filter(b -> !b.get("lastReadAt").isNull())
+                .forEach(b -> out.put(b.get("id").asString(), java.time.Instant.parse(b.get("lastReadAt").asString())));
+        return out;
+    }
+
     private String activeTextbook(String token, String topic) {
         String id = post("/textbooks", token, Map.of("topic", topic)).body().get("textbook").get("id").asString();
         String base = "/textbooks/" + id + "/mission";

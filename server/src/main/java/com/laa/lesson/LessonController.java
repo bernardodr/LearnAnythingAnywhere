@@ -42,7 +42,8 @@ import jakarta.validation.constraints.Size;
  * <ul>
  *   <li>{@code POST /textbooks/{id}/lessons/next}: write the next lesson as a job; progress at {@code GET /jobs/{jobId}/events}</li>
  *   <li>{@code GET /textbooks/{id}/contents}: the contents page, plus the back of the book</li>
- *   <li>{@code GET /textbooks/{id}/lessons/{seq}}: one lesson, rubrics and hints removed</li>
+ *   <li>{@code GET /textbooks/{id}/lessons/{seq}}: one lesson, rubrics and hints removed; opening it marks the book as
+ *       the one being read (its {@code last_read_at}, the library's reading ribbon)</li>
  *   <li>{@code POST /lessons/{id}/read}: the learner finished it, which unlocks the next one</li>
  *   <li>{@code POST /textbooks/{id}/resources}: the learner adds a source to RESOURCES.md</li>
  * </ul>
@@ -155,6 +156,8 @@ class LessonController {
         UUID userId = CurrentUser.id(jwt);
         Textbook tb = textbooks.requireForUser(id, userId);
         Lesson l = lessons.find(tb.id(), seq).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "No such lesson"));
+        // Opening a lesson is reading the book: the library's reading ribbon moves here (issue #81).
+        textbooks.markRead(tb.id());
         GenerationProfile profile = profiles.forUser(userId);
         int total = lessons.list(tb.id()).size();
         Map<String, Map<String, Object>> progress = new java.util.LinkedHashMap<>();

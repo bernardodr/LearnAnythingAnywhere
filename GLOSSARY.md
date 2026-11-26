@@ -47,6 +47,10 @@ _Avoid_: shelf (the old name; the code's `Shelf` component and `shelf_position` 
 A book's own page, set out like the front of a printed book: its cover, title and goal, the contents (its lessons, in order), the why of its mission, and the back of the book.
 _Avoid_: contents page (only the list of lessons on it), book details, dashboard
 
+**Reading ribbon**:
+The bookmark ribbon on the book a learner read last (the one whose lesson they opened most recently), with "Continue reading" under it. Only one book wears it at a time.
+_Avoid_: bookmark (saving a place in a lesson is a different thing, still to come), current book
+
 **Cover motif**:
 The one small drawing of a book's subject on its cover (stars, a leaf, a mountain…), from a fixed hand-drawn set. The AI chooses it when the preface ends.
 _Avoid_: icon, illustration, cover art, logo

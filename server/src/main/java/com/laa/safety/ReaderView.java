@@ -33,6 +33,9 @@ import tools.jackson.databind.node.ObjectNode;
  * It's applied when text is written ({@link SafetyLayer}, lesson writing) and again whenever stored text is shown: every
  * learner-facing JSON response passes through it on the way out ({@link ReaderViewAdvice}), so a changed policy holds
  * for everything written before, and a new endpoint is covered without doing anything.
+ *
+ * <p>It also takes out every em dash ({@link Dashes}, issue #80), whatever the links policy: the same two passes make
+ * that a hard filter, for new text and old.
  */
 @Component
 public class ReaderView {
@@ -40,16 +43,18 @@ public class ReaderView {
     /** One learner's view of links: their policy and the addresses it allows. */
     public record Reader(LinksPolicy policy, Set<String> allowed) {
 
+        /** The text as this learner may read it: their links policy applied, and no em dashes. */
         public String apply(String text) {
-            return text == null ? null : LinkPolicy.apply(text, policy, allowed);
+            return text == null ? null : Dashes.replace(LinkPolicy.apply(text, policy, allowed));
         }
 
         /**
          * Every string in {@code node}, at any depth, changed in place; returns the same tree. The links policy only
-         * ever changes web addresses, so ids, names and every other value pass through untouched.
+         * ever changes web addresses and the dash filter only dashes, so ids, names and every other value pass
+         * through untouched. Every policy is walked, Open too, for the dashes.
          */
         public JsonNode apply(JsonNode node) {
-            return policy == LinksPolicy.OPEN ? node : walk(node, this::apply);
+            return walk(node, this::apply);
         }
 
         private static JsonNode walk(JsonNode node, UnaryOperator<String> f) {

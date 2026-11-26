@@ -47,13 +47,14 @@ class TextbookController {
      * {@code gateNote} is the topic gate's message when the topic was reframed, shown at the top of the preface.
      * {@code coverMotif} is always set: the AI's pick, or one matched from the title until the preface ends.
      */
+    /** A book in the library. {@code lastReadAt}: when a lesson of it was last opened (the app's reading ribbon). */
     record TextbookView(String id, String title, String topic, Textbook.Status status, String coverColor, String coverMotif,
-                        int volume, String missionHeadline, String gateNote, Instant createdAt) {
+                        int volume, String missionHeadline, String gateNote, Instant lastReadAt, Instant createdAt) {
         static TextbookView of(Textbook t) {
             Object verdict = t.topicGate().get("verdict");
             String note = "REFRAME".equals(verdict) ? String.valueOf(t.topicGate().getOrDefault("message", "")) : null;
             return new TextbookView(t.id().toString(), t.title(), t.topic(), t.status(), t.coverColor(), t.motif().key(), t.volume(),
-                    t.missionHeadline(), note, t.createdAt());
+                    t.missionHeadline(), note, t.lastReadAt(), t.createdAt());
         }
     }
 

@@ -1,4 +1,4 @@
-import { type ReactNode, useId } from 'react';
+import { useId } from 'react';
 import { type AccessibilityActionEvent, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
@@ -83,12 +83,26 @@ export function MaterialGrain({ cloth, width, height, cut, radius = 0 }: {
   );
 }
 
-/** What a screen reader says for a book, whichever way it's shown. */
-export function bookLabel(book: Textbook) {
+/**
+ * The book the learner is reading: the one whose lesson they opened last (`lastReadAt`), which wears the reading ribbon
+ * (issue #81). Null if they haven't opened a lesson yet.
+ */
+export function readingNow(books: Pick<Textbook, 'id' | 'lastReadAt'>[]): string | null {
+  let latest: { id: string; at: string } | null = null;
+  for (const b of books) if (b.lastReadAt && (!latest || b.lastReadAt > latest.at)) latest = { id: b.id, at: b.lastReadAt };
+  return latest?.id ?? null;
+}
+
+/**
+ * What a screen reader says for a book, whichever way it's shown.
+ *
+ * @param reading this is the book being read (it wears the ribbon), which the label says first
+ */
+export function bookLabel(book: Textbook, reading = false) {
   const inProgress = book.status === 'INTERVIEW';
   const caption = inProgress ? 'Preface in progress' : (book.missionHeadline ?? '');
   return {
-    label: `${book.title}, volume ${book.volume}. ${caption}`,
+    label: `${book.title}, volume ${book.volume}. ${reading ? 'The book you’re reading. ' : ''}${caption}`,
     hint: inProgress ? 'Continues the preface interview' : 'Opens the book',
   };
 }
@@ -118,13 +132,18 @@ export function titleColorOn(cloth: string) {
 /**
  * A book's front, drawn as a physical book (DESIGN.md, "Books"): its cloth colour bound in leather or linen (a
  * photographed material's grain), a soft light from the top left, a hint of spine depth down the left edge, a natural
- * shadow, the title set top left, and its one subject motif lower down. A ribbon marks a preface still in progress. Decorative to screen readers: whatever holds
- * it (`Cover`, the book page) carries the label.
+ * shadow, the title set top left, and its one subject motif lower down. Decorative to screen readers: whatever holds it
+ * (`Cover`, the book page) carries the label.
  *
- * @param book the textbook: its title, cloth (`coverColor`), motif (`coverMotif`) and status
+ * @param book the textbook: its title, cloth (`coverColor`) and motif (`coverMotif`)
  * @param width the cover's width; the height follows from `COVER_RATIO`, and the type and motif scale with it
+ * @param ribbon a ribbon bookmark out of the top: only on the book being read (`readingNow`)
  */
-export function BookFace({ book, width }: { book: Pick<Textbook, 'title' | 'coverColor' | 'coverMotif' | 'status'>; width: number }) {
+export function BookFace({ book, width, ribbon = false }: {
+  book: Pick<Textbook, 'title' | 'coverColor' | 'coverMotif'>;
+  width: number;
+  ribbon?: boolean;
+}) {
   // Gradient ids must be unique on a web page with many covers.
   const id = useId().replace(/:/g, '');
   const height = width * COVER_RATIO;
@@ -159,7 +178,7 @@ export function BookFace({ book, width }: { book: Pick<Textbook, 'title' | 'cove
         <Rect width={width} height={height} fill={`url(#light${id})`} />
         <Rect width={width} height={height} fill={`url(#spine${id})`} />
       </Svg>
-      {book.status === 'INTERVIEW' ? <View style={[styles.ribbon, { left: width * 0.14, width: Math.max(6, width * 0.05) }]} /> : null}
+      {ribbon ? <View style={[styles.ribbon, { left: width * 0.14, width: Math.max(6, width * 0.05) }]} /> : null}
       <View style={[styles.inner, { paddingTop: width * 0.13, paddingLeft: width * 0.17, paddingRight: width * 0.08 }]}>
         <Text style={[styles.title, { color: ink, fontSize: titleSize, lineHeight: titleSize * 1.12 }]} numberOfLines={5}>
           {book.title}
@@ -173,23 +192,24 @@ export function BookFace({ book, width }: { book: Pick<Textbook, 'title' | 'cove
 }
 
 /**
- * A book in the library (DESIGN.md, "Books"): its cover, and under it a quiet one-line caption for a preface still in
- * progress, or a `footer` in its place (`null` for nothing: the library puts its arrange buttons outside the cover,
- * where they can't start a drag). `onMove` offers screen readers "Move earlier/later".
+ * A book in the library (DESIGN.md, "Books"): its cover, and under it a quiet one-line caption: "Continue reading" on
+ * the book being read (which wears the ribbon, as in the mockup), "Preface in progress" on a book still in its preface.
+ * `onMove` offers screen readers "Move earlier/later".
  */
 export function Cover({
   book,
   onPress,
   width,
   onMove,
-  footer,
+  reading = false,
   dimOnPress = true,
 }: {
   book: Textbook;
   onPress: () => void;
   width: number;
   onMove?: (to: CoverMove) => void;
-  footer?: ReactNode;
+  /** This is the book being read (`readingNow`): the ribbon, and "Continue reading". */
+  reading?: boolean;
   /** The library gives its own feedback (the book presses in, or lifts), so it turns the dimming off. */
   dimOnPress?: boolean;
 }) {
@@ -198,13 +218,13 @@ export function Cover({
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={bookLabel(book).label}
-      accessibilityHint={bookLabel(book).hint}
+      accessibilityLabel={bookLabel(book, reading).label}
+      accessibilityHint={bookLabel(book, reading).hint}
       accessibilityActions={onMove ? MOVE_ACTIONS : undefined}
       onAccessibilityAction={onMove ? (e: AccessibilityActionEvent) => onMove(e.nativeEvent.actionName === 'moveEarlier' ? 'earlier' : 'later') : undefined}
       style={({ pressed }) => [{ width }, pressed && dimOnPress && { opacity: 0.9 }]}>
-      <BookFace book={book} width={width} />
-      {footer !== undefined ? footer : <Text style={styles.caption} numberOfLines={1}>{inProgress ? 'Preface in progress' : ' '}</Text>}
+      <BookFace book={book} width={width} ribbon={reading} />
+      <Text style={styles.caption} numberOfLines={1}>{reading ? 'Continue reading' : inProgress ? 'Preface in progress' : ' '}</Text>
     </Pressable>
   );
 }
@@ -222,7 +242,7 @@ const styles = StyleSheet.create({
   inner: { flex: 1 },
   title: { fontFamily: fonts.serifSemiBold, letterSpacing: -0.2 },
   motif: { position: 'absolute' },
-  // A ribbon bookmark coming out of the top of the book.
+  // The reading ribbon: a bookmark coming out of the top of the book being read.
   ribbon: { position: 'absolute', top: -8, height: 26, backgroundColor: colors.ribbon, borderRadius: 1 },
   caption: { fontFamily: fonts.serifItalic, fontSize: 15, lineHeight: 21, color: colors.accent, marginTop: 12, textAlign: 'center' },
 });

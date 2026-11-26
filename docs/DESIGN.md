@@ -81,7 +81,7 @@ All in `colors` (`app/src/theme.ts`). Contrast was checked against the backgroun
 - **The binding:** the cover colour bound in a real material, then a soft light from the top left, a hint of spine depth down the left edge (a darker hinge band and a light crease), and a soft natural shadow underneath. **Forest green and terracotta are leather** (a fine pebbled grain with soft mottling), **ochre and dusty blue are linen** (a slubby plain weave): the owner asked for "hyper realistic textures of linen or leather" (2026-11-26). Both come from photographed CC0 materials (`app/assets/covers/README.md`), as overlays of light and dark grain that work on any colour, shown at 256 points per tile and offset per book, so no two covers share a grain. Spines are bound the same way.
 - **The face:** the title in Source Serif 4 semibold, set top-left, large, with ivory or ink to contrast with the cloth. Lower down sits one restrained **motif** in the same colour.
 - **Motifs** are a fixed, hand-drawn set of line drawings: stars, moon, leaf, wheat, mountain, wave, gear, dots, shapes, brush, note, flask, atom, globe, quill, column, bars, pulse, pawn, speech, plus a neutral ornament. The AI picks one when the preface ends. Until then (a preface in progress, or a book from before motifs), the server matches one from the title.
-- **A ribbon** (terracotta, at the top) marks a book whose preface is still in progress.
+- **The reading ribbon** (terracotta, out of the top) marks the book read last: the one whose lesson was opened most recently (`readingNow`; the owner's choice, 2026-11-26). Only that book wears it, on its cover, its spine and its page, with "Continue reading" under it in the library, as in the mockup. A book still in its preface says "Preface in progress" under it instead, with no ribbon.
 - **A new book's preview:** while a topic is typed, its cover is drawn with the topic as the title (tidied as the server will title it) in the cloth of its volume (`coverForVolume`, which must match the server's order), and the plain ornament. The motif is the AI's to choose at the end of the preface, so the preview never guesses it.
 
 ## Screens
@@ -100,3 +100,5 @@ All in `colors` (`app/src/theme.ts`). Contrast was checked against the backgroun
 ## Voice
 
 Calm and encouraging, and curious. Short sentences. Name things the way people do ("Your library", "Start reading", "Add a note"). Never scold, and keep errors kind and specific about what to do next.
+
+**No em dashes, anywhere** (the owner, 2026-11-26: "a hard filter"). Use a comma, a colon, brackets or a full stop. The app's lint rejects an em dash in any string or JSX text, and the server takes them out of every word an AI writes and every response a learner gets (`Dashes`).

@@ -18,7 +18,12 @@ const ok = (s) => console.log('✓ ' + s);
 // has picked each one's motif. The last is left mid-preface, to show the ribbon.
 const learner = await signIn(API, EMAIL);
 const BOOKS = { 'The Night Sky': 'stars', 'A Little History of Art': 'shapes', 'How Computers Think': 'dots', 'The World of Plants': 'leaf' };
-for (const topic of Object.keys(BOOKS)) await bookWithMission(learner, topic);
+const ids = {};
+for (const topic of Object.keys(BOOKS)) ids[topic] = await bookWithMission(learner, topic);
+// Reading The Night Sky (its lesson 1 written, then opened), so it wears the reading ribbon.
+const job = (await learner.call('POST', `/textbooks/${ids['The Night Sky']}/lessons/next`).then((r) => r.json())).jobId;
+await learner.call('GET', `/jobs/${job}/events`, null, 'text/event-stream').then((r) => r.text());
+assert.equal((await learner.call('GET', `/textbooks/${ids['The Night Sky']}/lessons/1`)).status, 200);
 await learner.call('POST', '/textbooks', { topic: 'Sourdough bread' });
 const shelf = await learner.call('GET', '/textbooks').then((r) => r.json());
 for (const [title, motif] of Object.entries(BOOKS)) {
@@ -81,6 +86,11 @@ try {
   assert.deepEqual(bound, { 'The Night Sky': 'leather', 'A Little History of Art': 'linen', 'How Computers Think': 'linen',
     'The World of Plants': 'leather', 'Sourdough bread': 'leather' }, 'each cover is bound in its material');
   assert.ok(await evaluate(hasText('Preface in progress')), 'the book mid-preface says so');
+  // The reading ribbon (issue #81): on the book read last, and only there, with "Continue reading" under it.
+  const reading = await evaluate(`[...document.querySelectorAll('[role="button"][aria-label*=", volume "]')]
+    .filter((e) => e.textContent.includes('Continue reading')).map((e) => e.getAttribute('aria-label'))`);
+  assert.equal(reading.length, 1, 'one book says "Continue reading"');
+  assert.match(reading[0], /^The Night Sky, volume 1\. The book you’re reading\./, 'the book read last, and a screen reader hears it');
   // No word in a title is split across two lines ("Computer / s Think"): each word's characters share one line.
   const split = await evaluate(`[...document.querySelectorAll('[role="button"][aria-label*=", volume "]')].flatMap((e) => {
     const t = [...e.querySelectorAll('div')].find((d) => d.childElementCount === 0 && e.getAttribute('aria-label').startsWith(d.textContent + ','));
@@ -95,7 +105,7 @@ try {
     return out; })`);
   assert.deepEqual(split, [], 'no title word breaks across lines');
   await shot('library-covers');
-  ok('five drawn covers in leather or linen, two to a row, each with its motif; the one mid-preface marked');
+  ok('five drawn covers in leather or linen, two to a row, each with its motif; the one mid-preface marked; the reading ribbon on the book read last');
 
   // Spines: the same books standing on a fine ledge.
   await click('Spines');

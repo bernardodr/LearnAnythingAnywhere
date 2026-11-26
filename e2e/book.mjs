@@ -166,8 +166,8 @@ try {
 
   // ---- Back to the library, where the new book stands with its leaf.
   await click('Back to your library');
-  await waitFor('the library', `!!document.querySelector('[aria-label^="The world of plants, volume 3"]')`);
-  ok('back in the library, the new book is on it, in the place the menu moved it to');
+  await waitFor('the library', `!!document.querySelector('[aria-label^="The world of plants, volume 3. The book you’re reading."]')`);
+  ok('back in the library, the new book is on it, where the menu moved it, wearing the reading ribbon');
 
   assert.deepEqual(problems, [], 'no console errors or warnings');
   ok('no console errors or warnings');
