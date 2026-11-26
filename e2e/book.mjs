@@ -1,8 +1,8 @@
 // Starting a book and its page, after facelift milestone 2 (docs/DESIGN.md, issue #69), in the real web app: the new
 // book's cover taking shape as the topic is typed; the preface (an opening, answers as notes in the margin, the mission
 // card, editing it, "Write my textbook" pinned at the bottom); then the book's page (the drawn cover, the contents with
-// the lesson up next, the why in the margin, the back of the book folding open, adding a source), reading lesson 1,
-// and writing lesson 2. Run it with `./e2e/run.sh book [screenshot dir]` (a scratch database in practice mode, no AI
+// the lesson up next, the why in the margin, the ••• menu moving the book in the library, the back of the book
+// folding open, adding a source), reading lesson 1, and writing lesson 2. Run it with `./e2e/run.sh book [screenshot dir]` (a scratch database in practice mode, no AI
 // keys). Exits non-zero on any failure.
 import assert from 'node:assert/strict';
 
@@ -121,6 +121,22 @@ try {
   await shot('book-page');
   ok('the book page: drawn cover, edited goal, facts, lesson 1 up next, the why in the margin, "Start reading"');
 
+  // ---- The book's ••• menu moves it in the library without dragging. It's the third of three, so it can't go later.
+  await click('This book’s menu');
+  await waitFor('the menu', hasText('Book 3 of 3 in your library'));
+  assert.equal(await evaluate(`document.querySelector('[aria-label="Move later in your library"]').getAttribute('aria-disabled')`), 'true',
+    'the last book can’t move later');
+  await click('Move earlier in your library');
+  await waitFor('moved', hasText('Book 2 of 3 in your library'));
+  let order = [];
+  for (let t = 0; t < 30 && order[1] !== 'The world of plants'; t++, await sleep(100)) {
+    order = (await learner.call('GET', '/textbooks').then((r) => r.json())).map((x) => x.title);
+  }
+  assert.deepEqual(order, ['The Night Sky', 'The world of plants', 'A Little History of Art'], 'the server kept the move');
+  await shot('book-menu');
+  await click('Close this book’s menu');
+  ok('the book’s ••• menu moves it earlier in the library (and knows it can’t go later from the end)');
+
   // ---- The back of the book folds open; sources can be added from inside.
   await click('A, Reference sheets: 1');
   await waitFor('a reference sheet', `!!document.querySelector('[aria-label^="Reference sheet from lesson 1"]')`);
@@ -151,7 +167,7 @@ try {
   // ---- Back to the library, where the new book stands with its leaf.
   await click('Back to your library');
   await waitFor('the library', `!!document.querySelector('[aria-label^="The world of plants, volume 3"]')`);
-  ok('back in the library, the new book is on it');
+  ok('back in the library, the new book is on it, in the place the menu moved it to');
 
   assert.deepEqual(problems, [], 'no console errors or warnings');
   ok('no console errors or warnings');

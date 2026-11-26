@@ -66,7 +66,8 @@ cd app && npm run typecheck && npx expo lint
 | Where | What's there |
 |---|---|
 | `app/src/app/` | The screens (Expo Router: the file name is the route) |
-| `app/src/components/` | The library grid, book covers and their motifs, lesson blocks, tutor, settings, owner console panels; `ui.tsx` holds the shared buttons, fields and icons |
+| `app/src/components/` | The library grid, book covers (leather and linen) and their motifs, lesson blocks, tutor, settings, owner console panels; `ui.tsx` holds the shared buttons, fields and icons |
+| `app/assets/covers/` | The leather and linen overlays, made from CC0 materials by `scripts/cover-textures.cjs` (sources and settings in its README) |
 | `app/src/lib/` | The API client, the session (sign-in token), streamed replies |
 | `server/.../llm/` | The LLM gateway: every model call, registered in `Calls`, plus routing, providers and the run log |
 | `server/.../safety/` | The safety layer: topic gate, content checks, links policy, leak checks |

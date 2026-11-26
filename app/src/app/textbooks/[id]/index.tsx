@@ -6,12 +6,13 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, Vi
 import { BookFace, volumeNumeral } from '@/components/Cover';
 import { SourceTitle } from '@/components/LessonBlocks';
 import { Markdown } from '@/components/Markdown';
-import { Button, Divider, Field, Icon, Kicker, MarginNote, Note, Page, TopBar } from '@/components/ui';
+import { Button, Divider, Field, Icon, IconButton, Kicker, MarginNote, Note, Page, TopBar } from '@/components/ui';
 import { ApiError, apiGet, apiPost } from '@/lib/api';
+import { useArrange } from '@/lib/arrange';
 import { useSession } from '@/lib/session';
 import { getSse } from '@/lib/sse';
-import type { Contents } from '@/lib/types';
-import { colors, fonts, minTouch, type } from '@/theme';
+import type { Contents, Textbook } from '@/lib/types';
+import { colors, fonts, minTouch, radius, type } from '@/theme';
 
 /** "01" for lesson 1: the contents page's numbering. */
 const two = (n: number) => String(n).padStart(2, '0');
@@ -25,9 +26,13 @@ const two = (n: number) => String(n).padStart(2, '0');
  * D sources), each folded until opened. The one dominant action is pinned at the bottom: Start reading, Continue
  * reading, or Write lesson n once every lesson is read.
  *
- * Loads `/textbooks/{id}/contents` (refreshed whenever the screen comes back into view), follows a lesson being written
- * at `/jobs/{jobId}/events`, and starts lesson 1 itself straight after the preface. Leads to a lesson, and back to the
- * library. A book still in its preface goes to the preface instead.
+ * The ••• at the top right opens the book's menu: "Move earlier / later in your library", the way to arrange the
+ * library without dragging (CLAUDE.md: anything draggable has a non-drag way too).
+ *
+ * Loads `/textbooks/{id}/contents` (refreshed whenever the screen comes back into view) and `/textbooks` (the library's
+ * order, for the menu), follows a lesson being written at `/jobs/{jobId}/events`, and starts lesson 1 itself straight
+ * after the preface. Leads to a lesson, and back to the library. A book still in its preface goes to the preface
+ * instead.
  */
 export default function BookPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -47,6 +52,13 @@ export default function BookPage() {
       if (token && id) void refetch();
     }, [token, id, refetch]),
   );
+  const library = useQuery({
+    queryKey: ['textbooks'],
+    queryFn: () => apiGet<Textbook[]>('/textbooks', token),
+    enabled: !!token,
+  });
+  const { move, failed: moveFailed } = useArrange();
+  const [menuOpen, setMenuOpen] = useState(false);
   const [startedJob, setStartedJob] = useState<string | null>(null);
   const [progress, setProgress] = useState<string | null>(null);
   const [writeError, setWriteError] = useState<string | null>(null);
@@ -120,7 +132,12 @@ export default function BookPage() {
 
   return (
     <Page footer={footer}>
-      <TopBar backLabel="Back to your library" kicker="Your library" />
+      <View style={styles.top}>
+        <TopBar backLabel="Back to your library" kicker="Your library"
+          right={<IconButton icon="more" label={menuOpen ? 'Close this book’s menu' : 'This book’s menu'} onPress={() => setMenuOpen(!menuOpen)} />} />
+        {menuOpen ? <BookMenu id={id} books={library.data ?? []} onMove={(to) => move(id, to)} /> : null}
+      </View>
+      {moveFailed ? <Note tone="error">Your library’s new order couldn’t be saved, so it’s back as it was. Please try again.</Note> : null}
       {contents.isError ? <Note tone="error">{contents.error.message}</Note> : null}
       {data ? (
         <View>
@@ -208,6 +225,33 @@ export default function BookPage() {
         </View>
       ) : null}
     </Page>
+  );
+}
+
+/**
+ * The book's menu, opened by the ••• at the top right: moving the book a place earlier or later in the library (the
+ * library's order, as dragging would change it), and where it stands now. It stays open, so a book can be moved
+ * several places in a row.
+ *
+ * @param id this book's id; @param books the library in its current order
+ * @param onMove moves this book one place (saved straight away, see `useArrange`)
+ */
+function BookMenu({ id, books, onMove }: { id: string; books: Textbook[]; onMove: (to: 'earlier' | 'later') => void }) {
+  const at = books.findIndex((b) => b.id === id);
+  const item = (label: string, to: 'earlier' | 'later', disabled: boolean) => (
+    <Pressable accessibilityRole="menuitem" accessibilityLabel={label} accessibilityState={{ disabled }} disabled={disabled}
+      onPress={() => onMove(to)} style={({ pressed }) => [styles.menuItem, disabled && styles.menuItemOff, pressed && styles.pressed]}>
+      <Text style={styles.menuText}>{label}</Text>
+    </Pressable>
+  );
+  return (
+    <View style={styles.menu} accessibilityRole="menu">
+      {item('Move earlier in your library', 'earlier', at <= 0)}
+      {item('Move later in your library', 'later', at < 0 || at >= books.length - 1)}
+      <Text style={styles.menuNote} accessibilityLiveRegion="polite">
+        {at >= 0 ? `Book ${at + 1} of ${books.length} in your library` : ' '}
+      </Text>
+    </View>
   );
 }
 
@@ -328,6 +372,24 @@ function AddSource({ textbookId, token, onAdded }: { textbookId: string; token: 
 }
 
 const styles = StyleSheet.create({
+  // Above the page, so the open menu lies over the cover rather than pushing it down.
+  top: { zIndex: 10 },
+  menu: {
+    position: 'absolute',
+    top: 48,
+    right: -4,
+    width: 280,
+    paddingVertical: 6,
+    borderRadius: radius,
+    borderWidth: 1,
+    borderColor: colors.rule,
+    backgroundColor: colors.field,
+    boxShadow: '0px 10px 24px rgba(41, 40, 35, 0.16)',
+  },
+  menuItem: { minHeight: minTouch, justifyContent: 'center', paddingHorizontal: 16 },
+  menuItemOff: { opacity: 0.4 },
+  menuText: { ...type.ui, color: colors.accent, fontFamily: fonts.sansSemiBold },
+  menuNote: { ...type.meta, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.rule, marginTop: 4 },
   front: { alignItems: 'center' },
   cover: { marginTop: 4, marginBottom: 28 },
   title: { ...type.h1, fontSize: 34, lineHeight: 40, textAlign: 'center' },

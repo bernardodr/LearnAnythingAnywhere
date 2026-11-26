@@ -50,7 +50,7 @@ If several reset emails are asked for in a short time, LAA waits a while before 
 
 After you sign in, you land on **Your library**: your textbooks, laid out like a small, carefully kept bookcase.
 
-- **Each textbook is a book.** Its cover is cloth in forest green, ochre, dusty blue or terracotta, with the title in large type and one small drawing of its subject: stars for the night sky, a leaf for plants, a mountain for climbing. LAA chooses the drawing when you finish the book's preface, from what the book is about.
+- **Each textbook is a book.** It's bound in leather (forest green or terracotta) or linen (ochre or dusty blue), with the title in large type and one small drawing of its subject: stars for the night sky, a leaf for plants, a mountain for climbing. LAA chooses the drawing when you finish the book's preface, from what the book is about. Each book has its own grain, like real leather and cloth.
 - **A book with a red ribbon** sticking out of the top, and *Preface in progress* underneath, is one whose opening interview you haven't finished yet.
 - **Tap a book to open it.** An unfinished one takes you back to its interview; a finished one opens [its page](03-your-contents-page.md): the cover, your lessons and your mission.
 - **Create a textbook**, at the bottom of the screen, starts a new one. See [Starting a textbook](02-starting-a-textbook.md).
@@ -74,7 +74,7 @@ Put your books in whatever order you like, by hand:
 
 As you move a book, the others slide quickly aside to make room, and the book leans a little as you carry it. Let go, and it drops straight into its place and stays there, with a small knock against the books beside it. Your order is kept for you, so it's the same on every device. New textbooks go at the end.
 
-**Prefer not to drag?** Tap **Arrange** above your books. With covers, each book gets **‹** and **›** buttons underneath to move it one place earlier or later. With spines, tap a book to choose it (it rises a little), then use **‹ Earlier** and **Later ›**. Tap **Done** when you're finished. With a screen reader, each book also has *Move earlier* and *Move later* actions.
+**Prefer not to drag?** Open the book, tap **•••** at the top right of its page, and choose **Move earlier in your library** or **Move later in your library**. The menu shows where the book now stands (*Book 2 of 5 in your library*) and stays open, so you can move it several places in a row. With a screen reader, each book in your library also has *Move earlier* and *Move later* actions.
 
 **Why it helps:** it's your library. Keep the book you're working on first, group books that belong together, or just enjoy putting things in order.
 

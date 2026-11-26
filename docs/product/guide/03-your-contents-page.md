@@ -4,6 +4,8 @@
 
 Every textbook has its own page, set out like the front of a printed book: the cover, the title, a contents list of your lessons, and useful pages at the back. Open it by tapping the book in your library. The arrow at the top left takes you back to your library.
 
+**•••** at the top right opens the book's menu: **Move earlier in your library** and **Move later in your library**, to put the book where you want it without dragging. See [Arranging your library](01-getting-started.md#arranging-your-library).
+
 ## At the top: the cover, the title and your goal
 
 At the top is the book's cover, just as it looks in your library, with its subject drawing. Underneath:

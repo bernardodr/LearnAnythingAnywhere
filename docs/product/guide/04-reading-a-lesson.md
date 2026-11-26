@@ -40,12 +40,15 @@ Lessons follow the same pattern, so you always know where you are.
 
 Some ideas are easier to *see*: how the parts of something fit together, the stages of a process, or what changes when one thing changes. When a lesson has one of those, it can include an **interactive diagram** (at most two per lesson). It's drawn for your lesson, in its own words, and you explore it right there on the page:
 
+- **Drag something** and watch the picture answer as you move it, such as the Sun across the sky or a piece into its place. There are always buttons that do the same, if you'd rather not drag.
+- **Make a prediction**, then see what really happens, and why.
+- **Build it up** one layer at a time, until you see the whole picture.
+- **Move a slider** and watch what changes.
 - **Tap a part** to read what it does.
 - **Step through** a process with **Next** and **Back**.
 - **Compare** two things side by side.
-- **Move a slider** and watch what changes.
 
-The line in italics under each diagram tells you what to try.
+Each diagram uses whichever of these suits its idea best. The line in italics under each diagram tells you what to try. Its words always stay readable: if a colour would make some text hard to read, LAA changes the text to dark or light to suit.
 
 **Prefer reading?** Tap **Show as text** under any diagram to see the same explanation written out, and **Show the diagram** to go back. Screen readers can use the text version too. If a diagram can't be shown on your device, the lesson shows the text version by itself, with a note saying so.
 
