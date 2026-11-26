@@ -63,13 +63,16 @@ public class LessonWriter {
     private final TeachingContext teaching;
     private final LessonRepository lessons;
     private final LessonChecks checks;
+    private final SourceFinder sources;
     private final JsonMapper json;
 
-    LessonWriter(LlmGateway gateway, TeachingContext teaching, LessonRepository lessons, LessonChecks checks, JsonMapper json) {
+    LessonWriter(LlmGateway gateway, TeachingContext teaching, LessonRepository lessons, LessonChecks checks, SourceFinder sources,
+                 JsonMapper json) {
         this.gateway = gateway;
         this.teaching = teaching;
         this.lessons = lessons;
         this.checks = checks;
+        this.sources = sources;
         this.json = json;
     }
 
@@ -79,14 +82,25 @@ public class LessonWriter {
         List<Lesson> earlier = lessons.list(tb.id());
         int seq = earlier.size() + 1;
         Set<String> resourceIds = ctx.resources().stream().map(Resource::id).collect(Collectors.toSet());
-        Map<String, String> vars = TeachingContext.with(ctx.variables(), Map.of(
+        Map<String, String> extras = Map.of(
                 "seq", String.valueOf(seq),
                 "earlier_lessons", earlierLessons(earlier),
-                "warmup_material", warmupMaterial(earlier)));
+                "warmup_material", warmupMaterial(earlier));
+        Map<String, String> vars = TeachingContext.with(ctx.variables(), extras);
 
         try {
             progress.stage("plan", "Choosing what to teach next");
             LessonPlan plan = gateway.structured(Calls.LESSON_PLAN, prompt(vars, "Plan lesson " + seq + ".", userId, tb.id()), profile);
+
+            // Real sources for what the plan teaches, found by web search and checked (issue #82). They join the book's
+            // sources, so reload those: the writer can then cite them, and the checks accept their ids.
+            progress.stage("research", "Finding sources you can trust");
+            List<String> found = sources.findFor(tb, userId, profile, vars, plan);
+            if (!found.isEmpty()) {
+                ctx = teaching.load(tb.id(), tb.title());
+                resourceIds = ctx.resources().stream().map(Resource::id).collect(Collectors.toSet());
+                vars = TeachingContext.with(ctx.variables(), extras);
+            }
 
             // Fixed wording only: progress reaches the learner before the lesson is checked (BRIEF section 8).
             progress.stage("write", "Writing lesson " + seq);
@@ -127,7 +141,7 @@ public class LessonWriter {
 
             progress.stage("save", "Binding the pages");
             String missionLink = tb.missionHeadline() == null ? tb.title() : tb.missionHeadline();
-            Lesson saved = lessons.insert(tb.id(), seq, lesson, missionLink, plan, draft.runId());
+            Lesson saved = lessons.insert(tb.id(), seq, lesson, missionLink, plan, draft.runId(), found);
             return new Written(saved.seq(), saved.id().toString(), saved.title());
         } catch (LlmUnavailableException e) {
             throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE,

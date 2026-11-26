@@ -107,7 +107,7 @@ public class DefaultLlmGateway implements LlmGateway {
         RoutingSnapshot snapshot = router.snapshot();
         Route route = snapshot.resolve(task);
         OutputSchema<T> schema = outputs.forType(spec.output());
-        Invocation call = new Invocation(spec, route, systemPrompt(spec, route.promptVersion(), ctx, profile), messages(ctx),
+        Invocation call = new Invocation(spec, route, systemPrompt(spec, route.promptVersion(), ctx, profile), messages(ctx), searchDomains(spec, profile),
                 ctx.userId(), ctx.textbookId(), ctx.origin());
 
         List<String> failures = new ArrayList<>();
@@ -140,7 +140,7 @@ public class DefaultLlmGateway implements LlmGateway {
             allowance.check(ctx.userId(), ctx.origin());
             RoutingSnapshot snapshot = router.snapshot();
             Route route = snapshot.resolve(spec.task());
-            Invocation call = new Invocation(spec, route, systemPrompt(spec, route.promptVersion(), ctx, profile), messages(ctx),
+            Invocation call = new Invocation(spec, route, systemPrompt(spec, route.promptVersion(), ctx, profile), messages(ctx), searchDomains(spec, profile),
                     ctx.userId(), ctx.textbookId(), ctx.origin());
             return streamFrom(call, chain(snapshot, route), 0, new ArrayList<>(), run::tryEmitValue);
         });
@@ -242,7 +242,7 @@ public class DefaultLlmGateway implements LlmGateway {
         ProviderClient client = clients.client(provider)
                 .orElseThrow(() -> new LlmUnavailableException(clients.unavailableReason(provider)));
         Route route = new Route(null, spec.task(), provider, model.id(), model.tier(), params, promptVersion, List.of());
-        Invocation call = new Invocation(spec, route, systemPrompt(spec, promptVersion, ctx, profile), messages(ctx),
+        Invocation call = new Invocation(spec, route, systemPrompt(spec, promptVersion, ctx, profile), messages(ctx), searchDomains(spec, profile),
                 ctx.userId(), ctx.textbookId(), Origin.COMPARE);
         Step step = new Step(provider, model, client, null, 1);
         return spec instanceof StructuredCall<?> structured
@@ -269,16 +269,21 @@ public class DefaultLlmGateway implements LlmGateway {
         long started = System.nanoTime();
         Integer in = null;
         Integer out = null;
-        // Models without native JSON-schema support get the schema as instructions instead.
-        String system = step.model().capabilities().structuredOutput()
+        int searches = 0;
+        // Models without native JSON-schema support get the schema as instructions instead. So does a call that
+        // searches the web: a search's answer carries citations, which a provider's JSON mode may not allow.
+        boolean search = call.task().needs().webSearch();
+        String system = step.model().capabilities().structuredOutput() && !search
                 ? call.system() : call.system() + "\n\n" + schema.formatInstructions();
+        String nativeSchema = search ? null : schema.json();
         Duration timeout = timeout(call.route().params());
         try {
             ProviderReply reply = callWithTimeout(step.client(), new ProviderRequest(call.spec(), step.model().id(),
-                    system, call.messages(), call.route().params(), schema.json()), timeout);
+                    system, call.messages(), call.route().params(), nativeSchema, call.searchDomains()), timeout);
             in = add(in, reply.tokensIn());
             out = add(out, reply.tokensOut());
-            Validation<T> validation = outputs.validate(schema, reply.text());
+            searches += reply.searches();
+            Validation<T> validation = outputs.validate(schema, search ? jsonIn(reply.text()) : reply.text());
 
             if (!validation.ok()) {
                 // One corrective retry with the validation errors appended.
@@ -286,22 +291,23 @@ public class DefaultLlmGateway implements LlmGateway {
                 retry.add(ChatMessage.assistant(reply.text()));
                 retry.add(ChatMessage.user(correction(validation.errors())));
                 reply = callWithTimeout(step.client(), new ProviderRequest(call.spec(), step.model().id(),
-                        system, retry, call.route().params(), schema.json()), timeout);
+                        system, retry, call.route().params(), nativeSchema, call.searchDomains()), timeout);
                 in = add(in, reply.tokensIn());
                 out = add(out, reply.tokensOut());
-                validation = outputs.validate(schema, reply.text());
+                searches += reply.searches();
+                validation = outputs.validate(schema, search ? jsonIn(reply.text()) : reply.text());
                 if (!validation.ok()) {
                     String message = "Output failed validation after one retry: " + String.join("; ", validation.errors());
-                    UUID runId = record(call, step, RunStatus.ERROR, ErrorKind.INVALID_OUTPUT, message, in, out, started);
+                    UUID runId = record(call, step, RunStatus.ERROR, ErrorKind.INVALID_OUTPUT, message, in, out, searches, started);
                     log.warn("{} via {} ({}): {}", call.task(), step.provider(), step.model().id(), message);
                     return new Outcome<>(null, reply.text(), runId, RunStatus.ERROR, ErrorKind.INVALID_OUTPUT, message,
-                            validation.errors(), in, out, cost(step.model(), in, out), elapsed(started));
+                            validation.errors(), in, out, cost(step.model(), in, out, searches), elapsed(started));
                 }
             }
             RunStatus status = isFallback ? RunStatus.FALLBACK : RunStatus.OK;
-            UUID runId = record(call, step, status, null, null, in, out, started);
+            UUID runId = record(call, step, status, null, null, in, out, searches, started);
             return new Outcome<>(validation.value(), reply.text(), runId, status, null, null, List.of(),
-                    in, out, cost(step.model(), in, out), elapsed(started));
+                    in, out, cost(step.model(), in, out, searches), elapsed(started));
         } catch (RuntimeException e) {
             return failed(call, step, e, started, in, out);
         }
@@ -367,6 +373,27 @@ public class DefaultLlmGateway implements LlmGateway {
         return messages;
     }
 
+    /**
+     * The sites a web search may look at for this call: for a task that searches, and a reader in child-safe mode,
+     * the owner's list of educational sites; otherwise null (anywhere, or no search at all).
+     */
+    private List<String> searchDomains(com.laa.llm.Call spec, GenerationProfile profile) {
+        return spec.task().needs().webSearch() && profile != null && profile.childSafe() && !props.childSafeSearchDomains().isEmpty()
+                ? props.childSafeSearchDomains() : null;
+    }
+
+    /**
+     * The JSON object in a reply that may have words around it: a model that searched the web often says what it's
+     * doing before it answers, and can't use its native JSON mode then. From the first opening brace to the last
+     * closing one; the schema check that follows refuses anything that still isn't the object.
+     */
+    static String jsonIn(String text) {
+        if (text == null) return null;
+        int open = text.indexOf('{');
+        int close = text.lastIndexOf('}');
+        return open >= 0 && close > open ? text.substring(open, close + 1) : text;
+    }
+
     private static String correction(List<String> errors) {
         return "Your previous reply did not match the required JSON schema:\n- " + String.join("\n- ", errors)
                 + "\nReply again with only the corrected JSON object.";
@@ -379,9 +406,27 @@ public class DefaultLlmGateway implements LlmGateway {
 
     private UUID record(Invocation call, Step step, RunStatus status, ErrorKind kind, String message,
                         Integer in, Integer out, long started) {
+        return record(call, step, status, kind, message, in, out, 0, started);
+    }
+
+    /** As above, for a call that also ran {@code searches} web searches (each priced on top of the tokens). */
+    private UUID record(Invocation call, Step step, RunStatus status, ErrorKind kind, String message,
+                        Integer in, Integer out, int searches, long started) {
         return runs.insert(new RunRecord(call.task(), step.provider(), step.model().id(), call.route().promptVersion(),
-                call.route().routeId(), call.origin(), step.attempt(), in, out, cost(step.model(), in, out),
+                call.route().routeId(), call.origin(), step.attempt(), in, out, cost(step.model(), in, out, searches),
                 elapsed(started), status, kind, message, call.userId(), call.textbookId(), call.spec().id()));
+    }
+
+    /**
+     * Tokens at the model's prices, plus web searches at its provider's price per 1,000 (Anthropic: USD 10). Null when
+     * nothing is priced or nothing was used.
+     */
+    static BigDecimal cost(ModelInfo model, Integer in, Integer out, int searches) {
+        BigDecimal tokens = cost(model, in, out);
+        if (searches <= 0 || model.webSearchPer1k() == null) return tokens;
+        BigDecimal search = model.webSearchPer1k().multiply(BigDecimal.valueOf(searches))
+                .divide(BigDecimal.valueOf(1000), MathContext.DECIMAL64).setScale(6, java.math.RoundingMode.HALF_UP);
+        return tokens == null ? search : tokens.add(search);
     }
 
     static BigDecimal cost(ModelInfo model, Integer in, Integer out) {
@@ -416,7 +461,7 @@ public class DefaultLlmGateway implements LlmGateway {
 
     /** One call prepared for its route: the descriptor, the rendered system prompt and the messages. */
     private record Invocation(com.laa.llm.Call spec, Route route, String system, List<ChatMessage> messages,
-                              UUID userId, UUID textbookId, Origin origin) {
+                              List<String> searchDomains, UUID userId, UUID textbookId, Origin origin) {
         Task task() {
             return spec.task();
         }

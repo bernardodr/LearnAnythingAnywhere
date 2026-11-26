@@ -6,6 +6,21 @@ What's new in each release of Learn Anything Anywhere, newest first. Each featur
 
 ---
 
+## 0.18: Sources for every lesson
+*26 November 2026*
+
+### New
+
+- **Every lesson ends with its sources.** Before a lesson is written, LAA searches the web for two to four real pages about what it teaches, from encyclopedias, museums, universities, public bodies and respected publishers, and opens each one to check it's really there and really about what it says. Only those that pass are shown, numbered at the end of the lesson and in its text. [Sources →](guide/04-reading-a-lesson.md#sources)
+- **Your book's sources fill up as you learn.** The sources found for each lesson join *Sources* at the back of the book, alongside any you add yourself. [D. Sources →](guide/03-your-contents-page.md#d-sources)
+
+### Good to know
+
+- **Nothing is ever made up.** A lesson only shows sources a search really found and LAA checked, or ones you added. If none can be checked, the lesson says so.
+- **For children,** with child-safe mode on, LAA only searches, and only keeps, well-known educational sites.
+
+---
+
 ## 0.17: The reading ribbon, and no more em dashes
 *26 November 2026*
 

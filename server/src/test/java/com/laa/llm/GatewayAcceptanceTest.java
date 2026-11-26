@@ -80,16 +80,16 @@ class GatewayAcceptanceTest extends IntegrationTest {
     }
 
     @Test
-    void assigningAModelWithoutToolCallingToResearchIsRejected() {
+    void assigningAModelThatCantSearchTheWebToResearchIsRejected() {
         String owner = ownerToken();
 
         Resp byTier = patch("/owner/routes/RESEARCH", owner, Map.of("modelTier", "SMALL"));
         assertThat(byTier.status()).isEqualTo(400);
-        assertThat(byTier.raw()).contains("tool calling").contains("fake-small");
+        assertThat(byTier.raw()).contains("web search").contains("fake-small");
 
         Resp byModel = patch("/owner/routes/RESEARCH", owner, Map.of("providerChoice", "FAKE_B", "modelId", "fake-b-small"));
         assertThat(byModel.status()).isEqualTo(400);
-        assertThat(byModel.raw()).contains("tool calling");
+        assertThat(byModel.raw()).contains("web search");
 
         // Nothing was saved.
         Resp routes = get("/owner/routes", owner);

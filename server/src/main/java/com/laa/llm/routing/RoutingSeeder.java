@@ -3,6 +3,7 @@ package com.laa.llm.routing;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,17 +69,48 @@ public class RoutingSeeder implements SmartInitializingSingleton {
             }
 
             var routes = repository.activeRoutes();
+            var current = repository.providers();
             for (Task task : Task.values()) {
                 if (!routes.containsKey(task)) {
                     int maxTokens = task.defaultTier() == ModelTier.LARGE ? 16_000 : 4_000;
-                    repository.insertRoute(new RouteRecord(null, task, null, task.defaultTier(), null,
+                    repository.insertRoute(new RouteRecord(null, task, searcherFor(task, null, current), task.defaultTier(), null,
                             Map.of("maxTokens", maxTokens), prompts.latest(task), List.of(), null));
+                }
+            }
+            // A route that follows the default for a task that must search the web, where the default can't search:
+            // point it at a provider that can, or every call would be refused (sources are never found from memory).
+            for (RouteRecord r : repository.activeRoutes().values()) {
+                if (!r.task().needs().webSearch() || !r.followsDefault()) continue;
+                Provider searcher = searcherFor(r.task(), r.modelId(), current);
+                if (searcher != null) {
+                    log.info("{} follows the default provider, which can't search the web; routing it to {}", r.task(), searcher);
+                    repository.updateRoute(new RouteRecord(r.id(), r.task(), searcher, r.tier(), r.modelId(), r.params(),
+                            r.promptVersion(), r.fallbacks(), r.trafficSplit()));
                 }
             }
         });
         router.invalidate();
         router.snapshot().allProblems().forEach((task, problems) ->
                 problems.forEach(p -> log.warn("Routing problem: {}", p)));
+    }
+
+    /**
+     * For a task that must search the web: null (follow the default) if the default provider's model for the task's tier
+     * can search, else the first enabled, usable provider whose model can; null if none can (the owner console then
+     * shows the problem). For any other task: null.
+     */
+    Provider searcherFor(Task task, String modelId, Map<Provider, ProviderRecord> providers) {
+        if (!task.needs().webSearch()) return null;
+        ProviderRecord def = providers.values().stream().filter(ProviderRecord::isDefault).findFirst().orElse(null);
+        if (def != null && searches(def, task, modelId)) return null;
+        return providers.values().stream()
+                .filter(p -> p.enabled() && clients.isAvailable(p.id()) && searches(p, task, null))
+                .map(ProviderRecord::id).findFirst().orElse(null);
+    }
+
+    private static boolean searches(ProviderRecord p, Task task, String modelId) {
+        Optional<ModelInfo> model = modelId != null ? p.model(modelId) : p.modelForTier(task.defaultTier());
+        return model.map(m -> m.capabilities().searchesTheWeb()).orElse(false);
     }
 
     /**
@@ -99,6 +131,7 @@ public class RoutingSeeder implements SmartInitializingSingleton {
         caps.put("structuredOutput", models.stream().anyMatch(m -> m.capabilities().structuredOutput()));
         caps.put("toolCalling", models.stream().anyMatch(m -> m.capabilities().toolCalling()));
         caps.put("streaming", models.stream().anyMatch(m -> m.capabilities().streaming()));
+        caps.put("webSearch", models.stream().anyMatch(m -> m.capabilities().searchesTheWeb()));
         caps.put("maxContext", models.stream().mapToInt(m -> m.capabilities().maxContext()).max().orElse(0));
         return caps;
     }

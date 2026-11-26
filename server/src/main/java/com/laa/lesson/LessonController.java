@@ -77,6 +77,10 @@ class LessonController {
                         BackOfBook back) {}
 
     /** {@code practice}: per free-response block id, the learner's progress (revealed hints, latest note, met). */
+    /**
+     * One lesson for the app. {@code sources}: this lesson's own, shown at its end (issue #82): those found for it when
+     * it was written, then any others it cites, in the book's order.
+     */
     record LessonView(String id, int seq, String kicker, String title, String subtitle, String win, String missionLink,
                       List<Map<String, Object>> blocks, ReferenceSheet referenceSheet, List<Resource> sources,
                       Map<String, Map<String, Object>> practice, Instant readAt, Integer prev, Integer next, int total) {}
@@ -165,7 +169,7 @@ class LessonController {
             progress.put(blockId, practice.state(l, blockId, userId, profile.revealAfterAttempts()));
         }
         return new LessonView(l.id().toString(), l.seq(), "Lesson " + l.seq() + " · " + tb.title(), l.title(), l.subtitle(),
-                l.win(), l.missionLink(), l.blocks(), l.referenceSheet(), sources(tb.id()), progress, l.readAt(),
+                l.win(), l.missionLink(), l.blocks(), l.referenceSheet(), lessonSources(tb.id(), l), progress, l.readAt(),
                 l.seq() > 1 ? l.seq() - 1 : null, l.seq() < total ? l.seq() + 1 : null, total);
     }
 
@@ -190,6 +194,19 @@ class LessonController {
         String current = workspace.read(tb.id(), "RESOURCES.md").map(WorkspaceFile::content).orElse(null);
         workspace.write(tb.id(), "RESOURCES.md", Resources.append(current, tb.title(), request.title(), request.url(), request.note()));
         return ResponseEntity.status(HttpStatus.CREATED).body(sources(tb.id()));
+    }
+
+    /**
+     * A lesson's own sources: the ones found for it ({@code source_ids}), and any the lesson cites (a block's
+     * {@code citations}, a primary source's {@code resource}), in the order the book lists them.
+     */
+    private List<Resource> lessonSources(UUID textbookId, Lesson l) {
+        java.util.Set<String> ids = new java.util.HashSet<>(l.sourceIds());
+        for (Map<String, Object> block : l.blocks()) {
+            if (block.get("citations") instanceof List<?> cited) cited.forEach(c -> ids.add(String.valueOf(c)));
+            if (block.get("resource") instanceof String r) ids.add(r);
+        }
+        return sources(textbookId).stream().filter(r -> ids.contains(r.id())).toList();
     }
 
     private List<Resource> sources(UUID textbookId) {

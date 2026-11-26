@@ -65,9 +65,14 @@ Notes on what you've shown you can do. A note is added when you get a practice q
 
 ### D. Sources
 
-Books, articles, videos and websites you trust for this subject.
+Books, articles, videos and websites you can trust for this subject. Two kinds join this list:
 
-**LAA never makes up sources.** It won't invent a book, a website or a study. So this list contains only the sources you add yourself, and lessons will only refer to sources on it.
+- **The sources found for your lessons.** Before each lesson is written, LAA searches the web for two to four real pages about what it teaches: encyclopedias, museums, universities, public bodies and respected publishers. LAA opens each one to check it's really there and really about what it claims, and keeps only those. They're listed at the end of the lesson too (see [Sources](04-reading-a-lesson.md#sources)).
+- **The ones you add yourself** (below).
+
+**LAA never makes up sources.** It won't invent a book, a website or a study: every source here is a page a search really found and LAA checked, or one you added. Lessons only refer to sources on this list.
+
+If your [reader settings](07-reader-settings.md#your-settings) have **child-safe mode** on, LAA only searches, and only keeps, well-known educational sites, such as encyclopedias, national museums, NASA and the BBC.
 
 **To add a source:**
 

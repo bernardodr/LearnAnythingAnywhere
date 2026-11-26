@@ -20,15 +20,18 @@ import tools.jackson.databind.json.JsonMapper;
 @Repository
 public class LessonRepository {
 
-    /** A stored lesson. {@code marking} and {@code plan} are server-only; see {@link LessonController} for the client view. */
+    /**
+     * A stored lesson. {@code marking} and {@code plan} are server-only; see {@link LessonController} for the client view.
+     * {@code sourceIds} are the book's sources (RESOURCES.md ids) found for this lesson when it was written (issue #82).
+     */
     public record Lesson(UUID id, UUID textbookId, int seq, String title, String subtitle, String win, String missionLink,
                          List<Map<String, Object>> blocks, ReferenceSheet referenceSheet, Map<String, Marking> marking,
-                         LessonPlan plan, UUID modelRunId, Instant readAt, Instant createdAt) {}
+                         LessonPlan plan, UUID modelRunId, List<String> sourceIds, Instant readAt, Instant createdAt) {}
 
     private static final TypeReference<List<Map<String, Object>>> BLOCKS = new TypeReference<>() {};
     private static final TypeReference<Map<String, Marking>> MARKING = new TypeReference<>() {};
     private static final String COLUMNS = "id, textbook_id, seq, title, subtitle, win, mission_link, blocks, reference_sheet, "
-            + "rubrics, plan, model_run_id, read_at, created_at";
+            + "rubrics, plan, model_run_id, source_ids, read_at, created_at";
 
     private final JdbcClient jdbc;
     private final JsonMapper json;
@@ -38,14 +41,17 @@ public class LessonRepository {
         this.json = json;
     }
 
-    /** Saves a lesson that has passed its checks: only {@link LessonChecks} can make a {@link LessonChecks.CheckedLesson}. */
+    /**
+     * Saves a lesson that has passed its checks: only {@link LessonChecks} can make a {@link LessonChecks.CheckedLesson}.
+     * {@code sourceIds}: the sources found for it ({@link SourceFinder}), possibly none.
+     */
     public Lesson insert(UUID textbookId, int seq, LessonChecks.CheckedLesson lesson, String missionLink, LessonPlan plan,
-                         UUID modelRunId) {
+                         UUID modelRunId, List<String> sourceIds) {
         LessonDraft draft = lesson.draft();
         LessonRules.Result result = lesson.result();
         return jdbc.sql("INSERT INTO lessons (textbook_id, seq, title, subtitle, win, mission_link, blocks, reference_sheet, "
-                        + "rubrics, plan, status, model_run_id) VALUES (:t, :seq, :title, :subtitle, :win, :link, :blocks::jsonb, "
-                        + ":sheet::jsonb, :rubrics::jsonb, :plan::jsonb, 'READY', :run) RETURNING " + COLUMNS)
+                        + "rubrics, plan, status, model_run_id, source_ids) VALUES (:t, :seq, :title, :subtitle, :win, :link, "
+                        + ":blocks::jsonb, :sheet::jsonb, :rubrics::jsonb, :plan::jsonb, 'READY', :run, :sources) RETURNING " + COLUMNS)
                 .param("t", textbookId).param("seq", seq)
                 .param("title", draft.title().strip()).param("subtitle", draft.subtitle().strip())
                 .param("win", draft.win().strip()).param("link", missionLink)
@@ -54,6 +60,7 @@ public class LessonRepository {
                 .param("rubrics", json.writeValueAsString(result.marking()))
                 .param("plan", json.writeValueAsString(plan))
                 .param("run", modelRunId)
+                .param("sources", sourceIds.toArray(String[]::new))
                 .query(this::map).single();
     }
 
@@ -96,6 +103,7 @@ public class LessonRepository {
                 json.readValue(rs.getString("rubrics"), MARKING),
                 json.readValue(rs.getString("plan"), LessonPlan.class),
                 rs.getObject("model_run_id", UUID.class),
+                List.of((String[]) rs.getArray("source_ids").getArray()),
                 readAt == null ? null : readAt.toInstant(),
                 rs.getTimestamp("created_at").toInstant());
     }

@@ -39,7 +39,7 @@ The two images are built from `deploy/server.Dockerfile` and `deploy/web.Dockerf
 └── src/                 a clone of the repository (only for building on the server)
 ```
 
-`.env` holds everything: the two addresses, the secrets, the AI keys, the email settings and the spending caps. Compose reads it, and the server gets all of it as its environment. Type the secrets on the server itself. `LAA_TAG` (the live version) and `LAA_PREVIOUS_TAG` are written by `deploy.sh`, so leave them alone. The laptop-only switches (`LAA_DEV_LOGIN`, `LAA_DEV_ENDPOINTS`, `LAA_PRACTICE_PROVIDERS`, `LAA_MAIL_OUTBOX`) never go here.
+`.env` holds everything: the two addresses, the secrets, the AI keys, the email settings and the spending caps. **Lesson sources need `ANTHROPIC_API_KEY`** even when OpenAI writes the lessons: finding them is a web search, which LAA does through Anthropic (the RESEARCH route moves there by itself at start-up); without the key, lessons have no sources found for them. Compose reads it, and the server gets all of it as its environment. Type the secrets on the server itself. `LAA_TAG` (the live version) and `LAA_PREVIOUS_TAG` are written by `deploy.sh`, so leave them alone. The laptop-only switches (`LAA_DEV_LOGIN`, `LAA_DEV_ENDPOINTS`, `LAA_PRACTICE_PROVIDERS`, `LAA_MAIL_OUTBOX`) never go here.
 
 ## Setting up a new server
 

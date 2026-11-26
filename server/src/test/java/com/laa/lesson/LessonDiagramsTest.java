@@ -108,10 +108,12 @@ class LessonDiagramsTest extends IntegrationTest {
         String id = activeTextbook(learner);
         fakes.setCanned(Calls.LESSON_WRITE, lessonWithDiagrams(1));
         // The lesson's own safety check is the last call before the diagram. As soon as it's logged, this learner's
-        // spend jumps past their daily cap, so the diagram call is refused by the allowance, not by an outage.
+        // spend jumps past their daily cap, so the diagram call is refused by the allowance, not by an outage. (Only a
+        // check after the lesson was written: the research step's check, earlier, must not trip it.)
         jdbc.sql("""
                 CREATE OR REPLACE FUNCTION test_overspend() RETURNS trigger AS $$ BEGIN
-                  IF NEW.call = 'SAFETY_CHECK.content' AND NEW.user_id IS NOT NULL THEN
+                  IF NEW.call = 'SAFETY_CHECK.content' AND NEW.user_id IS NOT NULL AND EXISTS (SELECT 1 FROM model_runs
+                      WHERE user_id = NEW.user_id AND call = 'LESSON_WRITE' AND cost_estimate IS DISTINCT FROM 99) THEN
                     INSERT INTO model_runs (task, provider, model, latency_ms, status, origin, cost_estimate, user_id, call)
                     VALUES ('LESSON_WRITE', 'FAKE', 'fake', 1, 'OK', 'APP', 99, NEW.user_id, 'LESSON_WRITE');
                   END IF;

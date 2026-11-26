@@ -40,7 +40,9 @@ public final class FakeProviderClient implements ProviderClient {
     public ProviderReply call(ProviderRequest request) {
         failIfConfigured(true);
         String text;
-        if (request.outputSchema() != null) {
+        // Structured by the kind of call, not by the schema: a call that searches the web gets its schema as
+        // instructions (no native JSON mode), so it arrives here without one.
+        if (request.outputSchema() != null || request.call() instanceof com.laa.llm.StructuredCall<?>) {
             boolean invalid = behaviour.consumeInvalidOnce(provider)
                     || behaviour.mode(provider) == FailureMode.INVALID_OUTPUT;
             String canned = behaviour.canned(request.call());
@@ -51,7 +53,8 @@ public final class FakeProviderClient implements ProviderClient {
         } else {
             text = cannedText(request);
         }
-        return new ProviderReply(text, estimateTokens(request), tokens(text));
+        // A call that searches the web reports one search, as a real one would bill it.
+        return new ProviderReply(text, estimateTokens(request), tokens(text), request.task().needs().webSearch() ? 1 : 0);
     }
 
     @Override

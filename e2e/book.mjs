@@ -142,19 +142,27 @@ try {
   await waitFor('a reference sheet', `!!document.querySelector('[aria-label^="Reference sheet from lesson 1"]')`);
   await click('B, Glossary: none yet');
   await waitFor('the empty glossary', hasText('Terms appear here once you’ve shown you understand them.'));
-  await click('D, Sources: none yet');
+  await click('D, Sources: 2'); // the two found for lesson 1
   await click('Add a source');
   await b.type('Title', 'RHS: Houseplant care');
   await b.type('Web address', 'https://www.rhs.org.uk/plants/types/houseplants');
   await click('Add source');
-  await waitFor('the source added', exists('D, Sources: 1'));
+  await waitFor('the source added', exists('D, Sources: 3'));
   await sleep(300);
   await shot('book-page-back');
-  ok('the back of the book: sections fold open with their counts, and a source can be added');
+  ok('the back of the book: sections fold open with their counts; the sources found for lesson 1 are there, and one can be added');
 
   // ---- Reading lesson 1, then back to the page, which now offers lesson 2.
   await click('Start reading');
   await waitFor('lesson 1', hasText('Your win today'), 20000);
+  // Sources at the end of the lesson (issue #82): in practice mode, two found by the "search" and checked.
+  const sources = await evaluate(`[...document.querySelectorAll('[aria-label^="Source "]')].map((e) => e.getAttribute('aria-label'))`);
+  assert.equal(sources.length, 2, `two sources at the lesson's end: ${sources}`);
+  assert.match(sources[0], /^Source 1: .*beginner’s guide to The world of plants/i, 'numbered as the lesson cites them');
+  assert.ok(await evaluate(hasText('LAA never makes them up')), 'and where they come from');
+  await evaluate(`document.querySelector('[aria-label^="Source 1"]').scrollIntoView({ block: 'center' })`);
+  await sleep(400);
+  await shot('lesson-sources');
   await click('I’ve finished this lesson');
   await waitFor('back on the book page', exists('Write lesson 2'), 20000);
   assert.ok(await evaluate(hasText('Volume III · 1 lesson · all read')), 'the facts line counts it read');
@@ -162,7 +170,7 @@ try {
     'lesson 1 is marked read');
   await click('Write lesson 2');
   await waitFor('lesson 2 written', exists('Continue reading'), 30000);
-  ok('lesson 1 read and ticked; "Write lesson 2" at the bottom writes it; then "Continue reading"');
+  ok('lesson 1 ends with its two sources, found and checked; read and ticked; "Write lesson 2" writes it; then "Continue reading"');
 
   // ---- Back to the library, where the new book stands with its leaf.
   await click('Back to your library');
