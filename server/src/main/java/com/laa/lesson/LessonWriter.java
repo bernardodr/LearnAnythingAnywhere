@@ -78,7 +78,7 @@ public class LessonWriter {
 
     public Written writeNext(Textbook tb, UUID userId, GenerationProfile profile, Jobs.Progress progress) {
         progress.stage("context", "Reading your mission and notes");
-        TeachingContext.Context ctx = teaching.load(tb.id(), tb.title());
+        TeachingContext.Context ctx = teaching.load(tb);
         List<Lesson> earlier = lessons.list(tb.id());
         int seq = earlier.size() + 1;
         Set<String> resourceIds = ctx.resources().stream().map(Resource::id).collect(Collectors.toSet());
@@ -97,7 +97,7 @@ public class LessonWriter {
             progress.stage("research", "Finding sources you can trust");
             List<String> found = sources.findFor(tb, userId, profile, vars, plan);
             if (!found.isEmpty()) {
-                ctx = teaching.load(tb.id(), tb.title());
+                ctx = teaching.load(tb);
                 resourceIds = ctx.resources().stream().map(Resource::id).collect(Collectors.toSet());
                 vars = TeachingContext.with(ctx.variables(), extras);
             }

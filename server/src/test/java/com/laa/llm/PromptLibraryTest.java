@@ -26,8 +26,9 @@ class PromptLibraryTest {
     void aNewRouteStartsOnTheNewestCompleteVersion() {
         // Lesson writing has v2 (it can place diagrams), the preface v2 (its draft picks the cover motif) and diagrams
         // v2 (more hands-on); everything else is still on v1.
-        assertThat(prompts.latest(Task.LESSON_WRITE)).isEqualTo("v2");
-        assertThat(prompts.latest(Task.MISSION_INTERVIEW)).isEqualTo("v2");
+        assertThat(prompts.latest(Task.LESSON_WRITE)).isEqualTo("v3");
+        assertThat(prompts.latest(Task.MISSION_INTERVIEW)).isEqualTo("v3");
+        assertThat(prompts.latest(Task.LESSON_PLAN)).isEqualTo("v2");
         assertThat(prompts.latest(Task.DIAGRAM)).isEqualTo("v2");
         assertThat(prompts.latest(Task.SAFETY_CHECK)).isEqualTo("v1");
         assertThat(prompts.render(Calls.LESSON_WRITE, "v2", java.util.Map.of())).contains("DIAGRAM", "brief", "caption");
@@ -42,6 +43,20 @@ class PromptLibraryTest {
         // The interview itself is unchanged: v2 only exists so the task's two prompts share a version.
         String v1 = prompts.render(Calls.INTERVIEW_TURN, "v1", java.util.Map.of("title", "Bouldering"));
         assertThat(prompts.render(Calls.INTERVIEW_TURN, "v2", java.util.Map.of("title", "Bouldering"))).isEqualTo(v1);
+    }
+
+    /** Issue #83: the preface, its draft, lesson planning and lesson writing are told where the learner is starting. */
+    @Test
+    void theNewestTeachingPromptsAreToldWhereTheLearnerIsStarting() {
+        Map<String, String> vars = Map.of("title", "The Night Sky", "familiarity", "Very confident. They know it well.");
+        for (var call : List.of(Calls.INTERVIEW_TURN, Calls.MISSION_DRAFT)) {
+            assertThat(prompts.render(call, "v3", vars)).as(call.id()).contains("Very confident. They know it well.");
+        }
+        assertThat(prompts.render(Calls.LESSON_PLAN, "v2", vars)).contains("### Where they started\nVery confident. They know it well.",
+                "Match their starting point");
+        assertThat(prompts.render(Calls.LESSON_WRITE, "v3", vars)).contains("### Where they started\nVery confident. They know it well.",
+                "Write at that level");
+        assertThat(prompts.render(Calls.LESSON_WRITE, "v2", vars)).as("the previous version is unchanged").doesNotContain("Very confident");
     }
 
     @Test

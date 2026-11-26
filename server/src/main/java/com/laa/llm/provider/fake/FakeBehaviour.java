@@ -30,6 +30,7 @@ public class FakeBehaviour {
 
     private final Map<Call, String> canned = new HashMap<>();
     private final Map<Call, String> cannedText = new HashMap<>();
+    private final Map<Call, String> lastSystem = new HashMap<>();
     private volatile Duration hang = Duration.ofSeconds(30);
 
     /** Pins the reply to exactly this call ({@code json} as-is; the gateway still validates it). */
@@ -44,6 +45,18 @@ public class FakeBehaviour {
 
     synchronized String canned(Call call) {
         return canned.get(call);
+    }
+
+    /**
+     * The system prompt the practice provider was last sent for this call, or null: tests read it to check what reached
+     * the model (for example, the learner's familiarity in a lesson's plan).
+     */
+    public synchronized String lastSystemPrompt(Call call) {
+        return lastSystem.get(call);
+    }
+
+    synchronized void sent(Call call, String system) {
+        lastSystem.put(call, system);
     }
 
     synchronized String cannedText(Call call) {
@@ -80,6 +93,7 @@ public class FakeBehaviour {
         modes.clear();
         canned.clear();
         cannedText.clear();
+        lastSystem.clear();
         hang = Duration.ofSeconds(30);
     }
 }

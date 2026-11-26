@@ -68,7 +68,7 @@ public class TutorChat {
         List<StoredMessage> thread = chats.lessonThread(lesson.id());
         List<ChatMessage> history = new ArrayList<>();
         for (StoredMessage m : thread.subList(Math.max(0, thread.size() - HISTORY), thread.size())) history.add(m.toChat());
-        Map<String, String> vars = TeachingContext.with(teaching.load(tb.id(), tb.title()).variables(), Map.of(
+        Map<String, String> vars = TeachingContext.with(teaching.load(tb).variables(), Map.of(
                 "lesson_title", lesson.title(),
                 "lesson", lessonText(lesson)));
         PromptContext ctx = new PromptContext(vars, history, message.strip(), userId, tb.id(), Origin.APP);

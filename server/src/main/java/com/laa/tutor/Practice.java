@@ -105,7 +105,7 @@ public class Practice {
         Map<String, String> points = pointIds(marking);
         List<Attempt> earlier = practice.attempts(lesson.id(), blockId, userId);
         Progress progress = practice.progress(lesson.id(), blockId, userId);
-        Map<String, String> vars = TeachingContext.with(teaching.load(tb.id(), tb.title()).variables(), Map.of(
+        Map<String, String> vars = TeachingContext.with(teaching.load(tb).variables(), Map.of(
                 "lesson_title", lesson.title(),
                 "skill", lesson.plan().skill(),
                 "prompt", String.valueOf(block.get("prompt")),
@@ -267,7 +267,7 @@ public class Practice {
         try {
             Map<String, Object> block = freeResponse(lesson, blockId);
             List<String> recordTitles = workspace.list(tb.id()).stream().filter(p -> p.startsWith("learning-records/")).toList();
-            Map<String, String> vars = TeachingContext.with(teaching.load(tb.id(), tb.title()).variables(), Map.of(
+            Map<String, String> vars = TeachingContext.with(teaching.load(tb).variables(), Map.of(
                     "lesson_title", lesson.title(),
                     "skill", lesson.plan().skill(),
                     "prompt", String.valueOf(block.get("prompt")),
